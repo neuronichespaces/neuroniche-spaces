@@ -29,6 +29,14 @@ Vision review of layout diagrams; AU and non-AU end-to-end flow checks;
 integration tests: matcher by country, budget auto/manual split, product
 filtering. Report Vercel staging readiness.
 
+## Phase 5 audit — 2026-07-10, ZERO violations
+Grep sweep of src/, supabase/, docs/:
+- Student-identifiable fields: none (no name/dob fields anywhere; sensory data is room-level aggregate).
+- Diagnosis labels: none — only meta-comments stating the prohibition; DB CHECK constraint enforces it.
+- Commission/success-fee/percentage-of-grant logic: none (no billing code exists yet).
+- Therapeutic language: none — sole hit is the footer disclaimer *denying* therapy claims.
+- Country-split leaks: none — matcher returns empty for non-AU at engine level; every funding UI block in page.tsx is behind `isAU`; no API endpoints exist yet. Re-audit when API routes and Stripe land.
+
 ## Dependency order
 2 and 3 parallel-safe → 4 needs 2 → 5 needs 2–4 → 6 last.
 
