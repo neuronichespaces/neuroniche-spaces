@@ -5,6 +5,7 @@
 // supabase/seed_funding_au.sql (researched, cited, pending review).
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { matchFunding, topMatch, type Organisation } from '@/lib/funding/match.ts';
 import { suggestProducts, layoutRoom, totalCost, type SensoryNeed } from '@/lib/planner/plan.ts';
 import { buildChecklist, deadlineInfo, planToCsv } from '@/lib/assistant.ts';
@@ -57,9 +58,17 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-4xl p-6 flex flex-col gap-8 text-zinc-900 dark:text-zinc-100">
-      <header>
-        <h1 className="text-2xl font-semibold">NeuroNiche Spaces</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Plan a sensory space for your organisation. Sensory preferences are general planning categories, not assessments.</p>
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">NeuroNiche Spaces</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Plan a sensory space for your organisation. Sensory preferences are general planning categories, not assessments.</p>
+        </div>
+        <Link
+          href="/spatial"
+          className="min-h-11 shrink-0 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        >
+          Open room designer (2D/3D) →
+        </Link>
       </header>
 
       <section aria-labelledby="org-h" className="flex flex-col gap-3">
