@@ -7,11 +7,17 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { buildBillOfMaterials, bomToCsv } from '@/lib/spatial/bom.ts';
 import { PrintableExport } from './PrintableExport.tsx';
-import RoomViewer3D from './RoomViewer3D.tsx';
 import type { Product } from '@/lib/planner/plan.ts';
+
+// Same code-split as page.tsx's 2D/3D view toggle: ExportPanel is mounted
+// unconditionally in the page header (for its off-screen snapshot capture), so a
+// static import here would pull three.js back into the initial bundle regardless
+// of the 2D/3D dynamic import in page.tsx.
+const RoomViewer3D = dynamic(() => import('./RoomViewer3D.tsx'), { ssr: false });
 
 function downloadCsv(csv: string, filename: string) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

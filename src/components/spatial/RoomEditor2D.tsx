@@ -5,7 +5,7 @@
 // object/door state lives in the store; the only local state here is
 // transient UI (active tool, in-progress wall drag, save confirmation).
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Rect } from 'react-konva';
 import type Konva from 'konva';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
@@ -53,9 +53,49 @@ export default function RoomEditor2D({
   const [confirmingSave, setConfirmingSave] = useState(false);
 
   const stageRef = useRef<Konva.Stage>(null);
+  const editorRootRef = useRef<HTMLDivElement>(null);
 
   const stageWidth = floorDims.widthM * pxPerM + 80;
   const stageHeight = floorDims.lengthM * pxPerM + 80;
+
+  // Keyboard alternative to pointer-only wall/object interaction: arrow keys nudge
+  // the selected object (Shift = bigger step), Tab cycles selection through objects.
+  // Scoped to keydown events inside the editor root so it doesn't hijack page-level Tab.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (placedObjects.length === 0) return;
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const currentIndex = placedObjects.findIndex((o) => o.id === selectedObjectId);
+        const nextIndex = e.shiftKey
+          ? (currentIndex - 1 + placedObjects.length) % placedObjects.length
+          : (currentIndex + 1) % placedObjects.length;
+        selectObject(placedObjects[nextIndex].id);
+        return;
+      }
+
+      if (!selectedObjectId) return;
+      const obj = placedObjects.find((o) => o.id === selectedObjectId);
+      if (!obj) return;
+
+      const step = e.shiftKey ? gridSnapM * 10 : gridSnapM;
+      let dx = 0;
+      let dy = 0;
+      if (e.key === 'ArrowLeft') dx = -step;
+      else if (e.key === 'ArrowRight') dx = step;
+      else if (e.key === 'ArrowUp') dy = -step;
+      else if (e.key === 'ArrowDown') dy = step;
+      else return;
+
+      e.preventDefault();
+      moveObject(obj.id, obj.x + dx, obj.y + dy);
+    }
+
+    const root = editorRootRef.current;
+    root?.addEventListener('keydown', onKeyDown);
+    return () => root?.removeEventListener('keydown', onKeyDown);
+  }, [placedObjects, selectedObjectId, gridSnapM, moveObject, selectObject]);
 
   function pointerMetres(): { x: number; y: number } | null {
     const stage = stageRef.current;
@@ -112,7 +152,7 @@ export default function RoomEditor2D({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={editorRootRef} tabIndex={0} className="flex flex-col gap-2 focus:outline-none">
       <div className="flex flex-wrap items-center gap-2">
         {(['select', 'wall', 'door'] as Tool[]).map((t) => (
           <button
@@ -132,7 +172,7 @@ export default function RoomEditor2D({
         <span className="text-xs text-slate-500">
           {tool === 'wall' && 'Click and drag to draw a wall.'}
           {tool === 'door' && 'Click a wall to place a 0.9m door.'}
-          {tool === 'select' && 'Drag objects to reposition them.'}
+          {tool === 'select' && 'Drag objects to reposition them, or press Tab to select one and use the arrow keys to move it.'}
         </span>
       </div>
 
@@ -191,8 +231,8 @@ export default function RoomEditor2D({
       <div className="flex items-center gap-2">
         {clearanceViolations.size > 0 && (
           <span className="text-xs text-red-600">
-            {clearanceViolations.size} object{clearanceViolations.size === 1 ? '' : 's'} have unresolved clearance
-            violations.
+            {clearanceViolations.size} object{clearanceViolations.size === 1 ? '' : 's'} need{clearanceViolations.size === 1 ? 's' : ''} more
+            space around {clearanceViolations.size === 1 ? 'it' : 'them'}.
           </span>
         )}
         <button

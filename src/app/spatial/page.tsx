@@ -7,14 +7,24 @@
 // directly, they all read/write the one store.
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { SCENARIO_TEMPLATES } from '@/lib/spatial/templates.ts';
 import { TemplatePicker } from '@/components/spatial/TemplatePicker.tsx';
 import RoomEditor2D from '@/components/spatial/RoomEditor2D.tsx';
-import RoomViewer3D from '@/components/spatial/RoomViewer3D.tsx';
 import { PropertiesPanel } from '@/components/spatial/PropertiesPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
+
+// Code-split: three.js/@react-three/fiber/drei only ship once needed, not in the
+// initial /spatial bundle. ExportPanel (rendered unconditionally in the header) also
+// imports RoomViewer3D for its off-screen snapshot capture, so it gets the same
+// dynamic-import treatment below — otherwise it would silently pull three.js back
+// into the initial load regardless of this change.
+const RoomViewer3D = dynamic(() => import('@/components/spatial/RoomViewer3D.tsx'), {
+  ssr: false,
+  loading: () => <div className="flex h-[500px] w-full items-center justify-center text-sm text-slate-500">Loading 3D view…</div>,
+});
 
 export default function SpatialDesignEnginePage() {
   const [view, setView] = useState<'2d' | '3d'>('2d');
@@ -27,6 +37,8 @@ export default function SpatialDesignEnginePage() {
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
+  const walls = useRoomLayoutStore((s) => s.walls);
+  const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const loadLayout = useRoomLayoutStore((s) => s.loadLayout);
@@ -98,6 +110,12 @@ export default function SpatialDesignEnginePage() {
         <h2 className="mb-2 text-sm font-medium text-gray-700">Start from a template</h2>
         <TemplatePicker templates={SCENARIO_TEMPLATES} actualDims={floorDims} onSelect={applyTemplate} />
       </section>
+
+      {!hasLoadedInitialData && walls.length === 0 && placedObjects.length === 0 && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Start from a template above, or draw your first wall using the wall tool below.
+        </div>
+      )}
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
