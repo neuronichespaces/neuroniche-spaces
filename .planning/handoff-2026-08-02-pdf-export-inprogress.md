@@ -1,6 +1,34 @@
-# Handoff — PDF export build in progress (2026-08-02, ~16:44 Perth)
+# Handoff — PDF export DONE, flow stitching + room templates next (2026-08-02)
 
-**Context is about to auto-compact. This is the current task state.**
+**PDF export shipped and pushed to main: commit `328eb6a`.**
+Tests 88/88, build green. Merge-gate review found and fixed a genuine CSV
+formula-injection bug (reused the existing `csvCell` guard from
+`assistant.ts` instead of a second, unpatched copy).
+
+What shipped:
+- `src/lib/export/report.ts` + test — CSV serialization, reuses `csvCell`
+- `src/app/globals.css` — `@media print` stylesheet (`.no-print`, `@page` margin, ink-friendly black-on-white)
+- `src/app/layout.tsx` — footer marked `no-print`
+- `src/app/business-case/page.tsx` — "Export as PDF" (window.print()) +
+  "Download CSV" buttons, print-only report header (org name + date),
+  every data-entry control marked `no-print` so nothing dead prints
+
+**Still owed, per user's explicit ask, both to be fully polished:**
+1. **Flow stitching** — continuous wizard feel: "continue from your audit"
+   button in `/costing` pre-filling from saved audit; link `/grants` →
+   `/costing` → `/business-case` so it feels like one product, not four
+   separate pages. Note: `/costing` currently has NO localStorage
+   persistence (checked this session) — needs a save/load key added,
+   following the same sanitised-JSON-load pattern used everywhere else
+   (`/audit`, `/business-case`, `/training`).
+2. **Room templates** — 5-10 pre-built sensory room archetypes in
+   `/spatial`. Check `src/lib/spatial/templates.ts` + `TemplatePicker.tsx`
+   first — this may already substantially cover it; likely just needs
+   more/better template entries, not new architecture.
+
+---
+
+**Original planning notes below (superseded by "shipped" status above, kept for context).**
 
 ## What the user asked for
 "PDF export only (fully polished) — 1.5-2h. Proper styling, preview, CSV
