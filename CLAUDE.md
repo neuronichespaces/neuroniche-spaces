@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
+**Governing spec:** `docs/BUILD-SPEC-v1.md` (adopted 2026-08-02, with amendments in its adoption note: repo conventions win on toolchain conflicts). Phase 0 audit + re-sequenced roadmap: `docs/phase0-audit-2026-08-02.md` — that roadmap supersedes `.planning/PHASES.md` ordering.
+
 ## Commands
 
 ```bash
