@@ -4,7 +4,7 @@
 // One page: pick needs + budget -> three costed tiers; a separate compliance
 // panel with the hard restrictive-practice gate (F6). Deterministic, no AI.
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CATALOGUE } from "@/lib/demoData";
@@ -13,6 +13,8 @@ import type { SensoryNeed } from "@/lib/planner/plan";
 import { runComplianceCheck, type AuState, type ComplianceInput } from "@/lib/compliance/check";
 import { scoreAudit, type Answers } from "@/lib/aspectss/score";
 import { deriveNeedsFromAudit } from "@/lib/aspectss/toNeeds";
+import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/supabase/useAuth";
 
 const NEED_CATEGORIES: SensoryNeed["category"][] = ["movement", "noise", "light", "touch", "pressure"];
 const TIER_LABEL: Record<Tier, string> = { bronze: "Bronze", silver: "Silver", gold: "Gold" };
@@ -68,6 +70,12 @@ export default function CostingPage() {
 function CostingPageInner() {
   const searchParams = useSearchParams();
   const budgetFromUrl = Number(searchParams.get("budget"));
+  const roomId = searchParams.get("room");
+  const { user } = useAuth();
+  // Real persistence only applies when signed in AND a specific room is
+  // selected (via ?room=<uuid> from /organisations). Otherwise this page
+  // behaves exactly as before — localStorage only, no account needed.
+  const usingRealRoom = Boolean(user && roomId);
 
   const [budget, setBudget] = useState(Number.isFinite(budgetFromUrl) && budgetFromUrl > 0 ? budgetFromUrl : 2000);
   const [needs, setNeeds] = useState<Record<string, "seeks" | "avoids" | "neutral">>(
@@ -81,10 +89,32 @@ function CostingPageInner() {
     fullSupervisionSightlines: false,
   });
   const [loaded, setLoaded] = useState(false);
+  const [savingNeeds, setSavingNeeds] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const auditResult = useMemo(loadAuditResult, []);
 
-  // Load saved costing state once on mount — URL budget (from a grant link)
-  // takes priority over a saved budget, since it's a fresher, more specific signal.
+  const loadNeedsFromRoom = useCallback(async (rid: string) => {
+    const { data, error } = await supabase
+      .from("sensory_profiles")
+      .select("category, preference")
+      .eq("room_id", rid);
+    if (!error && data) {
+      const loadedNeeds: Record<string, "seeks" | "avoids" | "neutral"> = Object.fromEntries(
+        NEED_CATEGORIES.map((c) => [c, "neutral"]),
+      );
+      for (const row of data) {
+        if (NEED_CATEGORIES.includes(row.category as SensoryNeed["category"])) {
+          loadedNeeds[row.category] = row.preference as "seeks" | "avoids" | "neutral";
+        }
+      }
+      setNeeds(loadedNeeds);
+    }
+  }, []);
+
+  // Budget/compliance have no matching table yet (spec gap, see handoff) —
+  // they stay localStorage-only even when a real room is selected. Needs
+  // (sensory_profiles) load from localStorage first for instant paint, then
+  // real room data overrides it once fetched, if a room is selected.
   useEffect(() => {
     const saved = loadSavedCosting();
     if (saved) {
@@ -97,6 +127,10 @@ function CostingPageInner() {
   }, []);
 
   useEffect(() => {
+    if (usingRealRoom && roomId) loadNeedsFromRoom(roomId);
+  }, [usingRealRoom, roomId, loadNeedsFromRoom]);
+
+  useEffect(() => {
     if (!loaded) return;
     try {
       window.localStorage.setItem(COSTING_STORAGE_KEY, JSON.stringify({ budget, needs, compliance }));
@@ -104,6 +138,36 @@ function CostingPageInner() {
       // storage unavailable — state still works for this session
     }
   }, [budget, needs, compliance, loaded]);
+
+  // Save needs to the real room whenever they change, in addition to the
+  // localStorage write above — the two coexist so switching rooms/signing
+  // out never loses the localStorage copy either. Debounced (matching
+  // spatial/store.ts's AUTOSAVE_DEBOUNCE_MS pattern) plus a sequence guard,
+  // so rapid toggling can't let a stale response overwrite a newer save.
+  const saveSeqRef = useRef(0);
+  useEffect(() => {
+    if (!loaded || !usingRealRoom || !roomId) return;
+    const mySeq = ++saveSeqRef.current;
+    setSavingNeeds(true);
+    setSaveError("");
+    const timer = setTimeout(() => {
+      const rows = NEED_CATEGORIES.map((c) => ({
+        room_id: roomId,
+        category: c,
+        preference: needs[c],
+        intensity: 3,
+      }));
+      supabase
+        .from("sensory_profiles")
+        .upsert(rows, { onConflict: "room_id,category" })
+        .then(({ error }) => {
+          if (mySeq !== saveSeqRef.current) return; // a newer save superseded this one
+          if (error) setSaveError(error.message);
+          setSavingNeeds(false);
+        });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [needs, loaded, usingRealRoom, roomId]);
 
   const applyAuditNeeds = () => {
     if (!auditResult) return;
@@ -136,6 +200,19 @@ function CostingPageInner() {
         options — a smaller start, a full fit-out, and an enhanced version —
         and check for the safety issues that matter most.
       </p>
+
+      {usingRealRoom && (
+        <p role="status" className="text-sm rounded border border-[var(--a11y-border)] p-3 bg-[var(--a11y-surface)]">
+          What this room needs is saved to your organisation&apos;s account
+          {savingNeeds ? " — saving…" : "."} Budget and the compliance check
+          below are still saved only on this device for now.
+        </p>
+      )}
+      {saveError && (
+        <p role="alert" className="rounded border border-[#8a4a4a] p-3 text-sm">
+          Couldn&apos;t save to your room: {saveError}
+        </p>
+      )}
 
       <section aria-labelledby="needs-h" className="flex flex-col gap-3">
         <h2 id="needs-h" className="text-lg font-semibold">
