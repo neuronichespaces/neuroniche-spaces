@@ -30,7 +30,19 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <A11yProvider>{children}</A11yProvider>
+        <A11yProvider>
+          <div className="flex-1">{children}</div>
+          <footer className="border-t border-[var(--a11y-border)] p-4 text-sm flex flex-wrap gap-x-4 gap-y-2 justify-center">
+            <a className="underline" href="/privacy">Privacy</a>
+            <a className="underline" href="/terms">Terms</a>
+            <a className="underline" href="/dpa">Data Processing Agreement</a>
+            <a className="underline" href="/subprocessors">Subprocessors</a>
+            <a className="underline" href="/aup">Acceptable use</a>
+            <a className="underline" href="/child-safety">Child safety</a>
+            <a className="underline" href="/complaints">Complaints</a>
+            <a className="underline" href="/accessibility">Accessibility</a>
+          </footer>
+        </A11yProvider>
       </body>
     </html>
   );
