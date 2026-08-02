@@ -4,18 +4,72 @@
 // One page: pick needs + budget -> three costed tiers; a separate compliance
 // panel with the hard restrictive-practice gate (F6). Deterministic, no AI.
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CATALOGUE } from "@/lib/demoData";
 import { buildTierCostings, type Tier } from "@/lib/costing/tiers";
 import type { SensoryNeed } from "@/lib/planner/plan";
 import { runComplianceCheck, type AuState, type ComplianceInput } from "@/lib/compliance/check";
+import { scoreAudit, type Answers } from "@/lib/aspectss/score";
+import { deriveNeedsFromAudit } from "@/lib/aspectss/toNeeds";
 
 const NEED_CATEGORIES: SensoryNeed["category"][] = ["movement", "noise", "light", "touch", "pressure"];
 const TIER_LABEL: Record<Tier, string> = { bronze: "Bronze", silver: "Silver", gold: "Gold" };
 const AU_STATES: AuState[] = ["WA", "VIC", "NSW", "QLD", "SA", "TAS", "ACT", "NT"];
+const AUDIT_STORAGE_KEY = "neuroniche-audit-answers";
+const COSTING_STORAGE_KEY = "neuroniche-costing-state";
+
+interface SavedCostingState {
+  budget: number;
+  needs: Record<string, "seeks" | "avoids" | "neutral">;
+  compliance: ComplianceInput;
+}
+
+function loadSavedCosting(): SavedCostingState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(COSTING_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const p = parsed as Partial<SavedCostingState>;
+    const validBudget = typeof p.budget === "number" && Number.isFinite(p.budget) && p.budget > 0;
+    const validNeeds = typeof p.needs === "object" && p.needs !== null && !Array.isArray(p.needs);
+    const validCompliance = typeof p.compliance === "object" && p.compliance !== null && !Array.isArray(p.compliance);
+    if (!validBudget || !validNeeds || !validCompliance) return null;
+    return p as SavedCostingState;
+  } catch {
+    return null;
+  }
+}
+
+function loadAuditResult() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(AUDIT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return scoreAudit(parsed as Answers);
+  } catch {
+    return null;
+  }
+}
 
 export default function CostingPage() {
-  const [budget, setBudget] = useState(2000);
+  return (
+    <Suspense fallback={null}>
+      <CostingPageInner />
+    </Suspense>
+  );
+}
+
+function CostingPageInner() {
+  const searchParams = useSearchParams();
+  const budgetFromUrl = Number(searchParams.get("budget"));
+
+  const [budget, setBudget] = useState(Number.isFinite(budgetFromUrl) && budgetFromUrl > 0 ? budgetFromUrl : 2000);
   const [needs, setNeeds] = useState<Record<string, "seeks" | "avoids" | "neutral">>(
     Object.fromEntries(NEED_CATEGORIES.map((c) => [c, "neutral"])),
   );
@@ -26,6 +80,36 @@ export default function CostingPage() {
     clearCirculation: false,
     fullSupervisionSightlines: false,
   });
+  const [loaded, setLoaded] = useState(false);
+  const auditResult = useMemo(loadAuditResult, []);
+
+  // Load saved costing state once on mount — URL budget (from a grant link)
+  // takes priority over a saved budget, since it's a fresher, more specific signal.
+  useEffect(() => {
+    const saved = loadSavedCosting();
+    if (saved) {
+      setNeeds(saved.needs);
+      setCompliance(saved.compliance);
+      if (!(Number.isFinite(budgetFromUrl) && budgetFromUrl > 0)) setBudget(saved.budget);
+    }
+    setLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally load-once on mount
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      window.localStorage.setItem(COSTING_STORAGE_KEY, JSON.stringify({ budget, needs, compliance }));
+    } catch {
+      // storage unavailable — state still works for this session
+    }
+  }, [budget, needs, compliance, loaded]);
+
+  const applyAuditNeeds = () => {
+    if (!auditResult) return;
+    const derived = deriveNeedsFromAudit(auditResult);
+    setNeeds((prev) => ({ ...prev, ...derived }));
+  };
 
   const activeNeeds: SensoryNeed[] = useMemo(
     () =>
@@ -57,6 +141,15 @@ export default function CostingPage() {
         <h2 id="needs-h" className="text-lg font-semibold">
           1. What does the space need to support?
         </h2>
+        {auditResult && (
+          <button
+            type="button"
+            onClick={applyAuditNeeds}
+            className="a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] text-sm"
+          >
+            Continue from your audit — pre-fill from what it found
+          </button>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           {NEED_CATEGORIES.map((c) => (
             <label key={c} className="flex items-center justify-between gap-3 a11y-target">
@@ -184,6 +277,14 @@ export default function CostingPage() {
           <p role="alert" className="rounded border border-[#8a4a4a] p-3">
             This design cannot be exported until the items above are resolved.
           </p>
+        )}
+        {report.exportAllowed && (
+          <Link
+            href="/business-case"
+            className="a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] text-sm no-underline"
+          >
+            Continue to business case →
+          </Link>
         )}
       </section>
     </main>

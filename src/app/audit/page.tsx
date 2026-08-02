@@ -7,6 +7,7 @@
 // while the seclusion flag is unresolved (spec F6).
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Answer,
   Answers,
@@ -199,13 +200,27 @@ export default function AuditPage() {
               section once the lock is removed and update your answer.
             </p>
           ) : (
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="a11y-target rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] self-start"
-            >
-              Print or save report
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="a11y-target rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] self-start"
+              >
+                Print or save report
+              </button>
+              <Link
+                href="/grants"
+                className="a11y-target rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] self-start no-underline"
+              >
+                Find funding →
+              </Link>
+              <Link
+                href="/costing"
+                className="a11y-target rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] self-start no-underline"
+              >
+                Continue to costing →
+              </Link>
+            </div>
           )}
 
           <h2 className="text-lg font-semibold">Evidence base</h2>

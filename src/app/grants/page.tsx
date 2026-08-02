@@ -5,6 +5,7 @@
 // grant shows its verification date; stale (>30 days) records get a warning.
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { FUNDING } from "@/lib/demoData";
 import {
   matchFunding,
@@ -26,6 +27,10 @@ function GrantCard({ m }: { m: FundingMatch }) {
       {m.estimated_amount != null && (
         <p className="text-sm">
           Estimated amount: ${m.estimated_amount.toLocaleString()} (typical range — not guaranteed)
+          {" — "}
+          <Link href={`/costing?budget=${m.estimated_amount}`} className="underline">
+            use this budget in costing
+          </Link>
         </p>
       )}
       {m.deadline ? (
