@@ -1,26 +1,77 @@
 @import "tailwindcss";
 
+/* Accessibility settings architecture — BUILD-SPEC-v1 §11.4.
+   The --a11y-* custom properties below are the low-arousal defaults; the
+   A11yProvider overwrites them on :root from the user's saved settings. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --a11y-bg: #faf9f6; /* never pure white */
+  --a11y-fg: #1f2328; /* never pure black */
+  --a11y-surface: #f1efea;
+  --a11y-border: #d8d4cc;
+  --a11y-font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --a11y-font-scale: 1;
+  --a11y-line-height: 1.5;
+  --a11y-letter-spacing: 0em;
+  --a11y-word-spacing: 0em;
+  --a11y-max-measure: 66ch;
+  --a11y-density-gap: 1rem;
+  --a11y-target-min: 44px;
+  --a11y-motion-duration: 0ms;
+
+  --background: var(--a11y-bg);
+  --foreground: var(--a11y-fg);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--a11y-font-family);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--a11y-bg);
+  color: var(--a11y-fg);
+  font-family: var(--a11y-font-family);
+  font-size: calc(1rem * var(--a11y-font-scale));
+  line-height: var(--a11y-line-height);
+  letter-spacing: var(--a11y-letter-spacing);
+  word-spacing: var(--a11y-word-spacing);
+  text-align: left; /* justify is never offered (spec §11.3) */
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Readable measure for prose (spec §11.3: BDA line-length guidance) */
+p {
+  max-inline-size: var(--a11y-max-measure);
+}
+
+/* Minimum target size (WCAG 2.5.8; 44px default per spec §11.2) */
+.a11y-target {
+  min-block-size: var(--a11y-target-min);
+  min-inline-size: var(--a11y-target-min);
+}
+
+/* Motion honours the user setting; OS preference always wins (spec §11.4) */
+/* !important so Tailwind duration/transition utilities cannot override the
+   user's motion setting (utility classes otherwise win on specificity). */
+*,
+*::before,
+*::after {
+  transition-duration: var(--a11y-motion-duration) !important;
+  animation-duration: var(--a11y-motion-duration) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+@media (forced-colors: active) {
+  /* respect system colours; never override */
+}
+
+/* Visible focus indicator everywhere (WCAG 2.4.13 adopted per spec §11.1) */
+:focus-visible {
+  outline: 3px solid #4a6b8a;
+  outline-offset: 2px;
 }

@@ -1,0 +1,48 @@
+# CI — BUILD-SPEC-v1 §13 (jobs that apply to the current codebase).
+# pgTAP / ZAP / Promptfoo jobs attach when their surfaces (live DB, deploys,
+# AI flows) exist — see docs/phase0-audit-2026-08-02.md.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      # TODO(spec §9.8): pin to commit SHAs once verified against github.com
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Spec §0.1 rule 5: no secrets in NEXT_PUBLIC_ vars; service_role never client-side
+      - name: Secret pattern gate
+        run: |
+          ! grep -rEn "NEXT_PUBLIC_[A-Z_]*(SECRET|KEY|TOKEN|PASSWORD)|service_role" src/ --include="*.ts" --include="*.tsx"
+
+      # Spec §6.4 prohibited pattern: RLS must be enabled in every migration that creates a table
+      - name: RLS pattern gate
+        run: |
+          for f in supabase/migrations/*.sql; do
+            if grep -qiE "create table" "$f" && ! grep -qiE "enable row level security" "$f"; then
+              echo "FAIL: $f creates tables without enabling RLS" && exit 1
+            fi
+          done
+
+      - name: Unit tests
+        run: node --test "src/lib/**/*.test.ts"
+
+      - name: Build (typecheck + lint)
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
