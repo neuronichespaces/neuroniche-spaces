@@ -35,7 +35,10 @@ export function deadlineInfo(deadline: string | null, today = new Date()): { dat
 }
 
 function csvCell(v: string | number): string {
-  const s = String(v);
+  // S2: prefix formula-triggering leading chars so spreadsheet apps (Excel/Sheets)
+  // don't execute the cell as a formula on import (CSV formula injection).
+  let s = String(v);
+  if (/^[=+\-@]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

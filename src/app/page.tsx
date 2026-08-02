@@ -5,36 +5,15 @@
 // supabase/seed_funding_au.sql (researched, cited, pending review).
 
 import { useMemo, useState } from 'react';
-import { matchFunding, topMatch, type FundingSource, type Organisation } from '@/lib/funding/match.ts';
-import { suggestProducts, layoutRoom, totalCost, type Product, type SensoryNeed } from '@/lib/planner/plan.ts';
+import Link from 'next/link';
+import { matchFunding, topMatch, type Organisation } from '@/lib/funding/match.ts';
+import { suggestProducts, layoutRoom, totalCost, type SensoryNeed } from '@/lib/planner/plan.ts';
 import { buildChecklist, deadlineInfo, planToCsv } from '@/lib/assistant.ts';
+import { CATALOGUE, FUNDING } from '@/lib/demoData.ts';
 
 const COUNTRIES = ['Australia', 'New Zealand', 'United Kingdom', 'United States', 'Canada', 'Other'];
 const AU_STATES = ['WA', 'SA', 'VIC', 'NSW', 'QLD', 'TAS', 'NT', 'ACT'];
 const CATEGORIES = ['movement', 'noise', 'light', 'touch', 'pressure'] as const;
-
-// Demo product catalogue (synthetic prices; replace with Supabase rows).
-const CATALOGUE: Product[] = [
-  { id: 'p1', name: 'Sensory Swing (ceiling mount)', category: 'movement', sensory_tags: ['movement:seeks'], price: 420, funding_eligible: true, available_countries: ['*'], footprint_m: { w: 1.5, l: 1.5 } },
-  { id: 'p2', name: 'Crash Mat', category: 'movement', sensory_tags: ['movement:seeks', 'pressure:seeks'], price: 260, funding_eligible: true, available_countries: ['*'], footprint_m: { w: 1.2, l: 1.8 } },
-  { id: 'p3', name: 'Acoustic Wall Panels (set of 6)', category: 'acoustic', sensory_tags: ['noise:avoids'], price: 340, funding_eligible: true, available_countries: ['*'] },
-  { id: 'p4', name: 'Noise-reducing Ear Defenders (5 pack)', category: 'acoustic', sensory_tags: ['noise:avoids'], price: 95, funding_eligible: true, available_countries: ['*'] },
-  { id: 'p5', name: 'Bubble Tube with Dimmer', category: 'visual', sensory_tags: ['light:seeks'], price: 380, funding_eligible: true, available_countries: ['*'], footprint_m: { w: 0.5, l: 0.5 } },
-  { id: 'p6', name: 'Blackout Blind Kit', category: 'visual', sensory_tags: ['light:avoids'], price: 150, funding_eligible: true, available_countries: ['*'] },
-  { id: 'p7', name: 'Textured Tactile Wall Panels', category: 'tactile', sensory_tags: ['touch:seeks'], price: 220, funding_eligible: true, available_countries: ['*'] },
-  { id: 'p8', name: 'Weighted Lap Pads (3 pack)', category: 'tactile', sensory_tags: ['pressure:seeks', 'touch:seeks'], price: 130, funding_eligible: true, available_countries: ['*'] },
-  { id: 'p9', name: 'Soft Seating Pod', category: 'furniture', sensory_tags: ['pressure:seeks', 'noise:avoids'], price: 490, funding_eligible: false, available_countries: ['*'], footprint_m: { w: 1.0, l: 1.0 } },
-  { id: 'p10', name: 'Wobble Cushions (4 pack)', category: 'movement', sensory_tags: ['movement:seeks'], price: 110, funding_eligible: true, available_countries: ['*'] },
-];
-
-// Mirrors supabase/seed_funding_au.sql — DRAFT data, pending review.
-const FUNDING: FundingSource[] = [
-  { id: 'f1', name: 'NCCD Student with Disability Loading (Australian Government)', type: 'recurring', country: 'Australia', state_or_province: null, amount_range_min: null, amount_range_max: null, eligibility_rules_json: { nccd_tiers: ['supplementary', 'substantial', 'extensive'], notes: 'Recurrent federal loading; paid as a lump sum to school authorities — no fixed per-student amount.' }, deadline_date: null, source_url: 'https://www.education.gov.au/recurrent-funding-schools/schooling-resource-standard' },
-  { id: 'f2', name: 'Julia Farr Disability Inclusion Grants (SA, DHS)', type: 'one_off', country: 'Australia', state_or_province: 'SA', amount_range_min: 20000, amount_range_max: 100000, eligibility_rules_json: { notes: 'Schools may need an auspicing organisation — check current round guidelines.' }, deadline_date: null, source_url: 'https://dhs.sa.gov.au/how-we-help/grants/available-grants/julia-farr-disability-inclusion-grant-round-2-2025-2026' },
-  { id: 'f3', name: 'State Trustees Australia Foundation Community Inclusion Grants (VIC)', type: 'one_off', country: 'Australia', state_or_province: 'VIC', amount_range_min: null, amount_range_max: 20000, eligibility_rules_json: { notes: 'Requires ACNC-registered charity status — schools may apply via an associated charitable entity.' }, deadline_date: null, source_url: 'https://www.statetrustees.com.au/philanthropy-and-charitable-giving/granting/community-inclusion/' },
-  { id: 'f4', name: 'ACT Disability Inclusion Grants', type: 'one_off', country: 'Australia', state_or_province: 'ACT', amount_range_min: null, amount_range_max: 20000, eligibility_rules_json: { sectors: ['independent', 'catholic'], notes: 'Government entities ineligible; non-government incorporated entities may apply.' }, deadline_date: null, source_url: 'https://www.act.gov.au/money-and-tax/grants-funding-and-incentives/funding-to-improve-the-inclusion-and-participation-of-people-with-disability' },
-  { id: 'f5', name: 'BHP Western Australia Community Grants', type: 'corporate', country: 'Australia', state_or_province: 'WA', amount_range_min: null, amount_range_max: null, eligibility_rules_json: { notes: 'Grassroots grants in BHP WA operating regions; amounts vary per project.' }, deadline_date: null, source_url: 'https://www.bhp.com/about/our-businesses/western-australia-community-grants' },
-];
 
 const inputCls = 'min-h-11 rounded border border-zinc-300 px-3 py-2 text-zinc-900 bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600';
 const labelCls = 'flex flex-col gap-1 text-sm font-medium text-zinc-800 dark:text-zinc-200';
@@ -79,9 +58,61 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-4xl p-6 flex flex-col gap-8 text-zinc-900 dark:text-zinc-100">
-      <header>
-        <h1 className="text-2xl font-semibold">NeuroNiche Spaces</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Plan a sensory space for your organisation. Sensory preferences are general planning categories, not assessments.</p>
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">NeuroNiche Spaces</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Plan a sensory space for your organisation. Sensory preferences are general planning categories, not assessments.</p>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+          <Link
+            href="/spatial"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Open room designer (2D/3D) →
+          </Link>
+          <Link
+            href="/audit"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Start a sensory space audit →
+          </Link>
+          <Link
+            href="/costing"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Costing and compliance →
+          </Link>
+          <Link
+            href="/grants"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Find grants →
+          </Link>
+          <Link
+            href="/resources"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Templates and evidence →
+          </Link>
+          <Link
+            href="/business-case"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Business case and co-design →
+          </Link>
+          <Link
+            href="/catalogue"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Equipment catalogue →
+          </Link>
+          <Link
+            href="/training"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Workplace inclusion training →
+          </Link>
+        </div>
       </header>
 
       <section aria-labelledby="org-h" className="flex flex-col gap-3">
