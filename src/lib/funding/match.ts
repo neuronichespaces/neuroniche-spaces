@@ -31,6 +31,9 @@ export type FundingSource = {
   eligibility_rules_json: EligibilityRules;
   deadline_date: string | null; // ISO YYYY-MM-DD
   source_url: string;
+  /** ISO YYYY-MM-DD. Optional so existing fixtures/rows don't break; spec F2
+   * requires every displayed grant to carry this. */
+  last_verified_at?: string | null;
 };
 
 export type FundingMatch = {
@@ -41,7 +44,35 @@ export type FundingMatch = {
   deadline: string | null;
   source_url: string;
   eligibility_notes: string;
+  last_verified_at: string | null;
 };
+
+// `new Date('YYYY-MM-DD')` parses as UTC midnight, which drifts against any
+// Australian local calendar day (all AU timezones are ahead of UTC) — a
+// deadline can flip to "closed" hours before local midnight on the day
+// itself. Parse and compare as local calendar dates instead.
+function toLocalMidnight(isoDate: string): Date {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function calendarDayDiff(from: Date, to: Date): number {
+  const fromMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const toMidnight = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((toMidnight.getTime() - fromMidnight.getTime()) / 86_400_000);
+}
+
+/** spec F2: records unverified for >30 days show a staleness warning. */
+export function isStale(lastVerifiedAt: string | null, now: Date = new Date()): boolean {
+  if (!lastVerifiedAt) return true;
+  return calendarDayDiff(toLocalMidnight(lastVerifiedAt), now) > 30;
+}
+
+/** Plain days-until-deadline — never a countdown/urgency display (calm-UX rule). */
+export function daysUntilDeadline(deadline: string | null, now: Date = new Date()): number | null {
+  if (!deadline) return null;
+  return calendarDayDiff(now, toLocalMidnight(deadline));
+}
 
 export type MatchResult = {
   recurring: FundingMatch[];
@@ -80,6 +111,7 @@ function toMatch(src: FundingSource): FundingMatch {
     deadline: src.deadline_date,
     source_url: src.source_url,
     eligibility_notes: src.eligibility_rules_json?.notes ?? '',
+    last_verified_at: src.last_verified_at ?? null,
   };
 }
 

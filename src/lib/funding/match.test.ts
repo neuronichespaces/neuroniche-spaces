@@ -2,7 +2,14 @@
 // Synthetic data only — real funding rows are seeded separately with citations.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchFunding, topMatch, type FundingSource, type Organisation } from './match.ts';
+import {
+  matchFunding,
+  topMatch,
+  isStale,
+  daysUntilDeadline,
+  type FundingSource,
+  type Organisation,
+} from './match.ts';
 
 const auOrg: Organisation = {
   country: 'Australia',
@@ -69,4 +76,24 @@ test('estimated amount is range midpoint; top match feeds auto-budget', () => {
 test('wrong nccd_tier excludes tier-gated funding', () => {
   const result = matchFunding({ ...auOrg, nccd_tier: 'supplementary' }, sources);
   assert.deepEqual(result.recurring, []);
+});
+
+test('isStale: no date, or >30 days old, is stale; recent is not', () => {
+  const now = new Date('2026-08-02');
+  assert.equal(isStale(null, now), true);
+  assert.equal(isStale('2026-06-01', now), true); // >30 days
+  assert.equal(isStale('2026-07-20', now), false); // <30 days
+});
+
+test('daysUntilDeadline: null passes through; future/past both computed plainly', () => {
+  const now = new Date('2026-08-02');
+  assert.equal(daysUntilDeadline(null, now), null);
+  assert.equal(daysUntilDeadline('2026-08-12', now), 10);
+  assert.equal(daysUntilDeadline('2026-07-30', now), -3);
+});
+
+test('matches carry last_verified_at through to the display shape', () => {
+  const withDate: FundingSource = { ...sources[0], last_verified_at: '2026-07-25' };
+  const result = matchFunding(auOrg, [withDate]);
+  assert.equal(result.recurring[0].last_verified_at, '2026-07-25');
 });
