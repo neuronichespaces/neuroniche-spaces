@@ -106,23 +106,6 @@ export function canExport(result: AuditResult): boolean {
 }
 
 // Evidence sources cited in every report (spec F1: cite >=3 sources).
-export const EVIDENCE_SOURCES = [
-  {
-    id: "mostafa2014",
-    citation:
-      "Mostafa, M. (2014). Architecture for autism: Autism ASPECTSS in school design. ArchNet-IJAR, 8(1), 143-158.",
-    url: "https://doi.org/10.26687/archnet-ijar.v8i1.314",
-  },
-  {
-    id: "wcag22",
-    citation:
-      "W3C (2023). Web Content Accessibility Guidelines (WCAG) 2.2. W3C Recommendation.",
-    url: "https://www.w3.org/TR/WCAG22/",
-  },
-  {
-    id: "aspect2021",
-    citation:
-      "Autism Spectrum Australia (Aspect). Autism-friendly design principles for built environments.",
-    url: "https://www.autismspectrum.org.au/",
-  },
-] as const;
+// Sourced from the shared F8 evidence library (src/lib/evidence/library.ts)
+// so the audit report and the /evidence page never drift out of sync.
+export { EVIDENCE_LIBRARY as EVIDENCE_SOURCES } from "../evidence/library.ts";
