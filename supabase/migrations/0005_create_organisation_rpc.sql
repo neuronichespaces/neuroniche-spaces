@@ -23,9 +23,14 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public;
 
--- Only a signed-in user may call this. Postgres implicitly grants EXECUTE
--- to PUBLIC (which every role, including anon, is a member of) on function
--- creation — revoke that explicitly rather than relying only on the
--- membership table's not-null constraint to fail the call closed.
+-- Only a signed-in user may call this. Two separate grants can let anon
+-- execute a new function: the implicit EXECUTE-to-PUBLIC grant Postgres
+-- applies on creation, AND (confirmed live on this project) Supabase's
+-- project-wide default privileges, which grant EXECUTE directly to `anon`
+-- on every new public-schema function regardless of the PUBLIC grant.
+-- Revoke both explicitly rather than relying on the membership table's
+-- not-null constraint to fail the call closed (that constraint is a
+-- backstop, not the actual access control).
+revoke execute on function create_organisation_with_owner from anon;
 revoke execute on function create_organisation_with_owner from public;
 grant execute on function create_organisation_with_owner to authenticated;
