@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { scoreAudit, type Answers } from "@/lib/aspectss/score";
 import { buildBusinessCase, approve, type BusinessCase } from "@/lib/businesscase/generate";
+import { businessCaseToCsv } from "@/lib/export/report";
 import {
   DEFAULT_QUESTIONS,
   aggregateResponses,
@@ -15,6 +16,17 @@ import {
   type Survey,
   type SurveyResponse,
 } from "@/lib/codesign/survey";
+
+function downloadCsv(businessCase: BusinessCase, orgName: string) {
+  const csv = businessCaseToCsv(businessCase);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `business-case-${orgName || "neuroniche"}.csv`.replace(/\s+/g, "-").toLowerCase();
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const AUDIT_STORAGE_KEY = "neuroniche-audit-answers";
 
@@ -68,18 +80,18 @@ export default function BusinessCasePage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6 flex flex-col gap-[var(--a11y-density-gap)]">
-      <h1 className="text-2xl font-semibold">Business case and co-design</h1>
+      <h1 className="no-print text-2xl font-semibold">Business case and co-design</h1>
 
       <section aria-labelledby="bc-h" className="flex flex-col gap-3">
-        <h2 id="bc-h" className="text-lg font-semibold">
+        <h2 id="bc-h" className="no-print text-lg font-semibold">
           Business case
         </h2>
-        <p className="text-sm">
+        <p className="no-print text-sm">
           This draft is built from your saved sensory audit. A person must
           review and approve it before it is used — it is never final on its
           own.
         </p>
-        <label className="flex items-center justify-between gap-3 a11y-target">
+        <label className="no-print flex items-center justify-between gap-3 a11y-target">
           Organisation name
           <input
             className="border rounded px-2 py-1 bg-[var(--a11y-surface)] border-[var(--a11y-border)] a11y-target"
@@ -90,19 +102,29 @@ export default function BusinessCasePage() {
         <button
           type="button"
           onClick={onGenerate}
-          className="a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)]"
+          className="no-print a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)]"
         >
           Generate draft
         </button>
 
         {businessCase && (
-          <div className="flex flex-col gap-3 rounded border border-[var(--a11y-border)] p-4">
-            <p className="text-sm border-b border-[var(--a11y-border)] pb-2">
+          <div className="flex flex-col gap-3 rounded border border-[var(--a11y-border)] p-4 print:border-0 print:p-0">
+            {/* Printable report header — only meaningful once printed/exported, hidden on screen since the on-screen title above already says this */}
+            <div className="hidden print:block">
+              <h1 className="text-2xl font-semibold">{orgName || "Business case"}</h1>
+              <p className="text-sm">Prepared {new Date().toLocaleDateString("en-AU", { year: "numeric", month: "long", day: "numeric" })}</p>
+            </div>
+
+            <p className="no-print text-sm border-b border-[var(--a11y-border)] pb-2">
               Drafted from your own data — review before use. Status:{" "}
               <strong>
                 {businessCase.status === "draft_pending_review" ? "Draft, needs review" : "Approved"}
               </strong>
             </p>
+            <p className="hidden print:block text-sm border-b border-black pb-2">
+              Status: {businessCase.status === "draft_pending_review" ? "DRAFT — pending review, not yet approved" : `Approved by ${businessCase.reviewedBy} on ${new Date(businessCase.reviewedAt!).toLocaleDateString("en-AU")}`}
+            </p>
+
             {businessCase.sections.map((s) => (
               <div key={s.heading}>
                 <h3 className="font-semibold">{s.heading}</h3>
@@ -111,7 +133,7 @@ export default function BusinessCasePage() {
             ))}
 
             {businessCase.status === "draft_pending_review" && (
-              <div className="flex items-end gap-2 border-t border-[var(--a11y-border)] pt-3">
+              <div className="no-print flex items-end gap-2 border-t border-[var(--a11y-border)] pt-3">
                 <label className="flex-1 flex flex-col gap-1 text-sm">
                   Your name (reviewer)
                   <input
@@ -131,16 +153,37 @@ export default function BusinessCasePage() {
               </div>
             )}
             {businessCase.status === "approved" && (
-              <p className="text-sm">
+              <p className="no-print text-sm">
                 Approved by {businessCase.reviewedBy} on{" "}
                 {new Date(businessCase.reviewedAt!).toLocaleDateString()}.
               </p>
             )}
+
+            <div className="no-print flex flex-wrap gap-2 border-t border-[var(--a11y-border)] pt-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="a11y-target rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)]"
+              >
+                Export as PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadCsv(businessCase, orgName)}
+                className="a11y-target rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)]"
+              >
+                Download CSV
+              </button>
+            </div>
+            <p className="no-print text-sm text-[var(--a11y-fg)] opacity-80">
+              &quot;Export as PDF&quot; opens your browser&apos;s print dialog — choose
+              &quot;Save as PDF&quot; as the destination. Nothing is uploaded anywhere.
+            </p>
           </div>
         )}
       </section>
 
-      <section aria-labelledby="cd-h" className="flex flex-col gap-3">
+      <section aria-labelledby="cd-h" className="no-print flex flex-col gap-3">
         <h2 id="cd-h" className="text-lg font-semibold">
           Co-design survey
         </h2>

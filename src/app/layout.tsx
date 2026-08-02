@@ -34,7 +34,7 @@ export default function RootLayout({
         <ErrorBoundary>
         <A11yProvider>
           <div className="flex-1">{children}</div>
-          <footer className="border-t border-[var(--a11y-border)] p-4 text-sm flex flex-wrap gap-x-4 gap-y-2 justify-center">
+          <footer className="no-print border-t border-[var(--a11y-border)] p-4 text-sm flex flex-wrap gap-x-4 gap-y-2 justify-center">
             <a className="underline" href="/privacy">Privacy</a>
             <a className="underline" href="/terms">Terms</a>
             <a className="underline" href="/dpa">Data Processing Agreement</a>

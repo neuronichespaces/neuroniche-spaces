@@ -75,3 +75,20 @@ p {
   outline: 3px solid #4a6b8a;
   outline-offset: 2px;
 }
+
+/* Print stylesheet for the business case "Export as PDF" button — this IS
+   the PDF export (window.print() + "Save as PDF" in the browser dialog),
+   not a rendered-to-file library. Ink-friendly: forces black-on-white
+   regardless of the user's a11y theme, since printed paper has no dark mode. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 2cm;
+  }
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+}

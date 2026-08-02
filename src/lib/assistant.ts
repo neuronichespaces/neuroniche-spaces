@@ -34,7 +34,7 @@ export function deadlineInfo(deadline: string | null, today = new Date()): { dat
   return { date: deadline, daysRemaining: days };
 }
 
-function csvCell(v: string | number): string {
+export function csvCell(v: string | number): string {
   // S2: prefix formula-triggering leading chars so spreadsheet apps (Excel/Sheets)
   // don't execute the cell as a formula on import (CSV formula injection).
   let s = String(v);
