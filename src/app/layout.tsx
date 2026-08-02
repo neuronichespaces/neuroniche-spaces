@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import A11yProvider from "@/components/A11yProvider";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,6 +31,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <ErrorBoundary>
         <A11yProvider>
           <div className="flex-1">{children}</div>
           <footer className="border-t border-[var(--a11y-border)] p-4 text-sm flex flex-wrap gap-x-4 gap-y-2 justify-center">
@@ -43,6 +45,7 @@ export default function RootLayout({
             <a className="underline" href="/accessibility">Accessibility</a>
           </footer>
         </A11yProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
