@@ -94,6 +94,12 @@ export default function Home() {
           >
             Templates and evidence →
           </Link>
+          <Link
+            href="/business-case"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Business case and co-design →
+          </Link>
         </div>
       </header>
 

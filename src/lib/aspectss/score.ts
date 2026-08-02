@@ -72,8 +72,22 @@ export interface AuditResult {
 }
 
 const ANSWER_VALUE: Record<Answer, number> = { yes: 1, partial: 0.5, no: 0 };
+const VALID_ANSWERS = new Set<Answer>(["yes", "partial", "no"]);
 
-export function scoreAudit(answers: Answers): AuditResult {
+/** Root-cause guard: any tampered/legacy value (e.g. from a corrupted
+ * localStorage save) is treated as unanswered rather than propagating NaN
+ * into scores or misfiring the seclusion flag. Fixed here, not per-caller,
+ * so every current and future entry point into scoreAudit is covered. */
+function isValidAnswer(a: unknown): a is Answer {
+  return typeof a === "string" && VALID_ANSWERS.has(a as Answer);
+}
+
+export function scoreAudit(rawAnswers: Answers): AuditResult {
+  const answers: Answers = {};
+  for (const [id, a] of Object.entries(rawAnswers)) {
+    if (isValidAnswer(a)) answers[id] = a;
+  }
+
   const scores: CriterionScore[] = CRITERIA.map((criterion) => {
     const qs = QUESTIONS.filter((q) => q.criterion === criterion);
     let sum = 0;

@@ -40,6 +40,17 @@ test("lockable-door 'yes' raises seclusion flag and blocks export (spec F6)", ()
   assert.equal(canExport(scoreAudit(a)), false);
 });
 
+test("tampered/invalid answer values are treated as unanswered, never NaN (root-cause guard)", () => {
+  const a = answerAll("yes");
+  // @ts-expect-error deliberately invalid value, simulating corrupted storage
+  a["ac1"] = "banana";
+  const r = scoreAudit(a);
+  assert.ok(Number.isFinite(r.overall));
+  assert.ok(!Number.isNaN(r.overall));
+  const acoustics = r.scores.find((s) => s.criterion === "acoustics")!;
+  assert.equal(acoustics.answered, 2); // ac1 discarded, ac2/ac3 still count
+});
+
 test("unanswered questions mark result incomplete", () => {
   const r = scoreAudit({ ac1: "yes" });
   assert.equal(r.incomplete, true);
