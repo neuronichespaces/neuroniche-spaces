@@ -65,6 +65,18 @@ export default function Home() {
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:items-end">
           <Link
+            href="/login"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Sign in →
+          </Link>
+          <Link
+            href="/organisations"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Your organisations →
+          </Link>
+          <Link
             href="/spatial"
             className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
           >
