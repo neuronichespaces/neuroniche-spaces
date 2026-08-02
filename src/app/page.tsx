@@ -63,12 +63,20 @@ export default function Home() {
           <h1 className="text-2xl font-semibold">NeuroNiche Spaces</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">Plan a sensory space for your organisation. Sensory preferences are general planning categories, not assessments.</p>
         </div>
-        <Link
-          href="/spatial"
-          className="min-h-11 shrink-0 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-        >
-          Open room designer (2D/3D) →
-        </Link>
+        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+          <Link
+            href="/spatial"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Open room designer (2D/3D) →
+          </Link>
+          <Link
+            href="/audit"
+            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Start a sensory space audit →
+          </Link>
+        </div>
       </header>
 
       <section aria-labelledby="org-h" className="flex flex-col gap-3">
