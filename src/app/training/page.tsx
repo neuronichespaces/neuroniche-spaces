@@ -5,7 +5,7 @@
 // quiz/score — completion is a self-attested "I've read this", matching the
 // calm-UX rule against pressure mechanics elsewhere in this app.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   COURSE_MODULES,
   EMPTY_PROGRESS,
@@ -16,6 +16,8 @@ import {
   isCourseComplete,
   type CourseProgress,
 } from "@/lib/training/course";
+import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/supabase/useAuth";
 
 const STORAGE_KEY = "neuroniche-training-progress";
 
@@ -42,14 +44,34 @@ function loadProgress(): CourseProgress {
 }
 
 export default function TrainingPage() {
+  const { user } = useAuth();
   const [progress, setProgress] = useState<CourseProgress>(EMPTY_PROGRESS);
   const [activeId, setActiveId] = useState(COURSE_MODULES[0].id);
   const [loaded, setLoaded] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     setProgress(loadProgress());
     setLoaded(true);
   }, []);
+
+  // Real progress loads from localStorage first for instant paint, then real
+  // per-user data overrides it once fetched, if signed in. Same pattern as
+  // /costing and /audit's room loads, but user-scoped, not room-scoped —
+  // training completion is an individual's own record.
+  const loadProgressFromAccount = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from("training_progress")
+      .select("module_id")
+      .eq("user_id", userId);
+    if (!error && data) {
+      setProgress({ completedModuleIds: data.map((row) => row.module_id) });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) loadProgressFromAccount(user.id);
+  }, [user, loadProgressFromAccount]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -64,8 +86,21 @@ export default function TrainingPage() {
   const { done, total } = completionCount(progress);
   const complete = isModuleComplete(progress, activeModule.id);
 
-  const toggleComplete = () => {
-    setProgress((p) => (complete ? markIncomplete(p, activeModule.id) : markComplete(p, activeModule.id)));
+  const toggleComplete = async () => {
+    const next = complete ? markIncomplete(progress, activeModule.id) : markComplete(progress, activeModule.id);
+    setProgress(next);
+    if (!user) return;
+    setSaveError("");
+    const { error } = complete
+      ? await supabase
+          .from("training_progress")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("module_id", activeModule.id)
+      : await supabase
+          .from("training_progress")
+          .upsert({ user_id: user.id, module_id: activeModule.id }, { onConflict: "user_id,module_id" });
+    if (error) setSaveError(error.message);
   };
 
   return (
@@ -75,6 +110,16 @@ export default function TrainingPage() {
         <p aria-live="polite" className="text-sm">
           {done} of {total} sections marked as read. No quiz, no time limit — go at your own pace.
         </p>
+        {user && (
+          <p role="status" className="text-sm">
+            Signed in — your progress is saved to your account.
+          </p>
+        )}
+        {saveError && (
+          <p role="alert" className="rounded border border-[#8a4a4a] p-3 text-sm">
+            Couldn&apos;t save to your account: {saveError}
+          </p>
+        )}
       </div>
 
       <nav aria-label="Training modules" className="flex flex-col gap-2">

@@ -6,8 +6,9 @@
 // Export is accessible HTML via print (spec §11.6) and is hard-blocked
 // while the seclusion flag is unresolved (spec F6).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Answer,
   Answers,
@@ -17,6 +18,8 @@ import {
   QUESTIONS,
   scoreAudit,
 } from "@/lib/aspectss/score";
+import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/supabase/useAuth";
 
 const STORAGE_KEY = "neuroniche-audit-answers";
 
@@ -31,9 +34,27 @@ const CRITERION_LABELS: Record<Criterion, string> = {
 };
 
 export default function AuditPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuditPageInner />
+    </Suspense>
+  );
+}
+
+function AuditPageInner() {
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get("room");
+  const { user } = useAuth();
+  // Same pattern as /costing: real persistence only when signed in AND a
+  // specific room is selected via ?room=<uuid> from /organisations.
+  // Otherwise this page behaves exactly as before — localStorage only.
+  const usingRealRoom = Boolean(user && roomId);
+
   const [answers, setAnswers] = useState<Answers>({});
   const [step, setStep] = useState(0); // index into CRITERIA; CRITERIA.length = report
   const [loaded, setLoaded] = useState(false);
+  const [savingAnswers, setSavingAnswers] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const progressRef = useRef<HTMLParagraphElement>(null);
 
   // Move focus to the progress line on step change so screen-reader and
@@ -42,7 +63,22 @@ export default function AuditPage() {
     if (loaded) progressRef.current?.focus();
   }, [step, loaded]);
 
-  // Resume a saved audit.
+  const loadAnswersFromRoom = useCallback(async (rid: string) => {
+    const { data, error } = await supabase
+      .from("audit_responses")
+      .select("question_id, answer")
+      .eq("room_id", rid);
+    if (!error && data) {
+      setAnswers((prev) => {
+        const next = { ...prev };
+        for (const row of data) next[row.question_id] = row.answer as Answer;
+        return next;
+      });
+    }
+  }, []);
+
+  // Resume a saved audit. Loads from localStorage first for instant paint,
+  // then real room data overrides it once fetched, if a room is selected.
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -59,6 +95,10 @@ export default function AuditPage() {
     setLoaded(true);
   }, []);
 
+  useEffect(() => {
+    if (usingRealRoom && roomId) loadAnswersFromRoom(roomId);
+  }, [usingRealRoom, roomId, loadAnswersFromRoom]);
+
   // Autosave on every change (spec F1).
   useEffect(() => {
     if (!loaded) return;
@@ -68,6 +108,36 @@ export default function AuditPage() {
       // storage unavailable — audit still works for this session
     }
   }, [answers, loaded]);
+
+  // Save answers to the real room whenever they change, in addition to the
+  // localStorage write above. Debounced + sequence-guarded, same pattern as
+  // /costing's needs save, so rapid answering can't let a stale response
+  // overwrite a newer save.
+  const saveSeqRef = useRef(0);
+  useEffect(() => {
+    if (!loaded || !usingRealRoom || !roomId) return;
+    const entries = Object.entries(answers);
+    if (entries.length === 0) return;
+    const mySeq = ++saveSeqRef.current;
+    setSavingAnswers(true);
+    setSaveError("");
+    const timer = setTimeout(() => {
+      const rows = entries.map(([question_id, answer]) => ({
+        room_id: roomId,
+        question_id,
+        answer,
+      }));
+      supabase
+        .from("audit_responses")
+        .upsert(rows, { onConflict: "room_id,question_id" })
+        .then(({ error }) => {
+          if (mySeq !== saveSeqRef.current) return; // a newer save superseded this one
+          if (error) setSaveError(error.message);
+          setSavingAnswers(false);
+        });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [answers, loaded, usingRealRoom, roomId]);
 
   const result = useMemo(() => scoreAudit(answers), [answers]);
   const onReport = step >= CRITERIA.length;
@@ -84,6 +154,18 @@ export default function AuditPage() {
         Work through seven short sections about your space. There is no time
         limit, and your answers save automatically — you can leave and come back.
       </p>
+
+      {usingRealRoom && (
+        <p role="status" className="text-sm rounded border border-[var(--a11y-border)] p-3 bg-[var(--a11y-surface)]">
+          Your answers are saved to your organisation&apos;s account
+          {savingAnswers ? " — saving…" : "."}
+        </p>
+      )}
+      {saveError && (
+        <p role="alert" className="rounded border border-[#8a4a4a] p-3 text-sm">
+          Couldn&apos;t save to your room: {saveError}
+        </p>
+      )}
 
       {/* Progress: plain words, no urgency styling. tabIndex -1 so focus can
           land here on step change for screen-reader users. */}
@@ -215,7 +297,7 @@ export default function AuditPage() {
                 Find funding →
               </Link>
               <Link
-                href="/costing"
+                href={roomId ? `/costing?room=${roomId}` : "/costing"}
                 className="a11y-target rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] self-start no-underline"
               >
                 Continue to costing →

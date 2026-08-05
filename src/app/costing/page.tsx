@@ -93,6 +93,24 @@ function CostingPageInner() {
   const [saveError, setSaveError] = useState("");
   const auditResult = useMemo(loadAuditResult, []);
 
+  const loadSettingsFromRoom = useCallback(async (rid: string) => {
+    const { data, error } = await supabase
+      .from("room_settings")
+      .select("budget, state, lockable_from_outside, free_exit_attested, clear_circulation, full_supervision_sightlines")
+      .eq("room_id", rid)
+      .maybeSingle();
+    if (!error && data) {
+      if (!(Number.isFinite(budgetFromUrl) && budgetFromUrl > 0)) setBudget(Number(data.budget));
+      setCompliance({
+        state: data.state as AuState,
+        lockableFromOutside: data.lockable_from_outside,
+        freeExitAttested: data.free_exit_attested,
+        clearCirculation: data.clear_circulation,
+        fullSupervisionSightlines: data.full_supervision_sightlines,
+      });
+    }
+  }, [budgetFromUrl]);
+
   const loadNeedsFromRoom = useCallback(async (rid: string) => {
     const { data, error } = await supabase
       .from("sensory_profiles")
@@ -111,10 +129,9 @@ function CostingPageInner() {
     }
   }, []);
 
-  // Budget/compliance have no matching table yet (spec gap, see handoff) —
-  // they stay localStorage-only even when a real room is selected. Needs
-  // (sensory_profiles) load from localStorage first for instant paint, then
-  // real room data overrides it once fetched, if a room is selected.
+  // Needs (sensory_profiles) and settings (room_settings: budget +
+  // compliance) load from localStorage first for instant paint, then real
+  // room data overrides it once fetched, if a room is selected.
   useEffect(() => {
     const saved = loadSavedCosting();
     if (saved) {
@@ -127,8 +144,11 @@ function CostingPageInner() {
   }, []);
 
   useEffect(() => {
-    if (usingRealRoom && roomId) loadNeedsFromRoom(roomId);
-  }, [usingRealRoom, roomId, loadNeedsFromRoom]);
+    if (usingRealRoom && roomId) {
+      loadNeedsFromRoom(roomId);
+      loadSettingsFromRoom(roomId);
+    }
+  }, [usingRealRoom, roomId, loadNeedsFromRoom, loadSettingsFromRoom]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -169,6 +189,36 @@ function CostingPageInner() {
     return () => clearTimeout(timer);
   }, [needs, loaded, usingRealRoom, roomId]);
 
+  // Save budget + compliance to the real room, same debounced + sequence-
+  // guarded pattern as the needs save above.
+  const saveSettingsSeqRef = useRef(0);
+  useEffect(() => {
+    if (!loaded || !usingRealRoom || !roomId) return;
+    const mySeq = ++saveSettingsSeqRef.current;
+    setSaveError("");
+    const timer = setTimeout(() => {
+      supabase
+        .from("room_settings")
+        .upsert(
+          {
+            room_id: roomId,
+            budget,
+            state: compliance.state,
+            lockable_from_outside: compliance.lockableFromOutside,
+            free_exit_attested: compliance.freeExitAttested,
+            clear_circulation: compliance.clearCirculation,
+            full_supervision_sightlines: compliance.fullSupervisionSightlines,
+          },
+          { onConflict: "room_id" },
+        )
+        .then(({ error }) => {
+          if (mySeq !== saveSettingsSeqRef.current) return; // a newer save superseded this one
+          if (error) setSaveError(error.message);
+        });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [budget, compliance, loaded, usingRealRoom, roomId]);
+
   const applyAuditNeeds = () => {
     if (!auditResult) return;
     const derived = deriveNeedsFromAudit(auditResult);
@@ -203,9 +253,9 @@ function CostingPageInner() {
 
       {usingRealRoom && (
         <p role="status" className="text-sm rounded border border-[var(--a11y-border)] p-3 bg-[var(--a11y-surface)]">
-          What this room needs is saved to your organisation&apos;s account
-          {savingNeeds ? " — saving…" : "."} Budget and the compliance check
-          below are still saved only on this device for now.
+          What this room needs, its budget, and the compliance check below
+          are saved to your organisation&apos;s account
+          {savingNeeds ? " — saving…" : "."}
         </p>
       )}
       {saveError && (

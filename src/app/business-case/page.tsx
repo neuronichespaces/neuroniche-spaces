@@ -4,7 +4,8 @@
 // §4.2). The business case pulls the audit answers already saved by /audit
 // (same localStorage key) so the two features connect without a backend.
 
-import { useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { scoreAudit, type Answers } from "@/lib/aspectss/score";
 import { buildBusinessCase, approve, type BusinessCase } from "@/lib/businesscase/generate";
 import { businessCaseToCsv } from "@/lib/export/report";
@@ -16,6 +17,8 @@ import {
   type Survey,
   type SurveyResponse,
 } from "@/lib/codesign/survey";
+import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/supabase/useAuth";
 
 function downloadCsv(businessCase: BusinessCase, orgName: string) {
   const csv = businessCaseToCsv(businessCase);
@@ -31,9 +34,27 @@ function downloadCsv(businessCase: BusinessCase, orgName: string) {
 const AUDIT_STORAGE_KEY = "neuroniche-audit-answers";
 
 export default function BusinessCasePage() {
+  return (
+    <Suspense fallback={null}>
+      <BusinessCasePageInner />
+    </Suspense>
+  );
+}
+
+function BusinessCasePageInner() {
+  const searchParams = useSearchParams();
+  const orgId = searchParams.get("org");
+  const { user } = useAuth();
+  // Business cases are organisation-scoped, not room-scoped (spec: they
+  // draw on audit+costing+grants for the whole org). Same real-vs-local
+  // split as /costing and /audit, keyed by ?org=<uuid> instead of ?room=.
+  const usingRealOrg = Boolean(user && orgId);
+
   const [orgName, setOrgName] = useState("");
   const [businessCase, setBusinessCase] = useState<BusinessCase | null>(null);
+  const [businessCaseRowId, setBusinessCaseRowId] = useState<string | null>(null);
   const [reviewerName, setReviewerName] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const [survey, setSurvey] = useState<Survey>({
     id: "s1",
@@ -58,13 +79,74 @@ export default function BusinessCasePage() {
     }
   }, []);
 
+  // Prefill from the real org and load any previously-generated case, once,
+  // when a signed-in org is selected. Existing rows have no unique
+  // constraint on organisation_id (schema allows re-generation history), so
+  // this takes the most recent one as "the" current business case.
+  useEffect(() => {
+    if (!usingRealOrg || !orgId) return;
+    supabase
+      .from("organisations")
+      .select("name")
+      .eq("id", orgId)
+      .single()
+      .then(({ data }) => {
+        if (data) setOrgName(data.name);
+      });
+    supabase
+      .from("business_cases")
+      .select("id, sections_json, status, reviewed_by, reviewed_at")
+      .eq("organisation_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setBusinessCaseRowId(data.id);
+          setBusinessCase({
+            sections: data.sections_json,
+            status: data.status,
+            aiGenerated: false,
+            reviewedBy: data.reviewed_by,
+            reviewedAt: data.reviewed_at,
+          });
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per org
+  }, [usingRealOrg, orgId]);
+
+  const saveBusinessCase = useCallback(
+    async (bc: BusinessCase) => {
+      if (!usingRealOrg || !orgId) return;
+      setSaveError("");
+      const row = {
+        organisation_id: orgId,
+        sections_json: bc.sections,
+        status: bc.status,
+        reviewed_by: bc.reviewedBy,
+        reviewed_at: bc.reviewedAt,
+      };
+      const query = businessCaseRowId
+        ? supabase.from("business_cases").update(row).eq("id", businessCaseRowId).select("id").single()
+        : supabase.from("business_cases").insert(row).select("id").single();
+      const { data, error } = await query;
+      if (error) setSaveError(error.message);
+      else if (data) setBusinessCaseRowId(data.id);
+    },
+    [usingRealOrg, orgId, businessCaseRowId],
+  );
+
   const onGenerate = () => {
-    setBusinessCase(buildBusinessCase({ organisationName: orgName, audit, costing: null, grants: [] }));
+    const bc = buildBusinessCase({ organisationName: orgName, audit, costing: null, grants: [] });
+    setBusinessCase(bc);
+    saveBusinessCase(bc);
   };
 
   const onApprove = () => {
     if (businessCase && reviewerName.trim()) {
-      setBusinessCase(approve(businessCase, reviewerName.trim()));
+      const bc = approve(businessCase, reviewerName.trim());
+      setBusinessCase(bc);
+      saveBusinessCase(bc);
     }
   };
 
@@ -91,6 +173,16 @@ export default function BusinessCasePage() {
           review and approve it before it is used — it is never final on its
           own.
         </p>
+        {usingRealOrg && (
+          <p role="status" className="no-print text-sm rounded border border-[var(--a11y-border)] p-3 bg-[var(--a11y-surface)]">
+            Saved to your organisation&apos;s account.
+          </p>
+        )}
+        {saveError && (
+          <p role="alert" className="no-print rounded border border-[#8a4a4a] p-3 text-sm">
+            Couldn&apos;t save to your organisation: {saveError}
+          </p>
+        )}
         <label className="no-print flex items-center justify-between gap-3 a11y-target">
           Organisation name
           <input

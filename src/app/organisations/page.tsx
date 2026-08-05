@@ -198,6 +198,12 @@ export default function OrganisationsPage() {
                       <strong>{o.name}</strong> — {o.country}
                       {o.state_or_province ? `, ${o.state_or_province}` : ""}
                     </span>
+                    <Link
+                      href={`/business-case?org=${o.id}`}
+                      className="a11y-target rounded border border-[var(--a11y-border)] px-3 text-sm no-underline"
+                    >
+                      Business case →
+                    </Link>
                     <button
                       type="button"
                       onClick={() => toggleExpand(o.id)}
@@ -219,6 +225,12 @@ export default function OrganisationsPage() {
                               <span>
                                 {r.name} — {r.width_m}m × {r.length_m}m
                               </span>
+                              <Link
+                                href={`/audit?room=${r.id}`}
+                                className="a11y-target rounded border border-[var(--a11y-border)] px-3 no-underline"
+                              >
+                                Audit this room →
+                              </Link>
                               <Link
                                 href={`/costing?room=${r.id}`}
                                 className="a11y-target rounded border border-[var(--a11y-border)] px-3 no-underline"
