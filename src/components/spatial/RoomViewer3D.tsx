@@ -27,6 +27,12 @@ async function createRenderer(props: { canvas: unknown }) {
     try {
       const { WebGPURenderer } = await import('three/webgpu');
       const renderer = new WebGPURenderer({ canvas, antialias: true });
+      // Size the canvas to its real layout size (e.g. 640x480 for the
+      // off-screen export viewer) before init() allocates the depth
+      // attachment — otherwise it's allocated at the canvas's default
+      // 300x150 and a later resize only updates the color attachment,
+      // producing a depth/color size-mismatch GPUValidationError.
+      renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 150, false);
       await renderer.init();
       return renderer as unknown as THREE.WebGLRenderer;
     } catch {
