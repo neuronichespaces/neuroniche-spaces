@@ -39,6 +39,7 @@ export default function SpatialDesignEnginePage() {
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const walls = useRoomLayoutStore((s) => s.walls);
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
+  const zones = useRoomLayoutStore((s) => s.zones);
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const loadLayout = useRoomLayoutStore((s) => s.loadLayout);
@@ -68,6 +69,7 @@ export default function SpatialDesignEnginePage() {
         ? floorDims
         : { widthM: template.targetWidthM.max, lengthM: template.targetLengthM.max },
       placedObjects: template.defaultObjects,
+      zones: hasLoadedInitialData ? zones : [],
     });
   }
 

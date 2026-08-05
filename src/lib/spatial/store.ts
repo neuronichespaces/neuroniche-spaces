@@ -7,9 +7,9 @@
 
 import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone } from './types.ts';
 
-type RoomLayout = { walls: WallSegment[]; doors: DoorPlacement[]; floorDims: FloorDims; placedObjects: PlacedObject[] };
+type RoomLayout = { walls: WallSegment[]; doors: DoorPlacement[]; floorDims: FloorDims; placedObjects: PlacedObject[]; zones: Zone[] };
 
 const LOCAL_STORAGE_KEY = 'noniche-spatial-room-default';
 const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
@@ -31,6 +31,10 @@ type RoomLayoutState = RoomLayout & {
   removeWall: (id: string) => void;
   addDoor: (door: DoorPlacement) => void;
   removeDoor: (wallId: string) => void;
+
+  addZone: (zone: Zone) => void;
+  updateZone: (id: string, patch: Partial<Omit<Zone, 'id'>>) => void;
+  removeZone: (id: string) => void;
 
   addObject: (obj: PlacedObject) => void;
   removeObject: (id: string) => void;
@@ -55,7 +59,7 @@ function withRecomputedViolations(state: { walls: WallSegment[]; placedObjects: 
 }
 
 function snapshot(s: RoomLayout): RoomLayout {
-  return { walls: s.walls, doors: s.doors, floorDims: s.floorDims, placedObjects: s.placedObjects };
+  return { walls: s.walls, doors: s.doors, floorDims: s.floorDims, placedObjects: s.placedObjects, zones: s.zones };
 }
 
 let broadcastChannel: BroadcastChannel | null = null;
@@ -99,6 +103,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const patch = updater(s);
       const walls = patch.walls ?? s.walls;
       const placedObjects = patch.placedObjects ?? s.placedObjects;
+      const zones = patch.zones ?? s.zones;
       const next = {
         ...historyPatch,
         ...patch,
@@ -108,7 +113,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         clearanceViolations: withRecomputedViolations({ walls, placedObjects }),
       };
       scheduleAutosaveAndBroadcast(
-        snapshot({ walls, doors: patch.doors ?? s.doors, floorDims: patch.floorDims ?? s.floorDims, placedObjects }),
+        snapshot({ walls, doors: patch.doors ?? s.doors, floorDims: patch.floorDims ?? s.floorDims, placedObjects, zones }),
       );
       return next;
     });
@@ -119,6 +124,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     doors: [],
     floorDims: { widthM: 6, lengthM: 6 },
     placedObjects: [],
+    zones: [],
     selectedObjectId: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
@@ -141,6 +147,10 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     // matching how ObjectLayer/WallLayer's `.find()` already assume single-door-per-wall.
     addDoor: (door) => mutate((s) => ({ doors: [...s.doors.filter((d) => d.wallId !== door.wallId), door] })),
     removeDoor: (wallId) => mutate((s) => ({ doors: s.doors.filter((d) => d.wallId !== wallId) })),
+
+    addZone: (zone) => mutate((s) => ({ zones: [...s.zones, zone] })),
+    updateZone: (id, patch) => mutate((s) => ({ zones: s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) })),
+    removeZone: (id) => mutate((s) => ({ zones: s.zones.filter((z) => z.id !== id) })),
 
     addObject: (obj) => mutate((s) => ({ placedObjects: [...s.placedObjects, obj] })),
     removeObject: (id) => {
@@ -221,7 +231,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       try {
         const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
         if (!raw) return;
-        const layout = JSON.parse(raw) as RoomLayout;
+        const parsed = JSON.parse(raw) as RoomLayout;
+        // Old saved layouts predate zones — default rather than leaving it undefined.
+        const layout: RoomLayout = { ...parsed, zones: parsed.zones ?? [] };
         set({
           ...layout,
           selectedObjectId: null,

@@ -7,6 +7,7 @@
 // a room supports, never what it "treats".
 
 import type { WallSegment, DoorPlacement, PlacedObject } from './types.ts';
+import { sensoryProfileFor } from './sensoryLibrary.ts';
 
 export type ScenarioTemplate = {
   id: string;
@@ -52,6 +53,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         clearanceRadiusM: 0.5,
         footprintM: { w: 0.8, l: 0.8 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('bean-bag-large'),
       },
       {
         id: 'calm-obj-2',
@@ -61,6 +63,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.3, l: 0.3 },
         customProperties: { brightness: 30, colourTempK: 2700 },
+        sensoryProfile: sensoryProfileFor('dimmable-floor-lamp'),
       },
       {
         id: 'calm-obj-3',
@@ -70,6 +73,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.4, l: 0.4 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('weighted-lap-pad'),
       },
     ],
   },
@@ -92,6 +96,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         clearanceRadiusM: 1,
         footprintM: { w: 1.2, l: 1.2 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('indoor-swing-frame'),
       },
       {
         id: 'move-obj-2',
@@ -102,6 +107,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         clearanceRadiusM: 0.7,
         footprintM: { w: 1.5, l: 1 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('crash-mat'),
       },
       {
         id: 'move-obj-3',
@@ -111,6 +117,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 90,
         footprintM: { w: 1.8, l: 0.3 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('balance-beam-low'),
       },
     ],
   },
@@ -132,6 +139,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.9, l: 0.4 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('sensory-shelf-unit'),
       },
       {
         id: 'multi-obj-2',
@@ -141,6 +149,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.1, l: 1.2 },
         customProperties: { noiseLevelDb: 0 },
+        sensoryProfile: sensoryProfileFor('noise-reducing-panel'),
       },
       {
         id: 'multi-obj-3',
@@ -151,6 +160,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         clearanceRadiusM: 0.6,
         footprintM: { w: 0.4, l: 0.4 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('flexible-seating-cube'),
       },
       {
         id: 'multi-obj-4',
@@ -160,6 +170,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.3, l: 0.3 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('fidget-tool-bin'),
       },
     ],
   },
@@ -181,6 +192,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.5, l: 0.5 },
         customProperties: { brightness: 60 },
+        sensoryProfile: sensoryProfileFor('bubble-tube-column'),
       },
       {
         id: 'full-obj-2',
@@ -191,6 +203,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         clearanceRadiusM: 1,
         footprintM: { w: 1.2, l: 1.2 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('indoor-swing-frame'),
       },
       {
         id: 'full-obj-3',
@@ -201,6 +214,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         clearanceRadiusM: 0.7,
         footprintM: { w: 1.5, l: 1 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('crash-mat'),
       },
       {
         id: 'full-obj-4',
@@ -210,6 +224,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.3, l: 0.3 },
         customProperties: { brightness: 40 },
+        sensoryProfile: sensoryProfileFor('projector-calm-scenes'),
       },
       {
         id: 'full-obj-5',
@@ -219,6 +234,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         rotationDeg: 0,
         footprintM: { w: 0.1, l: 1.5 },
         customProperties: {},
+        sensoryProfile: sensoryProfileFor('tactile-wall-panel-set'),
       },
     ],
   },
