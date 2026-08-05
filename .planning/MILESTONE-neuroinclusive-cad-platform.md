@@ -1,6 +1,6 @@
 # Milestone — Neuroinclusive Spatial Planning Platform (spatial graph / persona / heatmap engine)
 
-**Status: Phase 1-5 (contracts only) done (2026-08-05). Explicit override milestone, separate from the active roadmap.**
+**Status: Phase 1-5 (contracts only) + Phase 2/3/4 overlays done, browser-checked (2026-08-06). Explicit override milestone, separate from the active roadmap.**
 Logged 2026-08-05 after the user explicitly chose to treat the "CAD/BIM/digital-twin"
 proposal (pasted twice this session) as a real future initiative rather than build it
 inline. Do not start work here without the user picking it up as the active session
@@ -161,6 +161,67 @@ new state manager — Zustand + R3F stay.
 - `aiContracts.test.ts` (new): 1 test. `node --test`: 107/107 pass. `npm run build`: clean.
 - Phase 6 (projects/scenarios/RBAC/audit-log) not started — genuinely needs its own schema
   design session, not a quick extension of what exists.
+
+## Phase 2 UI wiring — done (2026-08-06)
+
+Picked up from the handoff's "highest-leverage next chunk" note.
+
+- `ZoneLayer.tsx` (new): renders zones as labelled, muted-colour rects (one colour per
+  `ZoneKind`, calm-UX — no saturated colours in the editor chrome either).
+- `RoomEditor2D.tsx`: new `zone` tool — pick a kind from a dropdown, click-drag to draw a
+  rect zone (same interaction pattern as the existing wall tool), `addZone` on release.
+  Zones render as their own Konva `<Layer>` beneath walls.
+- `ObjectLayer.tsx`: object drag-end now calls `snapEngine.ts`'s `computeBestSnap`
+  (weighted multi-candidate scoring) instead of `geometry.ts`'s old single-best-guess
+  `snapObjectPosition`. `geometry.ts` itself is untouched — `computeBestSnap` already
+  built on top of it, this just changes which one the UI calls. Removed the now-dead
+  `wallSnapThresholdM` prop (the threshold is internal to `snapEngine.ts` now).
+- `npm run build`: clean. `node --test`: 107/107 pass. Lint: 12 pre-existing errors in
+  unrelated files (costing/audit/training/business-case/organisations pages,
+  A11yProvider, ErrorBoundary) — zero issues in the 3 files touched here.
+- **Not done**: still no TransformControls-based rotate/scale handles (objects rotate via
+  `customProperties`/properties panel only, not a drag gizmo), no on-canvas measurement
+  readout (`measurements.ts` exists, unused by any UI), no constraint-violation display
+  beyond the existing clearance-circle red highlight (the new `constraints.ts` engine
+  with its `unzoned_placement` warning isn't surfaced anywhere yet), no persona/heatmap
+  overlay (Phase 3/4's engines still have nothing to look at in the browser).
+- **Not browser-verified**: build/typecheck/tests pass, but nobody has clicked through
+  drawing a zone or dragging an object near one in an actual browser this session.
+
+## UI overlays for Phase 3/4's engines + real WebGPU fix + live browser check (2026-08-06)
+
+- `ViolationsList.tsx`, `HeatmapOverlay.tsx` (new components): surface `constraints.ts`
+  and `heatmap.ts`'s output in `/spatial` — violations list under the canvas, heatmap
+  category selector rendering `heatmap.ts`'s grid as coloured cells.
+- `ZoneLayer.tsx`: extended with `personaScores` prop — a numeric badge per zone when a
+  persona is selected (colour-coded green/amber/red by score band).
+- `PropertiesPanel.tsx`: clearance-to-nearest-wall readout for the selected object
+  (`measurements.ts`'s `clearanceToNearestWall`).
+- `RoomEditor2D.tsx`: heatmap-category and persona selectors wired to the store's live
+  state via `useMemo`.
+- **The earlier WebGPU fix (previous session) was wrong and didn't work** — confirmed by
+  actually loading `/spatial` in a browser this time. Root cause was misdiagnosed: calling
+  `renderer.setSize()` *before* `renderer.init()` is provably a no-op on the GPU backend
+  (`three.js`'s `Renderer._onCanvasTargetResize` only calls `backend.updateSize()` when
+  `this._initialized` is true) — so the earlier fix's `canvas.clientWidth` read (which was
+  also `0` at that point, canvas not yet laid out) never mattered either way. Real fix:
+  moved the resize into R3F's `onCreated` callback, calling `state.gl.setSize(state.size.width,
+  state.size.height, false)` *after* the renderer is confirmed initialized. **Verified live**:
+  the depth/color mismatch error is gone on switching to 3D view. (A separate, unrelated,
+  non-blocking `drawIndexed`/infinite-value error appears twice on the first frames — did
+  not chase it down, out of scope for this fix, noted for later.)
+- **Verified live in a real browser** (not just build/test): heatmap overlay renders a
+  correct influence-field gradient (confirmed visually — red concentration around a
+  movement-emitting object, fading with distance, matching the intensity/distance²
+  formula). Zone tool, heatmap selector, and persona selector all render their controls
+  correctly with the right option lists.
+- **NOT verified live**: zone drawing, object drag/select, wall drawing — Konva canvas
+  interactions can't be driven by synthetic `MouseEvent` dispatch (confirmed: the same
+  synthetic-event technique fails identically on the pre-existing, unmodified wall/select
+  tools, not just the new zone code — a browser-automation limitation, not evidence of a
+  defect). **A real manual click-through of the zone tool is still owed** before trusting
+  it fully; build/typecheck/lint are all clean but that only proves the code compiles and
+  the logic is unit-sound, not that pointer events wire up correctly in a real browser.
 
 ## To activate this milestone
 

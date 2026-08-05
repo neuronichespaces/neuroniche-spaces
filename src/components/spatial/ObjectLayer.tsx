@@ -2,16 +2,16 @@
 
 import { Circle, Group, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
-import type { PlacedObject, WallSegment } from '@/lib/spatial/types.ts';
-import { snapObjectPosition } from '@/lib/spatial/geometry.ts';
+import type { PlacedObject, WallSegment, Zone } from '@/lib/spatial/types.ts';
+import { computeBestSnap } from '@/lib/spatial/snapEngine.ts';
 
 type Props = {
   objects: PlacedObject[];
   walls: WallSegment[];
+  zones: Zone[];
   violations: Set<string>;
   pxPerM: number;
   gridSnapM: number;
-  wallSnapThresholdM: number;
   selectedObjectId: string | null;
   onSelect: (id: string) => void;
   onMove: (id: string, xM: number, yM: number) => void;
@@ -20,10 +20,10 @@ type Props = {
 export default function ObjectLayer({
   objects,
   walls,
+  zones,
   violations,
   pxPerM,
   gridSnapM,
-  wallSnapThresholdM,
   selectedObjectId,
   onSelect,
   onMove,
@@ -58,8 +58,11 @@ export default function ObjectLayer({
                 const node = e.target;
                 const rawXM = node.x() / pxPerM;
                 const rawYM = node.y() / pxPerM;
-                const snapped = snapObjectPosition(obj, rawXM, rawYM, walls, gridSnapM, wallSnapThresholdM);
-                onMove(obj.id, snapped.x, snapped.y);
+                const best = computeBestSnap(
+                  { x: rawXM, y: rawYM },
+                  { gridM: gridSnapM, walls, zones, objects, footprintM: obj.footprintM, excludeObjectId: obj.id },
+                );
+                onMove(obj.id, best.point.x, best.point.y);
               }}
             >
               <Rect

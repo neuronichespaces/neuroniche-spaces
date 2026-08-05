@@ -3,6 +3,7 @@
 'use client';
 
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
+import { clearanceToNearestWall } from '@/lib/spatial/measurements.ts';
 
 function Slider({
   label,
@@ -46,6 +47,7 @@ function Slider({
 export function PropertiesPanel() {
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
+  const walls = useRoomLayoutStore((s) => s.walls);
   const updateObjectProps = useRoomLayoutStore((s) => s.updateObjectProps);
   const rotateObject = useRoomLayoutStore((s) => s.rotateObject);
 
@@ -53,10 +55,17 @@ export function PropertiesPanel() {
   if (!obj) return null;
 
   const props = obj.customProperties;
+  const clearance = clearanceToNearestWall({ x: obj.x, y: obj.y }, walls);
 
   return (
     <aside className="w-64 shrink-0 space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-gray-900">Object properties</h2>
+
+      {clearance && (
+        <p className="text-sm text-gray-600">
+          Clearance to nearest wall: <span className="font-medium text-gray-900">{clearance.clearanceM.toFixed(2)}m</span>
+        </p>
+      )}
 
       <Slider
         label="Width"

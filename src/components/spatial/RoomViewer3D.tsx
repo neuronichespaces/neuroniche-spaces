@@ -27,12 +27,6 @@ async function createRenderer(props: { canvas: unknown }) {
     try {
       const { WebGPURenderer } = await import('three/webgpu');
       const renderer = new WebGPURenderer({ canvas, antialias: true });
-      // Size the canvas to its real layout size (e.g. 640x480 for the
-      // off-screen export viewer) before init() allocates the depth
-      // attachment — otherwise it's allocated at the canvas's default
-      // 300x150 and a later resize only updates the color attachment,
-      // producing a depth/color size-mismatch GPUValidationError.
-      renderer.setSize(canvas.clientWidth || 300, canvas.clientHeight || 150, false);
       await renderer.init();
       return renderer as unknown as THREE.WebGLRenderer;
     } catch {
@@ -114,6 +108,14 @@ export default function RoomViewer3D({
         camera={{ position: [centreX, walking ? 1.6 : Math.max(floorDims.widthM, floorDims.lengthM), centreZ + 0.01], fov: 55 }}
         onCreated={(state: RootState) => {
           state.camera.lookAt(centreX, 0, centreZ);
+          // Force a resize with R3F's own authoritative container size, now that the
+          // renderer is confirmed initialized. WebGPURenderer only pushes a resize to
+          // the GPU backend (recreating the depth attachment to match) when already
+          // initialized — a setSize() call before init() (what this used to do) is
+          // silently a no-op on the GPU side regardless of what size it's given, which
+          // is why the depth/color attachment size mismatch persisted even after an
+          // earlier attempt to size the canvas pre-init.
+          state.gl.setSize(state.size.width, state.size.height, false);
           onCanvasReady?.(state.gl.domElement);
         }}
       >

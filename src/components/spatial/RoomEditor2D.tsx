@@ -5,44 +5,60 @@
 // object/door state lives in the store; the only local state here is
 // transient UI (active tool, in-progress wall drag, save confirmation).
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect } from 'react-konva';
 import type Konva from 'konva';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
-import type { WallSegment } from '@/lib/spatial/types.ts';
+import type { WallSegment, Zone, ZoneKind } from '@/lib/spatial/types.ts';
 import { snapPointToGrid, projectPointToSegment, wallLengthM, clampPointToBounds } from '@/lib/spatial/geometry.ts';
+import { buildGraphFromRoom } from '@/lib/spatial/graph.ts';
+import { evaluateConstraints } from '@/lib/spatial/constraints.ts';
+import { buildHeatmapGrid, type SensoryCategory } from '@/lib/spatial/heatmap.ts';
+import { PERSONA_LIBRARY, evaluatePersonaForRoom } from '@/lib/spatial/persona.ts';
 import WallLayer, { WallDimensionLabel } from './WallLayer.tsx';
 import ObjectLayer from './ObjectLayer.tsx';
+import ZoneLayer, { ZONE_KIND_LABELS } from './ZoneLayer.tsx';
+import HeatmapOverlay from './HeatmapOverlay.tsx';
+import ViolationsList from './ViolationsList.tsx';
 
 const DEFAULT_GRID_SNAP_M = 0.1;
-const DEFAULT_WALL_SNAP_THRESHOLD_M = 0.15;
 const DEFAULT_DOOR_WIDTH_M = 0.9;
 const PX_PER_M = 60;
 const WALL_THICKNESS_M = 0.1;
+const ZONE_KINDS = Object.keys(ZONE_KIND_LABELS) as ZoneKind[];
+const HEATMAP_CATEGORIES: (SensoryCategory | 'crowding')[] = ['movement', 'noise', 'light', 'touch', 'pressure', 'crowding'];
+const HEATMAP_CATEGORY_LABELS: Record<SensoryCategory | 'crowding', string> = {
+  movement: 'Movement',
+  noise: 'Noise',
+  light: 'Light',
+  touch: 'Touch',
+  pressure: 'Pressure',
+  crowding: 'Crowding',
+};
 
-type Tool = 'select' | 'wall' | 'door';
+type Tool = 'select' | 'wall' | 'door' | 'zone';
 
 type Props = {
   gridSnapM?: number;
-  wallSnapThresholdM?: number;
   pxPerM?: number;
   onSave?: () => void;
 };
 
 export default function RoomEditor2D({
   gridSnapM = DEFAULT_GRID_SNAP_M,
-  wallSnapThresholdM = DEFAULT_WALL_SNAP_THRESHOLD_M,
   pxPerM = PX_PER_M,
   onSave,
 }: Props) {
   const walls = useRoomLayoutStore((s) => s.walls);
   const doors = useRoomLayoutStore((s) => s.doors);
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
+  const zones = useRoomLayoutStore((s) => s.zones);
   const clearanceViolations = useRoomLayoutStore((s) => s.clearanceViolations);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const addWall = useRoomLayoutStore((s) => s.addWall);
   const addDoor = useRoomLayoutStore((s) => s.addDoor);
+  const addZone = useRoomLayoutStore((s) => s.addZone);
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
 
@@ -50,7 +66,35 @@ export default function RoomEditor2D({
   const [draftWall, setDraftWall] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(
     null,
   );
+  const [draftZone, setDraftZone] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(
+    null,
+  );
+  const [nextZoneKind, setNextZoneKind] = useState<ZoneKind>('focus');
   const [confirmingSave, setConfirmingSave] = useState(false);
+  const [heatmapCategory, setHeatmapCategory] = useState<SensoryCategory | 'crowding' | 'none'>('none');
+  const [personaId, setPersonaId] = useState<string>('none');
+
+  // Engine layer (Phases 1/3/4): recomputed on every render from current store state —
+  // fine at this app's object counts (see graph.ts's own note on full-vs-localized
+  // recompute), and far simpler than threading incremental updates through this component.
+  const roomState = { floorDims, walls, doors, zones, placedObjects };
+  const violations = useMemo(() => {
+    const graph = buildGraphFromRoom(roomState);
+    return evaluateConstraints(roomState, graph);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floorDims, walls, doors, zones, placedObjects]);
+  const heatmapGrid = useMemo(() => {
+    return heatmapCategory === 'none' ? null : buildHeatmapGrid(roomState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heatmapCategory, floorDims, placedObjects]);
+  const selectedPersona = PERSONA_LIBRARY.find((p) => p.id === personaId) ?? null;
+  const personaScores = useMemo(() => {
+    if (!selectedPersona) return undefined;
+    const grid = buildHeatmapGrid(roomState);
+    const report = evaluatePersonaForRoom(selectedPersona, zones, grid);
+    return Object.fromEntries(report.zoneScores.map((z) => [z.zone.id, z.suitability]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPersona, zones, placedObjects]);
 
   const stageRef = useRef<Konva.Stage>(null);
   const editorRootRef = useRef<HTMLDivElement>(null);
@@ -105,33 +149,53 @@ export default function RoomEditor2D({
   }
 
   function handleStageDown() {
-    if (tool !== 'wall') return;
+    if (tool !== 'wall' && tool !== 'zone') return;
     const p = pointerMetres();
     if (!p) return;
     const snapped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
-    setDraftWall({ start: snapped, current: snapped });
+    if (tool === 'wall') setDraftWall({ start: snapped, current: snapped });
+    else setDraftZone({ start: snapped, current: snapped });
   }
 
   function handleStageMove() {
-    if (tool !== 'wall' || !draftWall) return;
     const p = pointerMetres();
     if (!p) return;
     const clamped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
-    setDraftWall({ ...draftWall, current: clamped });
+    if (tool === 'wall' && draftWall) setDraftWall({ ...draftWall, current: clamped });
+    else if (tool === 'zone' && draftZone) setDraftZone({ ...draftZone, current: clamped });
   }
 
   function handleStageUp() {
-    if (tool !== 'wall' || !draftWall) return;
-    const { start, current } = draftWall;
-    setDraftWall(null);
-    if (start.x === current.x && start.y === current.y) return; // zero-length, ignore
-    const wall: WallSegment = {
-      id: `wall-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-      start,
-      end: current,
-      thicknessM: WALL_THICKNESS_M,
-    };
-    addWall(wall);
+    if (tool === 'wall' && draftWall) {
+      const { start, current } = draftWall;
+      setDraftWall(null);
+      if (start.x === current.x && start.y === current.y) return; // zero-length, ignore
+      const wall: WallSegment = {
+        id: `wall-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+        start,
+        end: current,
+        thicknessM: WALL_THICKNESS_M,
+      };
+      addWall(wall);
+      return;
+    }
+    if (tool === 'zone' && draftZone) {
+      const { start, current } = draftZone;
+      setDraftZone(null);
+      const widthM = Math.abs(current.x - start.x);
+      const lengthM = Math.abs(current.y - start.y);
+      if (widthM < 0.2 || lengthM < 0.2) return; // too small to be a usable zone, ignore
+      const zone: Zone = {
+        id: `zone-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+        kind: nextZoneKind,
+        x: (start.x + current.x) / 2,
+        y: (start.y + current.y) / 2,
+        widthM,
+        lengthM,
+        rotationDeg: 0,
+      };
+      addZone(zone);
+    }
   }
 
   function handleWallClick(wall: WallSegment, xM: number, yM: number) {
@@ -154,13 +218,14 @@ export default function RoomEditor2D({
   return (
     <div ref={editorRootRef} tabIndex={0} className="flex flex-col gap-2 focus:outline-none">
       <div className="flex flex-wrap items-center gap-2">
-        {(['select', 'wall', 'door'] as Tool[]).map((t) => (
+        {(['select', 'wall', 'door', 'zone'] as Tool[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => {
               setTool(t);
               setDraftWall(null);
+              setDraftZone(null);
             }}
             className={`min-h-11 min-w-11 rounded border px-3 py-2 text-sm capitalize ${
               tool === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-700'
@@ -169,11 +234,59 @@ export default function RoomEditor2D({
             {t}
           </button>
         ))}
+        {tool === 'zone' && (
+          <select
+            value={nextZoneKind}
+            onChange={(e) => setNextZoneKind(e.target.value as ZoneKind)}
+            className="min-h-11 rounded border border-slate-300 px-2 text-sm"
+            aria-label="Zone type to draw"
+          >
+            {ZONE_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {ZONE_KIND_LABELS[kind]}
+              </option>
+            ))}
+          </select>
+        )}
         <span className="text-xs text-slate-500">
           {tool === 'wall' && 'Click and drag to draw a wall.'}
           {tool === 'door' && 'Click a wall to place a 0.9m door.'}
+          {tool === 'zone' && 'Pick a zone type, then click and drag to draw it.'}
           {tool === 'select' && 'Drag objects to reposition them, or press Tab to select one and use the arrow keys to move it.'}
         </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <label className="flex items-center gap-1">
+          Heatmap
+          <select
+            value={heatmapCategory}
+            onChange={(e) => setHeatmapCategory(e.target.value as SensoryCategory | 'crowding' | 'none')}
+            className="min-h-11 rounded border border-slate-300 px-2"
+          >
+            <option value="none">Off</option>
+            {HEATMAP_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {HEATMAP_CATEGORY_LABELS[c]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-1">
+          Persona view
+          <select
+            value={personaId}
+            onChange={(e) => setPersonaId(e.target.value)}
+            className="min-h-11 rounded border border-slate-300 px-2"
+          >
+            <option value="none">Off</option>
+            {PERSONA_LIBRARY.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <Stage
@@ -198,6 +311,26 @@ export default function RoomEditor2D({
             listening={false}
           />
         </Layer>
+        {heatmapGrid && (
+          <Layer>
+            <HeatmapOverlay grid={heatmapGrid} category={heatmapCategory as SensoryCategory | 'crowding'} pxPerM={pxPerM} />
+          </Layer>
+        )}
+        <Layer>
+          <ZoneLayer zones={zones} pxPerM={pxPerM} personaScores={personaScores} />
+          {draftZone && (
+            <Rect
+              x={Math.min(draftZone.start.x, draftZone.current.x) * pxPerM}
+              y={Math.min(draftZone.start.y, draftZone.current.y) * pxPerM}
+              width={Math.abs(draftZone.current.x - draftZone.start.x) * pxPerM}
+              height={Math.abs(draftZone.current.y - draftZone.start.y) * pxPerM}
+              fill="rgba(59,130,246,0.15)"
+              stroke="#2563eb"
+              dash={[6, 4]}
+              listening={false}
+            />
+          )}
+        </Layer>
         <Layer>
           <WallLayer walls={walls} doors={doors} pxPerM={pxPerM} doorTool={tool === 'door'} onWallClick={handleWallClick} />
           {draftWall && (
@@ -217,10 +350,10 @@ export default function RoomEditor2D({
           <ObjectLayer
             objects={placedObjects}
             walls={walls}
+            zones={zones}
             violations={clearanceViolations}
             pxPerM={pxPerM}
             gridSnapM={gridSnapM}
-            wallSnapThresholdM={wallSnapThresholdM}
             selectedObjectId={selectedObjectId}
             onSelect={selectObject}
             onMove={moveObject}
@@ -228,13 +361,9 @@ export default function RoomEditor2D({
         </Layer>
       </Stage>
 
+      <ViolationsList violations={violations} />
+
       <div className="flex items-center gap-2">
-        {clearanceViolations.size > 0 && (
-          <span className="text-xs text-red-600">
-            {clearanceViolations.size} object{clearanceViolations.size === 1 ? '' : 's'} need{clearanceViolations.size === 1 ? 's' : ''} more
-            space around {clearanceViolations.size === 1 ? 'it' : 'them'}.
-          </span>
-        )}
         <button
           type="button"
           onClick={handleSaveClick}
