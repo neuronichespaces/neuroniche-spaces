@@ -61,6 +61,8 @@ export default function RoomEditor2D({
   const addZone = useRoomLayoutStore((s) => s.addZone);
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
+  const rotateObject = useRoomLayoutStore((s) => s.rotateObject);
+  const updateObjectProps = useRoomLayoutStore((s) => s.updateObjectProps);
 
   const [tool, setTool] = useState<Tool>('select');
   const [draftWall, setDraftWall] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(
@@ -357,6 +359,8 @@ export default function RoomEditor2D({
             selectedObjectId={selectedObjectId}
             onSelect={selectObject}
             onMove={moveObject}
+            onRotate={rotateObject}
+            onResize={(id, widthM, depthM) => updateObjectProps(id, { widthM, depthM })}
           />
         </Layer>
       </Stage>

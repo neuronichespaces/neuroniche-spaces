@@ -226,6 +226,12 @@ export default function OrganisationsPage() {
                                 {r.name} — {r.width_m}m × {r.length_m}m
                               </span>
                               <Link
+                                href={`/spatial?room=${r.id}`}
+                                className="a11y-target rounded border border-[var(--a11y-border)] px-3 no-underline"
+                              >
+                                Design this room →
+                              </Link>
+                              <Link
                                 href={`/audit?room=${r.id}`}
                                 className="a11y-target rounded border border-[var(--a11y-border)] px-3 no-underline"
                               >

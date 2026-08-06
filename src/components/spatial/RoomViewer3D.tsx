@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { detectWebGPU } from './webgpu.ts';
 import RoomGeometry3D from './RoomGeometry3D.tsx';
-import ObjectMesh3D from './ObjectMesh3D.tsx';
+import ObjectMesh3D, { type GizmoMode } from './ObjectMesh3D.tsx';
 import WalkControls3D from './WalkControls3D.tsx';
 
 // Try WebGPURenderer first (feature-detected, not blind try/catch); fall back
@@ -54,8 +54,11 @@ export default function RoomViewer3D({
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
 }) {
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
+  const selectObject = useRoomLayoutStore((s) => s.selectObject);
   const [walking, setWalking] = useState(false);
   const [webgpuActive, setWebgpuActive] = useState(false);
+  const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate');
+  const [orbitEnabled, setOrbitEnabled] = useState(true);
   const [osReducedMotion, setOsReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -88,6 +91,23 @@ export default function RoomViewer3D({
     <div className="relative h-full w-full">
       {!hideControls && (
         <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1">
+          {!walking && (
+            <div className="flex gap-1 rounded-md bg-white/90 p-1 shadow">
+              {(['translate', 'rotate'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setGizmoMode(m)}
+                  aria-pressed={gizmoMode === m}
+                  className={`min-h-11 min-w-11 rounded px-2 text-sm capitalize ${
+                    gizmoMode === m ? 'bg-blue-50 text-blue-700' : 'text-slate-700'
+                  }`}
+                >
+                  {m === 'translate' ? 'Move' : 'Rotate'}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setWalking((w) => !w)}
@@ -106,6 +126,7 @@ export default function RoomViewer3D({
         shadows={richMode}
         gl={createRenderer}
         camera={{ position: [centreX, walking ? 1.6 : Math.max(floorDims.widthM, floorDims.lengthM), centreZ + 0.01], fov: 55 }}
+        onPointerMissed={() => selectObject(null)}
         onCreated={(state: RootState) => {
           state.camera.lookAt(centreX, 0, centreZ);
           // Force a resize with R3F's own authoritative container size, now that the
@@ -128,7 +149,7 @@ export default function RoomViewer3D({
         />
         <Suspense fallback={null}>
           <RoomGeometry3D highDetail={richMode} />
-          <ObjectMesh3D highDetail={richMode} />
+          <ObjectMesh3D highDetail={richMode} gizmoMode={gizmoMode} onDraggingChange={(d) => setOrbitEnabled(!d)} />
         </Suspense>
         {walking ? (
           <WalkControls3D onExit={() => setWalking(false)} reducedMotion={reduceMotion} />
@@ -136,6 +157,7 @@ export default function RoomViewer3D({
           <OrbitControls
             target={[centreX, 0, centreZ]}
             makeDefault
+            enabled={orbitEnabled}
             enableDamping={!reduceMotion}
             dampingFactor={reduceMotion ? 0 : 0.05}
           />

@@ -6,15 +6,18 @@
 // together" step — none of the individual components talk to each other
 // directly, they all read/write the one store.
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { SCENARIO_TEMPLATES } from '@/lib/spatial/templates.ts';
 import { TemplatePicker } from '@/components/spatial/TemplatePicker.tsx';
 import RoomEditor2D from '@/components/spatial/RoomEditor2D.tsx';
 import { PropertiesPanel } from '@/components/spatial/PropertiesPanel.tsx';
+import { RoomDimensionsPanel } from '@/components/spatial/RoomDimensionsPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
+import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
 
 // Code-split: three.js/@react-three/fiber/drei only ship once needed, not in the
 // initial /spatial bundle. ExportPanel (rendered unconditionally in the header) also
@@ -27,9 +30,22 @@ const RoomViewer3D = dynamic(() => import('@/components/spatial/RoomViewer3D.tsx
 });
 
 export default function SpatialDesignEnginePage() {
+  return (
+    <Suspense fallback={<main className="mx-auto max-w-6xl p-6 text-sm text-slate-500">Loading…</main>}>
+      <SpatialDesignEngineInner />
+    </Suspense>
+  );
+}
+
+function SpatialDesignEngineInner() {
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get('room');
   const [view, setView] = useState<'2d' | '3d'>('2d');
   const [presentationView, setPresentationView] = useState(false);
   const [roomName, setRoomName] = useState('New sensory room');
+  const [dbLoading, setDbLoading] = useState(!!roomId);
+  const [dbSaving, setDbSaving] = useState(false);
+  const [dbError, setDbError] = useState('');
   // Defaults to the OS `prefers-reduced-motion` setting on mount, then stays
   // user-controlled — covers people whose OS setting isn't on but who still
   // want it off in walk mode / orbit controls.
@@ -50,12 +66,36 @@ export default function SpatialDesignEnginePage() {
   const canUndo = useRoomLayoutStore((s) => s.canUndo);
   const canRedo = useRoomLayoutStore((s) => s.canRedo);
 
-  // Load any autosaved layout once on mount (localStorage), then keep this
-  // tab in sync with other tabs via BroadcastChannel (wired inside the store).
+  // With a ?room= id: load that room's real Supabase-saved layout (falls through to the
+  // template picker if it has none saved yet — a brand-new room). Without one: unchanged
+  // localStorage-only behaviour, cross-tab synced via BroadcastChannel inside the store.
   useEffect(() => {
+    if (roomId) {
+      loadRoomFromSupabase(roomId)
+        .then((layout) => {
+          if (layout) loadLayout(layout);
+        })
+        .catch((e: Error) => setDbError(e.message))
+        .finally(() => setDbLoading(false));
+      return;
+    }
     hydrateFromLocalStorage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [roomId]);
+
+  async function handleSave() {
+    saveToLocalStorage(); // always keep the local safety net, DB save is additive not a replacement
+    if (!roomId) return;
+    setDbSaving(true);
+    setDbError('');
+    try {
+      await saveRoomToSupabase(roomId, { walls, doors: useRoomLayoutStore.getState().doors, floorDims, placedObjects, zones });
+    } catch (e) {
+      setDbError((e as Error).message);
+    } finally {
+      setDbSaving(false);
+    }
+  }
 
   // B3: only default floorDims from the template on first-ever load (no prior
   // template/localStorage/user edit). Once a room has real dims, keep them —
@@ -108,6 +148,17 @@ export default function SpatialDesignEnginePage() {
         <ExportPanel roomName={roomName} catalogue={CATALOGUE} />
       </header>
 
+      {roomId && (
+        <p className="text-sm text-slate-600" role="status">
+          {dbLoading ? 'Loading saved room…' : dbSaving ? 'Saving…' : 'Connected to a saved room — Save writes to your organisation.'}
+        </p>
+      )}
+      {dbError && (
+        <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+          {dbError}
+        </p>
+      )}
+
       <section>
         <h2 className="mb-2 text-sm font-medium text-gray-700">Start from a template</h2>
         <TemplatePicker templates={SCENARIO_TEMPLATES} actualDims={floorDims} onSelect={applyTemplate} />
@@ -118,6 +169,8 @@ export default function SpatialDesignEnginePage() {
           Start from a template above, or draw your first wall using the wall tool below.
         </div>
       )}
+
+      <RoomDimensionsPanel />
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
@@ -161,7 +214,7 @@ export default function SpatialDesignEnginePage() {
         <div className="flex flex-col gap-4 lg:flex-row">
           <div className="flex-1">
             {view === '2d' ? (
-              <RoomEditor2D onSave={saveToLocalStorage} />
+              <RoomEditor2D onSave={handleSave} />
             ) : (
               <div className="h-[500px] w-full overflow-hidden rounded border border-slate-300">
                 <RoomViewer3D highDetail={presentationView} reducedMotion={reduceMotion} />

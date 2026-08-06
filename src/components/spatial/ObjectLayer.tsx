@@ -1,9 +1,13 @@
 'use client';
 
-import { Circle, Group, Rect, Text } from 'react-konva';
+import { useEffect, useRef } from 'react';
+import { Circle, Group, Rect, Text, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { PlacedObject, WallSegment, Zone } from '@/lib/spatial/types.ts';
 import { computeBestSnap } from '@/lib/spatial/snapEngine.ts';
+import { clearanceToNearestWall } from '@/lib/spatial/measurements.ts';
+
+const MIN_DIM_M = 0.2;
 
 type Props = {
   objects: PlacedObject[];
@@ -15,6 +19,8 @@ type Props = {
   selectedObjectId: string | null;
   onSelect: (id: string) => void;
   onMove: (id: string, xM: number, yM: number) => void;
+  onRotate: (id: string, rotationDeg: number) => void;
+  onResize: (id: string, widthM: number, depthM: number) => void;
 };
 
 export default function ObjectLayer({
@@ -27,7 +33,25 @@ export default function ObjectLayer({
   selectedObjectId,
   onSelect,
   onMove,
+  onRotate,
+  onResize,
 }: Props) {
+  const groupRefs = useRef<Record<string, Konva.Group>>({});
+  const transformerRef = useRef<Konva.Transformer>(null);
+
+  // Attach the Transformer's handles to whichever object group is selected — Konva's
+  // pattern (a single shared Transformer node re-targeted) rather than one per object.
+  useEffect(() => {
+    const tr = transformerRef.current;
+    if (!tr) return;
+    const node = selectedObjectId ? groupRefs.current[selectedObjectId] : null;
+    tr.nodes(node ? [node] : []);
+    tr.getLayer()?.batchDraw();
+  }, [selectedObjectId, objects]);
+
+  const selectedObj = objects.find((o) => o.id === selectedObjectId) ?? null;
+  const selectedClearance = selectedObj ? clearanceToNearestWall({ x: selectedObj.x, y: selectedObj.y }, walls) : null;
+
   return (
     <>
       {objects.map((obj) => {
@@ -48,6 +72,10 @@ export default function ObjectLayer({
               />
             )}
             <Group
+              ref={(node) => {
+                if (node) groupRefs.current[obj.id] = node;
+                else delete groupRefs.current[obj.id];
+              }}
               x={obj.x * pxPerM}
               y={obj.y * pxPerM}
               rotation={obj.rotationDeg}
@@ -63,6 +91,18 @@ export default function ObjectLayer({
                   { gridM: gridSnapM, walls, zones, objects, footprintM: obj.footprintM, excludeObjectId: obj.id },
                 );
                 onMove(obj.id, best.point.x, best.point.y);
+              }}
+              onTransformEnd={(e: Konva.KonvaEventObject<Event>) => {
+                const node = e.target as Konva.Group;
+                onRotate(obj.id, Math.round(node.rotation()));
+                // Konva's Transformer scales the node rather than resizing children live;
+                // bake the scale into the stored footprint (metres) and reset scale to 1,
+                // same pattern as the library's own resize-via-Transformer example.
+                const newWidthM = Math.max(MIN_DIM_M, (obj.footprintM.w * node.scaleX()));
+                const newDepthM = Math.max(MIN_DIM_M, (obj.footprintM.l * node.scaleY()));
+                node.scaleX(1);
+                node.scaleY(1);
+                onResize(obj.id, newWidthM, newDepthM);
               }}
             >
               <Rect
@@ -101,6 +141,27 @@ export default function ObjectLayer({
           </Group>
         );
       })}
+      <Transformer
+        ref={transformerRef}
+        rotateEnabled
+        enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+        boundBoxFunc={(oldBox, newBox) =>
+          newBox.width < MIN_DIM_M * pxPerM || newBox.height < MIN_DIM_M * pxPerM ? oldBox : newBox
+        }
+      />
+      {selectedObj && (
+        <Text
+          x={selectedObj.x * pxPerM - selectedObj.footprintM.w * pxPerM / 2}
+          y={selectedObj.y * pxPerM + selectedObj.footprintM.l * pxPerM / 2 + 6}
+          width={Math.max(selectedObj.footprintM.w * pxPerM, 120)}
+          text={`${selectedObj.footprintM.w.toFixed(2)}m × ${selectedObj.footprintM.l.toFixed(2)}m${
+            selectedClearance ? `  ·  ${selectedClearance.clearanceM.toFixed(2)}m to wall` : ''
+          }`}
+          fontSize={11}
+          fill="#334155"
+          listening={false}
+        />
+      )}
     </>
   );
 }

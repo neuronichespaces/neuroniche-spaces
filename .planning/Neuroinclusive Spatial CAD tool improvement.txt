@@ -1,0 +1,793 @@
+You are a Principal Software Architect, BIM Engineer, Neuroinclusive Space Design Specialist, Spatial Computing Engineer, Digital Twin Architect, UX Specialist and AI Systems Engineer.
+
+Your objective is NOT to create another room visualizer.
+
+Your objective is to build a professional neuroinclusive spatial planning platform that combines:
+
+• CAD-like editing
+• Spatial intelligence
+• Neurodiversity-aware design
+• Real-time simulation
+• Digital twin principles
+• AI-assisted planning
+
+The final product should feel closer to:
+
+• Autodesk Forma
+• Revit
+• SketchUp
+• Floorplanner
+• ArcGIS
+• BIM platforms
+
+rather than a simple Three.js demo.
+
+==================================================
+CORE PRINCIPLE
+==================================================
+
+Never generate cubes as furniture.
+
+Never generate procedural placeholder geometry.
+
+Never use WebGPU planes and boxes as final assets.
+
+Never make AI generate meshes.
+
+AI is responsible for reasoning.
+
+Rendering engine is responsible for geometry.
+
+System architecture:
+
+AI
+ ↓
+Spatial Intelligence Layer
+ ↓
+JSON Layout Engine
+ ↓
+Constraint Engine
+ ↓
+Spatial Graph Engine
+ ↓
+Asset Registry
+ ↓
+GLB Asset Loader
+ ↓
+React Three Fiber Renderer
+
+==================================================
+TECH STACK
+==================================================
+
+Frontend
+
+- NextJS
+- React
+- Typescript
+- Tailwind
+- Radix UI
+- Zustand
+
+3D Stack
+
+- Three.js
+- React Three Fiber
+- Drei
+- Transform Controls
+- BVH acceleration
+- Octree spatial indexing
+
+Simulation
+
+- Spatial Graph Engine
+- Constraints Engine
+- Sensory Simulation Engine
+- Persona Simulation Engine
+
+AI
+
+- Claude
+- Layout Generation
+- Neurodiversity Analysis
+- Recommendation Engine
+- Optimization Engine
+
+==================================================
+USER WORKFLOWS
+==================================================
+
+Users must be able to:
+
+✓ Create rooms
+
+✓ Draw rooms
+
+✓ Define dimensions
+
+✓ Import floorplans
+
+✓ Define walls
+
+✓ Define windows
+
+✓ Define doors
+
+✓ Create zones
+
+✓ Drag furniture
+
+✓ Rotate furniture
+
+✓ Scale furniture
+
+✓ Duplicate furniture
+
+✓ Delete furniture
+
+✓ Wall snapping
+
+✓ Corner snapping
+
+✓ Object snapping
+
+✓ Zone snapping
+
+✓ Measure distances
+
+✓ Measure clearances
+
+✓ View accessibility violations
+
+✓ View sensory heatmaps
+
+✓ Run persona simulations
+
+✓ Generate AI recommendations
+
+==================================================
+ROOM MODEL
+==================================================
+
+Room is not geometry.
+
+Room is structured data.
+
+{
+  room:{},
+  walls:[],
+  windows:[],
+  doors:[],
+  zones:[],
+  objects:[]
+}
+
+All dimensions use millimeters.
+
+No pixels.
+
+No arbitrary units.
+
+==================================================
+ZONE-FIRST PLANNING
+==================================================
+
+The planner must be zone-driven.
+
+Supported zones:
+
+Focus Zone
+
+Calm Zone
+
+Transition Zone
+
+Movement Zone
+
+Regulation Zone
+
+Collaboration Zone
+
+Storage Zone
+
+Breakout Zone
+
+Sensory Support Zone
+
+Reflection Zone
+
+The AI must place zones before furniture.
+
+Furniture is placed inside zones.
+
+==================================================
+PARAMETRIC OBJECT SYSTEM
+==================================================
+
+Every object must expose:
+
+{
+   id,
+
+   width,
+   depth,
+   height,
+
+   position,
+
+   rotation,
+
+   category,
+
+   sensoryProfile,
+
+   accessibilityProfile,
+
+   mobility,
+
+   anchors[]
+}
+
+No hardcoded dimensions.
+
+User can resize everything.
+
+==================================================
+SENSORY EQUIPMENT LIBRARY
+==================================================
+
+Create native support for:
+
+Acoustic Wall Panels
+
+Sensory Swings
+
+Compression Chairs
+
+Bean Bags
+
+Quiet Pods
+
+Focus Pods
+
+Privacy Screens
+
+Task Lighting
+
+Weighted Blanket Areas
+
+Rocking Chairs
+
+Bubble Tubes
+
+Fiber Optic Features
+
+Calm Corners
+
+Sound Dampening Curtains
+
+Noise Isolation Booths
+
+Every object exposes:
+
+{
+   sensoryProfile:{
+      noiseReduction,
+      visualStimulation,
+      tactileSupport,
+      vestibularSupport,
+      proprioceptiveSupport,
+      regulationSupport
+   }
+}
+
+==================================================
+SPATIAL GRAPH ENGINE
+==================================================
+
+The renderer is NOT the source of truth.
+
+The spatial graph is the source of truth.
+
+Build:
+
+Geometry Graph
+
+Visibility Graph
+
+Movement Graph
+
+Traffic Graph
+
+Sensory Graph
+
+Accessibility Graph
+
+Zone Graph
+
+Node Types
+
+- Room
+- Zone
+- Furniture
+- Door
+- Window
+- Corridor
+- Sensory Equipment
+
+Relationships
+
+- INSIDE
+- NEAR
+- ADJACENT
+- VISIBLE
+- CONNECTED
+- BLOCKING
+- INTERSECTS
+- CONTAINS
+
+All simulation operates from graph data.
+
+==================================================
+REAL-TIME GRAPH UPDATES
+==================================================
+
+Use event-driven architecture.
+
+When object moves:
+
+PositionChanged
+    ↓
+Update Local Graph
+    ↓
+Update Relevant Edges
+    ↓
+Update Constraints
+    ↓
+Update Heatmaps
+    ↓
+Update Persona Scores
+
+Never recompute the entire room.
+
+Use localized invalidation.
+
+==================================================
+SPATIAL INDEXING
+==================================================
+
+Implement:
+
+BVH
+
+Octree
+
+RBush
+
+Spatial queries:
+
+Nearest Wall
+
+Nearest Object
+
+Objects Within Radius
+
+Visible Objects
+
+Traffic Sources
+
+Noise Sources
+
+Zone Membership
+
+==================================================
+DYNAMIC SNAP ENGINE
+==================================================
+
+Implement intelligent snapping.
+
+Snaps:
+
+Grid
+
+Wall
+
+Corner
+
+Object
+
+Alignment
+
+Zone
+
+Clearance
+
+Accessibility
+
+Every object contains anchors:
+
+Center
+
+Front
+
+Back
+
+Left
+
+Right
+
+Corners
+
+Use weighted scoring.
+
+Snap score =
+distance +
+alignment +
+constraint score +
+neuro score
+
+Apply highest score.
+
+==================================================
+CONSTRAINT ENGINE
+==================================================
+
+Support:
+
+Hard Constraints
+
+Soft Constraints
+
+Hard Constraints:
+
+Wall Collision
+
+Object Collision
+
+Door Obstruction
+
+Window Obstruction
+
+Ceiling Clash
+
+Accessibility Violation
+
+Soft Constraints:
+
+Noise Exposure
+
+Visual Clutter
+
+Traffic Exposure
+
+Transition Complexity
+
+Poor Focus Location
+
+Every violation returns:
+
+Severity
+
+Reason
+
+Recommendation
+
+==================================================
+NEUROINCLUSIVE RULE ENGINE
+==================================================
+
+Evaluate:
+
+Noise
+
+Lighting
+
+Visual Clutter
+
+Crowding
+
+Predictability
+
+Privacy
+
+Traffic Exposure
+
+Regulation Support
+
+Focus Support
+
+Recovery Opportunities
+
+Generate real-time scores:
+
+Accessibility Score
+
+Focus Score
+
+Calm Score
+
+Sensory Regulation Score
+
+Movement Score
+
+Cognitive Load Score
+
+==================================================
+HEATMAP ENGINE
+==================================================
+
+Build multi-layer heatmaps.
+
+Layers:
+
+Noise
+
+Visual Clutter
+
+Movement
+
+Lighting
+
+Crowding
+
+Regulation
+
+Focus
+
+Privacy
+
+Accessibility
+
+Do not use colored planes.
+
+Use GPU textures.
+
+Heatmap Data
+ ↓
+Texture
+ ↓
+Shader
+ ↓
+Floor Overlay
+
+Dynamic updates only.
+
+Update affected cells only.
+
+==================================================
+MULTI-PERSONA ENGINE
+==================================================
+
+Personas are profiles.
+
+Not prompts.
+
+Examples:
+
+Autistic Adult
+
+ADHD Adult
+
+AuDHD
+
+Sensory Seeking Child
+
+Sensory Avoiding Child
+
+Wheelchair User
+
+Low Vision User
+
+Hearing Impaired User
+
+PTSD
+
+Anxiety
+
+Each persona contains weighted preferences.
+
+All personas share the same environment model.
+
+Environment is simulated once.
+
+Personas evaluate independently.
+
+==================================================
+PERSONA JOURNEY SIMULATION
+==================================================
+
+Simulate:
+
+Enter Room
+ ↓
+Navigate
+ ↓
+Work
+ ↓
+Collaborate
+ ↓
+Rest
+ ↓
+Exit
+
+Evaluate:
+
+Noise
+
+Visual Load
+
+Transition Complexity
+
+Traffic Exposure
+
+Predictability
+
+Wayfinding
+
+Crowding
+
+Generate:
+
+Journey Stress Score
+
+Journey Focus Score
+
+Journey Regulation Score
+
+==================================================
+AI RECOMMENDATION ENGINE
+==================================================
+
+Claude should analyze.
+
+Claude should not render.
+
+Claude should:
+
+Recommend layouts
+
+Explain problems
+
+Identify violations
+
+Optimize placements
+
+Suggest sensory supports
+
+Suggest zone changes
+
+Generate JSON outputs
+
+Example:
+
+Problem:
+Desk near doorway
+
+Impact:
+High traffic visibility
+
+Risk:
+Attention disruption
+
+Recommendation:
+Move desk 1.5m into focus zone
+Add acoustic screen
+
+==================================================
+GLB ASSET SYSTEM
+==================================================
+
+Use:
+
+GLB
+
+GLTF
+
+Asset Registry
+
+Never use generated meshes.
+
+Every asset contains:
+
+{
+  assetId,
+  category,
+  dimensions,
+  sensoryProfile,
+  accessibilityProfile,
+  tags,
+  anchors,
+  version
+}
+
+Support:
+
+LOD0
+LOD1
+LOD2
+LOD3
+
+Semantic versioning.
+
+Renderer loads by Asset ID.
+
+==================================================
+VISUAL EXPERIENCE
+==================================================
+
+The application should feel premium.
+
+Requirements:
+
+SketchUp-quality interaction
+
+Floorplanner usability
+
+Revit-style constraints
+
+Digital twin intelligence
+
+Real-time overlays
+
+Smooth animations
+
+Professional CAD controls
+
+Contextual property panels
+
+Multi-layer visualization
+
+==================================================
+OUTPUT REQUIREMENT
+==================================================
+
+Generate:
+
+1. Full system architecture
+
+2. Monorepo structure
+
+3. State management architecture
+
+4. Spatial graph architecture
+
+5. Constraint engine design
+
+6. Heatmap engine implementation
+
+7. Persona engine implementation
+
+8. AI integration architecture
+
+9. Database schema
+
+10. JSON layout schema
+
+11. Asset registry schema
+
+12. API architecture
+
+13. React component architecture
+
+14. Zustand stores
+
+15. Performance strategy
+
+16. Scalability strategy
+
+17. Deployment architecture
+
+18. Development roadmap
+
+19. Technical debt risks
+
+20. Production-ready implementation plan
+
+Provide enterprise-grade code architecture and implementation detail.
+
+Assume this product will serve schools, workplaces, therapy centers, hospitals, homes and government accessibility planning projects.
+
+The final platform must represent the gold standard for neuroinclusive spatial planning and digital twin simulation.
+
+
+This prompt is strong because it forces Claude into the role of system architect and simulation engineer, not a 3D scene generator. It explicitly defines the spatial graph, constraints, heatmaps, personas, digital twin architecture, AI responsibilities, CAD capabilities, asset pipeline, and neuroinclusive design engine so the generated codebase is much closer to a commercial-grade product than a WebGPU demo.

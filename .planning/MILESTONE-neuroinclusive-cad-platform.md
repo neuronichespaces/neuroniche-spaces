@@ -223,6 +223,178 @@ Picked up from the handoff's "highest-leverage next chunk" note.
   it fully; build/typecheck/lint are all clean but that only proves the code compiles and
   the logic is unit-sound, not that pointer events wire up correctly in a real browser.
 
+## Phase 2 gizmo + browser verification — done (2026-08-06)
+
+- `ObjectLayer.tsx`: Konva `Transformer` wired to the store's existing `rotateObject`/
+  `updateObjectProps` — corner-drag resizes the footprint (metres, 0.2m floor), the rotate
+  handle spins it. On-canvas label under the selected object shows live dimensions + wall
+  clearance (`measurements.ts`'s `clearanceToNearestWall`, previously computed but unused
+  by any UI). `RoomEditor2D.tsx`: two new store selectors wired into `ObjectLayer`'s props.
+- **Actually verified live in a browser** (`npm run dev`, chrome-devtools MCP): loaded
+  `/spatial`, picked a template, Tab-selected an object — gizmo handles rendered, label
+  showed "0.90m × 0.40m · 0.45m to wall" matching the properties panel exactly, arrow-key
+  nudge tracked correctly. Heatmap and persona selectors both confirmed live (heatmap
+  gradient renders correctly around a movement-emitting object). Zero new console errors —
+  the one present (`drawIndexed`/WebGPU) is the pre-existing, already-documented,
+  unrelated 3D-viewer issue.
+- **Real tooling limit, not a defect**: pixel-level mouse drag (dragging a resize handle,
+  drawing a zone/wall by click-drag) can't be driven by the available browser-automation
+  toolset — it clicks/drags whole DOM elements by accessibility-tree id, and the 2D editor
+  is bare `<canvas>` layers with no per-shape DOM nodes. Keyboard-driven interaction
+  (Tab-select, arrow-move) is real, trusted-input, and now verified; mouse-drag-on-canvas
+  remains manual-only.
+- `npm run build`: clean. `node --test`: 37/37 pass (spatial suite, pre-registry-addition).
+
+## GLB asset registry — Phase 1/2/7 done, Phases 3/4 explicitly out of scope (2026-08-06)
+
+Picked up from `.planning/GLB-Asset-Library-Master-Prompt-Claude-Sonnet.md`.
+
+- `assetRegistry.ts` (new): `AssetRegistryEntry`/`SourceProvenance`/`LODSet` types,
+  `validateAssetEntry` (structural + licensing-rule checks — Tier D forbids a mesh, Tier B
+  requires `modifiedForWebGL`, banned-brand-substring blocklist), `isProductionReady`,
+  `getAssetEntry` (load-by-productId, never by filename — the spec's core principle),
+  `complianceReport` (per-tier tally + pending-review list, the pure function behind
+  spec Phase 2/7's CLI/report).
+- Registry populated for the **13 real productIds** `sensoryLibrary.ts` already defines
+  (the only ids any template actually places) — each tagged with a sourcing tier and a
+  `PENDING`-review provenance stub, `glb: null` (accurate: confirmed zero `.glb` files
+  anywhere under `public/`). The other ~21 items in the spec's taxonomy are **not**
+  stubbed in — nothing in the app would ever look them up, so pre-registering them would
+  be speculative scaffolding; add one the day a template actually places it.
+- `ObjectMesh3D.tsx`: `ObjectBox` now checks `getAssetEntry(obj.productId)?.glb` and would
+  render via `@react-three/drei`'s `useGLTF` if a `glbPath` existed; falls back to the
+  existing coloured box otherwise. Every entry is `glb: null` today, so this branch is
+  real, working code that isn't exercised by any data yet — registering a real file is a
+  one-line registry edit away from rendering, not an architecture change.
+- **Explicitly not built**: spec Phases 3 (Blender `bpy` automation scripts) and 4
+  (marketplace GLB ingestion pipeline). Both need a real Blender environment and actual
+  downloaded/purchased marketplace files, neither of which exists in this session —
+  generating untested automation scripts nobody can run yet is the same "scaffolding for
+  later" this codebase avoids everywhere else. Revisit once there's a real asset to run
+  Phase 3/4 tooling against.
+- **AI recommendation call (Phase 5 from the earlier milestone table) also deliberately
+  deferred this session** — user chose to hold the provider/key decision open rather than
+  wire a specific one now (`aiContracts.ts`'s JSON-only contracts stay provider-agnostic,
+  so this doesn't block that choice being made later).
+- `assetRegistry.test.ts` (new): 7 tests — every entry maps to a real productId, PENDING
+  entries validate clean, Tier D/B rule enforcement, brand blocklist, compliance tally.
+  `node --test`: 44/44 pass. `npm run build`: clean.
+- Phase 6 (projects/scenarios/RBAC/audit-log) still not started.
+
+## Phase 6 — scoped, then RBAC found already-done; real gap was Supabase wiring (2026-08-06)
+
+Scoping pass before touching any migration surfaced two things that changed the plan:
+
+- **"RBAC" in the original brief is already built**, not a Phase 6 gap — `0004_memberships_and_rls.sql`
+  already has `organisation_memberships` (owner/member) and RLS scoping `rooms`/`room_layouts`/
+  `placed_objects`/`sensory_profiles` to `is_org_member()`. The milestone doc's earlier "Phase 6
+  not started" note was stale.
+- **`/spatial` had zero Supabase wiring at all** — confirmed via grep, `store.ts` never referenced
+  `supabase`/`room_layouts`; the Save button only wrote to `localStorage`. The DB tables from 0003
+  existed but nothing in the app ever used them. "Scenario versioning" has nothing to version until
+  a real save path exists, so that became the actual Phase 6 deliverable this session, per the
+  user's explicit choice after being shown this finding. User also confirmed "room" is already the
+  project unit — no new `projects` table needed.
+
+Built:
+
+- `0010_spatial_supabase_wiring.sql` (new migration): `room_layouts.zones_json` (zones had no DB
+  column at all — added post-Phase-1 of the CAD milestone, same jsonb-array pattern as the existing
+  `wall_geometry_json`/`door_positions_json`). `products.slug` (text, unique) + 13 seed rows — found
+  that `placed_objects.product_id` is a uuid FK to `products`, but the editor's `PlacedObject.productId`
+  is a human slug (`sensoryLibrary.ts`'s id space) with no matching row, so no placed object could
+  ever have been saved without this.
+- `persistence.ts` (new): `loadRoomFromSupabase(roomId)` / `saveRoomToSupabase(roomId, layout)` —
+  resolves productId slugs to product uuids, replaces the placed-objects set on save (simplest
+  correct strategy at this app's ≤25-object ceiling, no per-object dirty-tracking needed).
+- `spatial/page.tsx`: `?room=<uuid>` now loads that room's real saved layout on mount (falls through
+  to the template picker if none saved yet) and Save writes to Supabase in addition to the existing
+  localStorage safety net, with loading/saving/error states surfaced in the UI (a failed real save
+  must be visible, unlike the best-effort local autosave). Needed a `Suspense` boundary split
+  (`useSearchParams` requirement) — caught by `npm run build`, not by inspection.
+- `organisations/page.tsx`: added "Design this room →" link next to the existing "Audit"/"Plan"
+  links, the missing entry point into a room-scoped `/spatial` session.
+- `npm run build`: clean. `node --test` (full suite): 114/114 pass. Lint: clean in every file this
+  touched (one new violation caught and fixed — `set-state-in-effect` in the load effect; the
+  pre-existing 12-error baseline in unrelated files is unchanged).
+- **Not verified against a live Supabase project** — no test-DB harness exists in this repo (same
+  as every other Supabase-touching page here, e.g. `organisations/page.tsx` has no tests either).
+  Verified via typecheck + build only. Built but unverified against a real database — say so before
+  trusting it end-to-end; the migration also hasn't been applied to any live project yet.
+- Still not done: an audit-log/change-history table. Scoped out this session in favour of the
+  Supabase-wiring prerequisite it depends on now existing first.
+
+## Foundation-rebuild Phase 0 + Milestone 3 — audit/plan docs, 3D picking + gizmo (2026-08-06)
+
+A separate, much larger "Neuroinclusive CAD-Style Spatial Room Planner Foundation"
+prompt (10 foundations, Babylon.js emphasis) was pasted this session. Its own literal
+process was followed rather than a blind full rebuild — see the reasoning captured in
+conversation: the prompt itself says "don't replace a well-implemented Three.js
+architecture," and this repo's is one. `docs/architecture/current-state-audit.md` and
+`docs/architecture/foundation-plan.md` (new) are the Phase 0 outputs — audit against the
+prompt's defect checklist, and a milestone-by-milestone plan mapped onto what already
+exists here rather than a from-zero rebuild. Framework verdict: **keep Three.js/R3F** —
+audit found nothing blocking Foundations 1–7 on the current stack, and a Babylon.js
+migration isn't justified by the prompt's own stated condition.
+
+Milestone 3 (3D click-to-select + gizmo) picked as the first real slice:
+
+- `ObjectMesh3D.tsx`: objects are now clickable (`onClick` + `e.stopPropagation()`) and
+  wire into the same `store.selectObject`/`moveObject`/`rotateObject` actions the 2D
+  gizmo already uses — one command layer, two renderers, same principle as the rest of
+  this app. Added `@react-three/drei`'s `<TransformControls>`, restricted to the XZ
+  plane in translate mode and Y-axis-only in rotate mode (matches `PlacedObject`'s data
+  model — there's nowhere to persist a tilt or elevation change).
+- `RoomViewer3D.tsx`: Move/Rotate mode toggle in the 3D view's control overlay,
+  `onPointerMissed` clears selection on background click, `OrbitControls` gets
+  `enabled={orbitEnabled}` toggled false while a gizmo drag is active (via
+  `ObjectMesh3D`'s new `onDraggingChange` callback) so orbit and gizmo-drag don't fight
+  over the same pointer gesture.
+- `npm run build`: clean. `node --test` (full suite): 114/114 pass. `eslint` on both
+  touched files: clean.
+- **Verified live in a browser**: mode toggle renders and its `aria-pressed` state
+  updates correctly on click; zero new console errors (no TransformControls/GLTF
+  warnings, the earlier `drawIndexed` WebGPU issue didn't reproduce this run either).
+- **Not verified live**: actual click-to-select-a-mesh and gizmo-drag interaction — the
+  3D view is a single WebGL `<canvas>` (unlike Konva's layered canvases in the 2D view),
+  and the available browser-automation tooling clicks/drags DOM elements by
+  accessibility-tree id, not canvas pixel coordinates. Same limitation logged earlier
+  for the 2D gizmo, now confirmed to apply to 3D too. A real manual click-through is
+  still owed before fully trusting this.
+- Milestones 4 (numeric dimension editing + keyboard parity) and 7 (accessibility
+  semantic tree) remain the next recommended slices per `foundation-plan.md`.
+
+## Milestone 4 (partial) — numeric room-dimension editing, verified live (2026-08-06)
+
+Scoped down under quota pressure (session cost was already high, quota flagged "hot
+burner" repeatedly) to its single highest-value piece: room width/length had **zero**
+numeric editing UI before this (only object dimensions had sliders). Keyboard
+resize/rotate parity for objects — the other half of Milestone 4 — explicitly deferred,
+not silently dropped.
+
+- `units.ts` (new): `parseLengthToMetres` — accepts `"4200"`, `"4200mm"`, `"420cm"`,
+  `"4.2m"`, bare number = metres (this codebase's canonical unit, kept per the
+  foundation-plan's own recommendation against a mm rewrite). Rejects non-numeric,
+  `Infinity`, `NaN`. `formatMetres` for consistent redisplay.
+- `RoomDimensionsPanel.tsx` (new): text inputs for room width/length, draft-string
+  pattern (matches `PropertiesPanel.tsx`'s existing convention — no local echo of
+  committed store state). Commits on blur/Enter, Escape reverts to the last committed
+  value, inline `role="alert"` error text for bad input or out-of-range (1–50m) —
+  never silently clamps, per the source prompt's explicit requirement.
+- `spatial/page.tsx`: panel wired in above the 2D/3D view toggle.
+- `units.test.ts` (new): 4 tests. `node --test` (full suite): 118/118 pass. `npm run
+  build`: clean. `eslint` on all 3 touched/new files: clean.
+- **Verified live in a browser**: typed `"420cm"` into Room width → committed as
+  `"4.20m"`, 2D canvas visibly resized, Undo button enabled (goes through the existing
+  `setFloorDims` store action, so it's on the normal undo/redo history). Typed
+  `"nonsense"` into Room length → red border + "Enter a number, e.g. 4.2m, 420cm, or
+  4200mm." shown, store's `lengthM` stayed unchanged at 6.00m (not clamped, not
+  silently accepted). Zero console errors.
+- **Not done**: keyboard resize/rotate for placed objects (deferred), wall-level
+  numeric editing (walls have no selection concept in this app yet — would need its own
+  scoping pass, not a quick extension), room height (no field exists in the model at
+  all — floorDims is 2D only, ceiling height isn't modelled anywhere in this codebase).
+
 ## To activate this milestone
 
 Pick one row from the phase table above as a session's actual task, and it goes through
