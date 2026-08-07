@@ -1,0 +1,3436 @@
+[
+  {
+    "id": "sensory-swing-01",
+    "category": "regulation-calming",
+    "displayName": "Sensory Swing",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1200,
+      "depth": 1200,
+      "height": 2200
+    },
+    "sensoryProfile": {
+      "noiseReduction": 3,
+      "visualStimulation": 3,
+      "tactileSupport": 6,
+      "vestibularSupport": 5,
+      "proprioceptiveSupport": 6,
+      "regulationSupport": 9
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": false,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 600
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -600
+      },
+      "left": {
+        "x": -600,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 600,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -600,
+          "y": 2200,
+          "z": -600
+        },
+        {
+          "x": 600,
+          "y": 2200,
+          "z": -600
+        },
+        {
+          "x": 600,
+          "y": 2200,
+          "z": 600
+        },
+        {
+          "x": -600,
+          "y": 2200,
+          "z": 600
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 15000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 7500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 3000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "compression-chair-01",
+    "category": "regulation-calming",
+    "displayName": "Compression Chair",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 700,
+      "depth": 700,
+      "height": 1100
+    },
+    "sensoryProfile": {
+      "noiseReduction": 3,
+      "visualStimulation": 3,
+      "tactileSupport": 6,
+      "vestibularSupport": 5,
+      "proprioceptiveSupport": 6,
+      "regulationSupport": 9
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 350
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -350
+      },
+      "left": {
+        "x": -350,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 350,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -350,
+          "y": 1100,
+          "z": -350
+        },
+        {
+          "x": 350,
+          "y": 1100,
+          "z": -350
+        },
+        {
+          "x": 350,
+          "y": 1100,
+          "z": 350
+        },
+        {
+          "x": -350,
+          "y": 1100,
+          "z": 350
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "beanbag-01",
+    "category": "regulation-calming",
+    "displayName": "Bean Bag",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 900,
+      "depth": 900,
+      "height": 700
+    },
+    "sensoryProfile": {
+      "noiseReduction": 3,
+      "visualStimulation": 3,
+      "tactileSupport": 6,
+      "vestibularSupport": 5,
+      "proprioceptiveSupport": 6,
+      "regulationSupport": 9
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 450
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -450
+      },
+      "left": {
+        "x": -450,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 450,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -450,
+          "y": 700,
+          "z": -450
+        },
+        {
+          "x": 450,
+          "y": 700,
+          "z": -450
+        },
+        {
+          "x": 450,
+          "y": 700,
+          "z": 450
+        },
+        {
+          "x": -450,
+          "y": 700,
+          "z": 450
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "weighted-blanket-station-01",
+    "category": "regulation-calming",
+    "displayName": "Weighted Blanket Station",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1200,
+      "depth": 900,
+      "height": 400
+    },
+    "sensoryProfile": {
+      "noiseReduction": 3,
+      "visualStimulation": 3,
+      "tactileSupport": 6,
+      "vestibularSupport": 5,
+      "proprioceptiveSupport": 6,
+      "regulationSupport": 9
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 450
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -450
+      },
+      "left": {
+        "x": -600,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 600,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -600,
+          "y": 400,
+          "z": -450
+        },
+        {
+          "x": 600,
+          "y": 400,
+          "z": -450
+        },
+        {
+          "x": 600,
+          "y": 400,
+          "z": 450
+        },
+        {
+          "x": -600,
+          "y": 400,
+          "z": 450
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "rocking-chair-01",
+    "category": "regulation-calming",
+    "displayName": "Rocking Chair",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 650,
+      "depth": 800,
+      "height": 1000
+    },
+    "sensoryProfile": {
+      "noiseReduction": 3,
+      "visualStimulation": 3,
+      "tactileSupport": 6,
+      "vestibularSupport": 5,
+      "proprioceptiveSupport": 6,
+      "regulationSupport": 9
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": false,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 400
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -400
+      },
+      "left": {
+        "x": -325,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 325,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -325,
+          "y": 1000,
+          "z": -400
+        },
+        {
+          "x": 325,
+          "y": 1000,
+          "z": -400
+        },
+        {
+          "x": 325,
+          "y": 1000,
+          "z": 400
+        },
+        {
+          "x": -325,
+          "y": 1000,
+          "z": 400
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "calm-corner-composite-01",
+    "category": "regulation-calming",
+    "displayName": "Calm Corner Composite",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1800,
+      "depth": 1800,
+      "height": 1600
+    },
+    "sensoryProfile": {
+      "noiseReduction": 3,
+      "visualStimulation": 3,
+      "tactileSupport": 6,
+      "vestibularSupport": 5,
+      "proprioceptiveSupport": 6,
+      "regulationSupport": 9
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 900
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -900
+      },
+      "left": {
+        "x": -900,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 900,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -900,
+          "y": 1600,
+          "z": -900
+        },
+        {
+          "x": 900,
+          "y": 1600,
+          "z": -900
+        },
+        {
+          "x": 900,
+          "y": 1600,
+          "z": 900
+        },
+        {
+          "x": -900,
+          "y": 1600,
+          "z": 900
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 15000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 7500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 3000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "fidget-station-01",
+    "category": "regulation-calming",
+    "displayName": "Fidget Station",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 600,
+      "depth": 400,
+      "height": 900
+    },
+    "sensoryProfile": {
+      "noiseReduction": 3,
+      "visualStimulation": 3,
+      "tactileSupport": 6,
+      "vestibularSupport": 5,
+      "proprioceptiveSupport": 6,
+      "regulationSupport": 9
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 200
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -200
+      },
+      "left": {
+        "x": -300,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 300,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -300,
+          "y": 900,
+          "z": -200
+        },
+        {
+          "x": 300,
+          "y": 900,
+          "z": -200
+        },
+        {
+          "x": 300,
+          "y": 900,
+          "z": 200
+        },
+        {
+          "x": -300,
+          "y": 900,
+          "z": 200
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "quiet-pod-01",
+    "category": "focus-privacy",
+    "displayName": "Quiet Pod",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1400,
+      "depth": 1400,
+      "height": 2000
+    },
+    "sensoryProfile": {
+      "noiseReduction": 6,
+      "visualStimulation": 2,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 7
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 700
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -700
+      },
+      "left": {
+        "x": -700,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 700,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -700,
+          "y": 2000,
+          "z": -700
+        },
+        {
+          "x": 700,
+          "y": 2000,
+          "z": -700
+        },
+        {
+          "x": 700,
+          "y": 2000,
+          "z": 700
+        },
+        {
+          "x": -700,
+          "y": 2000,
+          "z": 700
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 15000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 7500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 3000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "focus-pod-01",
+    "category": "focus-privacy",
+    "displayName": "Focus Pod",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1600,
+      "depth": 1200,
+      "height": 2100
+    },
+    "sensoryProfile": {
+      "noiseReduction": 6,
+      "visualStimulation": 2,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 7
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 600
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -600
+      },
+      "left": {
+        "x": -800,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 800,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -800,
+          "y": 2100,
+          "z": -600
+        },
+        {
+          "x": 800,
+          "y": 2100,
+          "z": -600
+        },
+        {
+          "x": 800,
+          "y": 2100,
+          "z": 600
+        },
+        {
+          "x": -800,
+          "y": 2100,
+          "z": 600
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 15000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 7500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 3000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "privacy-screen-01",
+    "category": "focus-privacy",
+    "displayName": "Privacy Screen",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1200,
+      "depth": 30,
+      "height": 1600
+    },
+    "sensoryProfile": {
+      "noiseReduction": 6,
+      "visualStimulation": 2,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 7
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 15
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      },
+      "left": {
+        "x": -600,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 600,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -600,
+          "y": 1600,
+          "z": -15
+        },
+        {
+          "x": 600,
+          "y": 1600,
+          "z": -15
+        },
+        {
+          "x": 600,
+          "y": 1600,
+          "z": 15
+        },
+        {
+          "x": -600,
+          "y": 1600,
+          "z": 15
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "desk-divider-01",
+    "category": "focus-privacy",
+    "displayName": "Desk Divider",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 600,
+      "depth": 20,
+      "height": 400
+    },
+    "sensoryProfile": {
+      "noiseReduction": 6,
+      "visualStimulation": 2,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 7
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 10
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -10
+      },
+      "left": {
+        "x": -300,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 300,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -300,
+          "y": 400,
+          "z": -10
+        },
+        {
+          "x": 300,
+          "y": 400,
+          "z": -10
+        },
+        {
+          "x": 300,
+          "y": 400,
+          "z": 10
+        },
+        {
+          "x": -300,
+          "y": 400,
+          "z": 10
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "acoustic-panel-fabric-01",
+    "category": "acoustic-treatment",
+    "displayName": "Acoustic Fabric Panel",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1200,
+      "depth": 50,
+      "height": 600
+    },
+    "sensoryProfile": {
+      "noiseReduction": 9,
+      "visualStimulation": 1,
+      "tactileSupport": 3,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 25
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -25
+      },
+      "left": {
+        "x": -600,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 600,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -600,
+          "y": 600,
+          "z": -25
+        },
+        {
+          "x": 600,
+          "y": 600,
+          "z": -25
+        },
+        {
+          "x": 600,
+          "y": 600,
+          "z": 25
+        },
+        {
+          "x": -600,
+          "y": 600,
+          "z": 25
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "sound-curtain-01",
+    "category": "acoustic-treatment",
+    "displayName": "Sound Curtain",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1500,
+      "depth": 100,
+      "height": 2400
+    },
+    "sensoryProfile": {
+      "noiseReduction": 9,
+      "visualStimulation": 1,
+      "tactileSupport": 3,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 50
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -50
+      },
+      "left": {
+        "x": -750,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 750,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -750,
+          "y": 2400,
+          "z": -50
+        },
+        {
+          "x": 750,
+          "y": 2400,
+          "z": -50
+        },
+        {
+          "x": 750,
+          "y": 2400,
+          "z": 50
+        },
+        {
+          "x": -750,
+          "y": 2400,
+          "z": 50
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "noise-booth-01",
+    "category": "acoustic-treatment",
+    "displayName": "Noise Booth",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1000,
+      "depth": 1000,
+      "height": 2100
+    },
+    "sensoryProfile": {
+      "noiseReduction": 9,
+      "visualStimulation": 1,
+      "tactileSupport": 3,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 500
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -500
+      },
+      "left": {
+        "x": -500,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 500,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -500,
+          "y": 2100,
+          "z": -500
+        },
+        {
+          "x": 500,
+          "y": 2100,
+          "z": -500
+        },
+        {
+          "x": 500,
+          "y": 2100,
+          "z": 500
+        },
+        {
+          "x": -500,
+          "y": 2100,
+          "z": 500
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 15000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 7500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 3000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "sound-rug-01",
+    "category": "acoustic-treatment",
+    "displayName": "Sound-Dampening Rug",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1500,
+      "depth": 1000,
+      "height": 20
+    },
+    "sensoryProfile": {
+      "noiseReduction": 9,
+      "visualStimulation": 1,
+      "tactileSupport": 3,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 500
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -500
+      },
+      "left": {
+        "x": -750,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 750,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -750,
+          "y": 20,
+          "z": -500
+        },
+        {
+          "x": 750,
+          "y": 20,
+          "z": -500
+        },
+        {
+          "x": 750,
+          "y": 20,
+          "z": 500
+        },
+        {
+          "x": -750,
+          "y": 20,
+          "z": 500
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "task-light-01",
+    "category": "lighting",
+    "displayName": "Task Light",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 200,
+      "depth": 200,
+      "height": 450
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 3,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 6
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 100
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -100
+      },
+      "left": {
+        "x": -100,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 100,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -100,
+          "y": 450,
+          "z": -100
+        },
+        {
+          "x": 100,
+          "y": 450,
+          "z": -100
+        },
+        {
+          "x": 100,
+          "y": 450,
+          "z": 100
+        },
+        {
+          "x": -100,
+          "y": 450,
+          "z": 100
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "dimmable-led-01",
+    "category": "lighting",
+    "displayName": "Dimmable LED Panel",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 600,
+      "depth": 600,
+      "height": 50
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 5,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 6
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 300
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -300
+      },
+      "left": {
+        "x": -300,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 300,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -300,
+          "y": 50,
+          "z": -300
+        },
+        {
+          "x": 300,
+          "y": 50,
+          "z": -300
+        },
+        {
+          "x": 300,
+          "y": 50,
+          "z": 300
+        },
+        {
+          "x": -300,
+          "y": 50,
+          "z": 300
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "bubble-tube-01",
+    "category": "lighting",
+    "displayName": "Bubble Tube",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 200,
+      "depth": 200,
+      "height": 1500
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 9,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 7
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 100
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -100
+      },
+      "left": {
+        "x": -100,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 100,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -100,
+          "y": 1500,
+          "z": -100
+        },
+        {
+          "x": 100,
+          "y": 1500,
+          "z": -100
+        },
+        {
+          "x": 100,
+          "y": 1500,
+          "z": 100
+        },
+        {
+          "x": -100,
+          "y": 1500,
+          "z": 100
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "fiber-optic-01",
+    "category": "lighting",
+    "displayName": "Fiber Optic Feature",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 300,
+      "depth": 300,
+      "height": 1800
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 8,
+      "tactileSupport": 3,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 6
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 150
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -150
+      },
+      "left": {
+        "x": -150,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 150,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -150,
+          "y": 1800,
+          "z": -150
+        },
+        {
+          "x": 150,
+          "y": 1800,
+          "z": -150
+        },
+        {
+          "x": 150,
+          "y": 1800,
+          "z": 150
+        },
+        {
+          "x": -150,
+          "y": 1800,
+          "z": 150
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "nature-projection-01",
+    "category": "lighting",
+    "displayName": "Nature Projection Screen",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 2000,
+      "depth": 10,
+      "height": 1500
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 7,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 7
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 5
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -5
+      },
+      "left": {
+        "x": -1000,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 1000,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -1000,
+          "y": 1500,
+          "z": -5
+        },
+        {
+          "x": 1000,
+          "y": 1500,
+          "z": -5
+        },
+        {
+          "x": 1000,
+          "y": 1500,
+          "z": 5
+        },
+        {
+          "x": -1000,
+          "y": 1500,
+          "z": 5
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "trampoline-01",
+    "category": "movement-vestibular",
+    "displayName": "Trampoline",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1400,
+      "depth": 1400,
+      "height": 300
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 2,
+      "tactileSupport": 4,
+      "vestibularSupport": 9,
+      "proprioceptiveSupport": 8,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": false,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 700
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -700
+      },
+      "left": {
+        "x": -700,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 700,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -700,
+          "y": 300,
+          "z": -700
+        },
+        {
+          "x": 700,
+          "y": 300,
+          "z": -700
+        },
+        {
+          "x": 700,
+          "y": 300,
+          "z": 700
+        },
+        {
+          "x": -700,
+          "y": 300,
+          "z": 700
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 15000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 7500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 3000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "ball-pit-01",
+    "category": "movement-vestibular",
+    "displayName": "Ball Pit",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 2000,
+      "depth": 2000,
+      "height": 500
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 2,
+      "tactileSupport": 4,
+      "vestibularSupport": 9,
+      "proprioceptiveSupport": 8,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": false,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 1000
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -1000
+      },
+      "left": {
+        "x": -1000,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 1000,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -1000,
+          "y": 500,
+          "z": -1000
+        },
+        {
+          "x": 1000,
+          "y": 500,
+          "z": -1000
+        },
+        {
+          "x": 1000,
+          "y": 500,
+          "z": 1000
+        },
+        {
+          "x": -1000,
+          "y": 500,
+          "z": 1000
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 15000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 7500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 3000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "wobble-board-01",
+    "category": "movement-vestibular",
+    "displayName": "Wobble Board",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 400,
+      "depth": 400,
+      "height": 100
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 2,
+      "tactileSupport": 4,
+      "vestibularSupport": 9,
+      "proprioceptiveSupport": 8,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": false,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 200
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -200
+      },
+      "left": {
+        "x": -200,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 200,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -200,
+          "y": 100,
+          "z": -200
+        },
+        {
+          "x": 200,
+          "y": 100,
+          "z": -200
+        },
+        {
+          "x": 200,
+          "y": 100,
+          "z": 200
+        },
+        {
+          "x": -200,
+          "y": 100,
+          "z": 200
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "foam-blocks-01",
+    "category": "tactile-proprioceptive",
+    "displayName": "Foam Blocks (Modular Set)",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 400,
+      "depth": 400,
+      "height": 400
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 1,
+      "tactileSupport": 9,
+      "vestibularSupport": 2,
+      "proprioceptiveSupport": 8,
+      "regulationSupport": 6
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 200
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -200
+      },
+      "left": {
+        "x": -200,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 200,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -200,
+          "y": 400,
+          "z": -200
+        },
+        {
+          "x": 200,
+          "y": 400,
+          "z": -200
+        },
+        {
+          "x": 200,
+          "y": 400,
+          "z": 200
+        },
+        {
+          "x": -200,
+          "y": 400,
+          "z": 200
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "floor-mat-folding-01",
+    "category": "tactile-proprioceptive",
+    "displayName": "Folding Floor Mat",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1800,
+      "depth": 600,
+      "height": 50
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 1,
+      "tactileSupport": 9,
+      "vestibularSupport": 2,
+      "proprioceptiveSupport": 8,
+      "regulationSupport": 6
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 300
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -300
+      },
+      "left": {
+        "x": -900,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 900,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -900,
+          "y": 50,
+          "z": -300
+        },
+        {
+          "x": 900,
+          "y": 50,
+          "z": -300
+        },
+        {
+          "x": 900,
+          "y": 50,
+          "z": 300
+        },
+        {
+          "x": -900,
+          "y": 50,
+          "z": 300
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "tactile-panel-01",
+    "category": "tactile-proprioceptive",
+    "displayName": "Tactile Wall Panel",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 600,
+      "depth": 50,
+      "height": 600
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 1,
+      "tactileSupport": 9,
+      "vestibularSupport": 2,
+      "proprioceptiveSupport": 8,
+      "regulationSupport": 6
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 25
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -25
+      },
+      "left": {
+        "x": -300,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 300,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -300,
+          "y": 600,
+          "z": -25
+        },
+        {
+          "x": 300,
+          "y": 600,
+          "z": -25
+        },
+        {
+          "x": 300,
+          "y": 600,
+          "z": 25
+        },
+        {
+          "x": -300,
+          "y": 600,
+          "z": 25
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "mirror-panel-01",
+    "category": "visual-reflective",
+    "displayName": "Mirror Panel",
+    "sourcingTier": "A",
+    "dimensionsMm": {
+      "width": 600,
+      "depth": 20,
+      "height": 1200
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 7,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 4
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 10
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -10
+      },
+      "left": {
+        "x": -300,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 300,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -300,
+          "y": 1200,
+          "z": -10
+        },
+        {
+          "x": 300,
+          "y": 1200,
+          "z": -10
+        },
+        {
+          "x": 300,
+          "y": 1200,
+          "z": 10
+        },
+        {
+          "x": -300,
+          "y": 1200,
+          "z": 10
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "sketchfab",
+      "licenseType": "CC0",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "infinity-panel-01",
+    "category": "visual-reflective",
+    "displayName": "Infinity Light Panel",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 900,
+      "depth": 100,
+      "height": 900
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 9,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 4
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 50
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -50
+      },
+      "left": {
+        "x": -450,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 450,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -450,
+          "y": 900,
+          "z": -50
+        },
+        {
+          "x": 450,
+          "y": 900,
+          "z": -50
+        },
+        {
+          "x": 450,
+          "y": 900,
+          "z": 50
+        },
+        {
+          "x": -450,
+          "y": 900,
+          "z": 50
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "sound-zone-marker-01",
+    "category": "sound-music-zone",
+    "displayName": "Sound Zone Marker",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 300,
+      "depth": 300,
+      "height": 50
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 2,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 150
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -150
+      },
+      "left": {
+        "x": -150,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 150,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -150,
+          "y": 50,
+          "z": -150
+        },
+        {
+          "x": 150,
+          "y": 50,
+          "z": -150
+        },
+        {
+          "x": 150,
+          "y": 50,
+          "z": 150
+        },
+        {
+          "x": -150,
+          "y": 50,
+          "z": 150
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "sound-coverage-zone",
+    "category": "sound-music-zone",
+    "displayName": "Sound Coverage Zone",
+    "sourcingTier": "D",
+    "dimensionsMm": {
+      "width": 6000,
+      "depth": 6000,
+      "height": 1
+    },
+    "sensoryProfile": {
+      "noiseReduction": 0,
+      "visualStimulation": 2,
+      "tactileSupport": 0,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 0,
+      "regulationSupport": 5
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 3000
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -3000
+      },
+      "left": {
+        "x": -3000,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 3000,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -3000,
+          "y": 1,
+          "z": -3000
+        },
+        {
+          "x": 3000,
+          "y": 1,
+          "z": -3000
+        },
+        {
+          "x": 3000,
+          "y": 1,
+          "z": 3000
+        },
+        {
+          "x": -3000,
+          "y": 1,
+          "z": 3000
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 0
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 0
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 0
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 0
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": true
+  },
+  {
+    "id": "standing-desk-01",
+    "category": "furniture-architectural",
+    "displayName": "Standing Desk",
+    "sourcingTier": "A",
+    "dimensionsMm": {
+      "width": 1400,
+      "depth": 700,
+      "height": 1150
+    },
+    "sensoryProfile": {
+      "noiseReduction": 1,
+      "visualStimulation": 1,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 2
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 350
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -350
+      },
+      "left": {
+        "x": -700,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 700,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -700,
+          "y": 1150,
+          "z": -350
+        },
+        {
+          "x": 700,
+          "y": 1150,
+          "z": -350
+        },
+        {
+          "x": 700,
+          "y": 1150,
+          "z": 350
+        },
+        {
+          "x": -700,
+          "y": 1150,
+          "z": 350
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "sketchfab",
+      "licenseType": "CC0",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "task-chair-01",
+    "category": "furniture-architectural",
+    "displayName": "Task Chair",
+    "sourcingTier": "A",
+    "dimensionsMm": {
+      "width": 650,
+      "depth": 650,
+      "height": 950
+    },
+    "sensoryProfile": {
+      "noiseReduction": 1,
+      "visualStimulation": 1,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 2
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 325
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -325
+      },
+      "left": {
+        "x": -325,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 325,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -325,
+          "y": 950,
+          "z": -325
+        },
+        {
+          "x": 325,
+          "y": 950,
+          "z": -325
+        },
+        {
+          "x": 325,
+          "y": 950,
+          "z": 325
+        },
+        {
+          "x": -325,
+          "y": 950,
+          "z": 325
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "sketchfab",
+      "licenseType": "CC0",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "storage-cabinet-01",
+    "category": "furniture-architectural",
+    "displayName": "Storage Cabinet",
+    "sourcingTier": "A",
+    "dimensionsMm": {
+      "width": 900,
+      "depth": 450,
+      "height": 1800
+    },
+    "sensoryProfile": {
+      "noiseReduction": 1,
+      "visualStimulation": 1,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 2
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 225
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -225
+      },
+      "left": {
+        "x": -450,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 450,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -450,
+          "y": 1800,
+          "z": -225
+        },
+        {
+          "x": 450,
+          "y": 1800,
+          "z": -225
+        },
+        {
+          "x": 450,
+          "y": 1800,
+          "z": 225
+        },
+        {
+          "x": -450,
+          "y": 1800,
+          "z": 225
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "sketchfab",
+      "licenseType": "CC0",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  },
+  {
+    "id": "ceiling-baffle-01",
+    "category": "furniture-architectural",
+    "displayName": "Ceiling Acoustic Baffle",
+    "sourcingTier": "C",
+    "dimensionsMm": {
+      "width": 1200,
+      "depth": 300,
+      "height": 50
+    },
+    "sensoryProfile": {
+      "noiseReduction": 7,
+      "visualStimulation": 1,
+      "tactileSupport": 2,
+      "vestibularSupport": 0,
+      "proprioceptiveSupport": 1,
+      "regulationSupport": 2
+    },
+    "accessibilityProfile": {
+      "wheelchairAccessible": true,
+      "clearanceRequiredMm": 800
+    },
+    "anchors": {
+      "center": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "front": {
+        "x": 0,
+        "y": 0,
+        "z": 150
+      },
+      "back": {
+        "x": 0,
+        "y": 0,
+        "z": -150
+      },
+      "left": {
+        "x": -600,
+        "y": 0,
+        "z": 0
+      },
+      "right": {
+        "x": 600,
+        "y": 0,
+        "z": 0
+      },
+      "corners": [
+        {
+          "x": -600,
+          "y": 50,
+          "z": -150
+        },
+        {
+          "x": 600,
+          "y": 50,
+          "z": -150
+        },
+        {
+          "x": 600,
+          "y": 50,
+          "z": 150
+        },
+        {
+          "x": -600,
+          "y": 50,
+          "z": 150
+        }
+      ]
+    },
+    "lod": {
+      "lod0": {
+        "glbPath": null,
+        "targetTriangles": 5000
+      },
+      "lod1": {
+        "glbPath": null,
+        "targetTriangles": 2500
+      },
+      "lod2": {
+        "glbPath": null,
+        "targetTriangles": 1000
+      },
+      "lod3": {
+        "glbPath": null,
+        "targetTriangles": 150
+      }
+    },
+    "sourceProvenance": {
+      "origin": "custom-blender",
+      "licenseType": "owned-ip",
+      "licenseUrl": "",
+      "purchaseReceiptId": null,
+      "modifiedForWebGL": false,
+      "genericizedFrom": null,
+      "reviewedBy": "PENDING",
+      "reviewDate": null
+    },
+    "noMeshByDesign": false
+  }
+]

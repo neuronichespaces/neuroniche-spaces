@@ -41,6 +41,8 @@ type RoomLayoutState = RoomLayout & {
   moveObject: (id: string, x: number, y: number) => void;
   rotateObject: (id: string, rotationDeg: number) => void;
   updateObjectProps: (id: string, patch: Partial<PlacedObjectProps>) => void;
+  toggleObjectLocked: (id: string) => void;
+  toggleObjectHidden: (id: string) => void;
   selectObject: (id: string | null) => void;
 
   loadLayout: (layout: RoomLayout) => void;
@@ -178,6 +180,10 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
             : o,
         ),
       })),
+    toggleObjectLocked: (id) =>
+      mutate((s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, locked: !o.locked } : o)) })),
+    toggleObjectHidden: (id) =>
+      mutate((s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, hidden: !o.hidden } : o)) })),
     selectObject: (id) => set({ selectedObjectId: id }), // transient selection — not pushed to history
 
     loadLayout: (layout) => {

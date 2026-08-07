@@ -44,7 +44,8 @@ export default function ObjectLayer({
   useEffect(() => {
     const tr = transformerRef.current;
     if (!tr) return;
-    const node = selectedObjectId ? groupRefs.current[selectedObjectId] : null;
+    const selected = selectedObjectId ? objects.find((o) => o.id === selectedObjectId) : null;
+    const node = selected && !selected.locked && !selected.hidden ? groupRefs.current[selected.id] : null;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
   }, [selectedObjectId, objects]);
@@ -54,7 +55,7 @@ export default function ObjectLayer({
 
   return (
     <>
-      {objects.map((obj) => {
+      {objects.filter((obj) => !obj.hidden).map((obj) => {
         const violated = violations.has(obj.id);
         const wPx = obj.footprintM.w * pxPerM;
         const lPx = obj.footprintM.l * pxPerM;
@@ -79,7 +80,7 @@ export default function ObjectLayer({
               x={obj.x * pxPerM}
               y={obj.y * pxPerM}
               rotation={obj.rotationDeg}
-              draggable
+              draggable={!obj.locked}
               onClick={() => onSelect(obj.id)}
               onTap={() => onSelect(obj.id)}
               onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {

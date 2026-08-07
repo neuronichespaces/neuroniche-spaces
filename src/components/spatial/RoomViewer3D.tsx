@@ -1,40 +1,37 @@
 'use client';
 
-// 3D room viewer — Phase 3. Reads the same Zustand store as the 2D editor
-// (RoomEditor2D.tsx), so edits there appear here automatically via React
-// reactivity; no manual bridging code.
+// 3D room viewer, now on Babylon.js (the approved sole production 3D runtime — see the
+// pasted foundation-spec directive). Reads the same Zustand store as the 2D editor
+// (RoomEditor2D.tsx) via a subscription in the mount effect below; no React JSX per
+// mesh (Babylon is imperative), but still no manual bridging beyond that subscription —
+// edits made in either view still show up in the other through the one shared store.
 
-import { Suspense, useEffect, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
-import type { RootState } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
+import { useEffect, useRef, useState } from 'react';
+import { Vector3 } from '@babylonjs/core';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
-import { detectWebGPU } from './webgpu.ts';
-import RoomGeometry3D from './RoomGeometry3D.tsx';
-import ObjectMesh3D, { type GizmoMode } from './ObjectMesh3D.tsx';
-import WalkControls3D from './WalkControls3D.tsx';
+import { createBabylonEngine, type RendererBackend } from '@/renderer/babylon/BabylonEngineFactory.ts';
+import { createLights, createOrbitCamera, createScene, createWalkCamera } from '@/renderer/babylon/BabylonSceneController.ts';
+import { BabylonRendererAdapter } from '@/renderer/babylon/BabylonRendererAdapter.ts';
+import { BabylonTransformBridge, type GizmoMode } from '@/renderer/babylon/BabylonTransformBridge.ts';
+import { attachClickSelection } from '@/renderer/babylon/BabylonPickingService.ts';
+import { watchDeviceLoss } from '@/renderer/babylon/BabylonDiagnostics.ts';
+import { withRendererErrorBoundary } from '@/renderer/babylon/BabylonErrorBoundary.ts';
+import { BabylonCameraController } from '@/renderer/babylon/BabylonCameraController.ts';
+import { projectPointToSegment, wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
 
-// Try WebGPURenderer first (feature-detected, not blind try/catch); fall back
-// to a standard WebGL2 renderer silently on any init failure. Invisible to
-// the user either way — no error UI, no flicker.
-// `canvas` here is fiber's own DefaultGLProps type (HTMLCanvasElement | its
-// internal OffscreenCanvas stub), not exported from the package — `unknown`
-// avoids fighting that unexported type while staying safe at the cast below.
-async function createRenderer(props: { canvas: unknown }) {
-  const canvas = props.canvas as HTMLCanvasElement;
-  if (await detectWebGPU()) {
-    try {
-      const { WebGPURenderer } = await import('three/webgpu');
-      const renderer = new WebGPURenderer({ canvas, antialias: true });
-      await renderer.init();
-      return renderer as unknown as THREE.WebGLRenderer;
-    } catch {
-      // fall through to WebGL2 below
-    }
-  }
-  return new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-}
+const PLAYER_RADIUS_M = 0.3;
+const EYE_HEIGHT_M = 1.6;
+const MOVE_SPEED_M_S = 2.2;
+const KEY_TO_AXIS: Record<string, [number, number]> = {
+  KeyW: [0, -1],
+  ArrowUp: [0, -1],
+  KeyS: [0, 1],
+  ArrowDown: [0, 1],
+  KeyA: [-1, 0],
+  ArrowLeft: [-1, 0],
+  KeyD: [1, 0],
+  ArrowRight: [1, 0],
+};
 
 export default function RoomViewer3D({
   highDetail = false,
@@ -42,8 +39,9 @@ export default function RoomViewer3D({
   reducedMotion,
   onCanvasReady,
 }: {
-  /** Opt-in richer render mode (shadows + tuned materials) for presentation view / PDF snapshot.
-   *  Silently no-ops to standard mode if WebGPU wasn't detected — that IS the fallback contract. */
+  /** Opt-in richer render mode (shadows + tuned materials) for presentation view / PDF
+   *  snapshot. Silently no-ops to standard mode if WebGPU wasn't detected — that IS the
+   *  fallback contract (no core planning feature may require WebGPU-only support). */
   highDetail?: boolean;
   /** Hides the walk-mode toggle button — used for the off-screen export snapshot instance. */
   hideControls?: boolean;
@@ -53,26 +51,24 @@ export default function RoomViewer3D({
   /** Fires once with the underlying canvas DOM element, for PDF snapshot capture (toDataURL). */
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
 }) {
-  const floorDims = useRoomLayoutStore((s) => s.floorDims);
-  const selectObject = useRoomLayoutStore((s) => s.selectObject);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [walking, setWalking] = useState(false);
-  const [webgpuActive, setWebgpuActive] = useState(false);
+  const [backend, setBackend] = useState<RendererBackend | 'initializing' | 'failed'>('initializing');
+  const [failureReason, setFailureReason] = useState<string | null>(null);
+  const [contextLost, setContextLost] = useState(false);
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate');
-  const [orbitEnabled, setOrbitEnabled] = useState(true);
   const [osReducedMotion, setOsReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
-
+  const walkingRef = useRef(walking);
+  const gizmoModeRef = useRef(gizmoMode);
   useEffect(() => {
-    if (!highDetail) return;
-    let cancelled = false;
-    detectWebGPU().then((ok) => {
-      if (!cancelled) setWebgpuActive(ok);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [highDetail]);
+    walkingRef.current = walking;
+    gizmoModeRef.current = gizmoMode;
+  }, [walking, gizmoMode]);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const enterOrExitWalkModeRef = useRef<{ enterWalkMode: () => void; exitWalkMode: () => void } | null>(null);
+  const richModeUpdaterRef = useRef<((value: boolean) => void) | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -82,10 +78,214 @@ export default function RoomViewer3D({
   }, []);
 
   const reduceMotion = reducedMotion ?? osReducedMotion;
+  const richMode = highDetail && backend === 'webgpu';
 
-  const richMode = highDetail && webgpuActive;
-  const centreX = floorDims.widthM / 2;
-  const centreZ = floorDims.lengthM / 2;
+  // One-time (per mount) engine/scene/adapter setup. Deliberately not re-run per store
+  // change — the store subscription inside handles all data updates; this effect owns
+  // only the renderer lifecycle, matching the spec's "renderer is a consumer of model
+  // state" rule.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let disposed = false;
+
+    (async () => {
+      // Dev/test override (spec §1 point 8): ?forceWebGL=1 skips the WebGPU attempt
+      // entirely, so the fallback path can be exercised on a machine where WebGPU
+      // would otherwise succeed, without needing to spoof navigator.gpu.
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const forceWebGL = params?.get('forceWebGL') === '1';
+      // Dev/test override: ?forceFail=1 makes the renderer-error-boundary failure
+      // branch genuinely reachable for live verification (spec §1/§10's "recoverable
+      // renderer error state" — otherwise there's no real-browser way to trigger it).
+      const forceFail = params?.get('forceFail') === '1';
+      const initResult = await withRendererErrorBoundary(() =>
+        forceFail ? Promise.reject(new Error('Forced failure (dev: ?forceFail=1)')) : createBabylonEngine(canvas, forceWebGL),
+      );
+      if (disposed) {
+        if (initResult.ok) initResult.value.engine.dispose();
+        return;
+      }
+      if (!initResult.ok) {
+        setBackend('failed');
+        setFailureReason(initResult.reason);
+        return;
+      }
+      const { engine, backend: initialBackend } = initResult.value;
+      setBackend(initialBackend);
+      onCanvasReady?.(canvas);
+
+      const scene = createScene(engine);
+      createLights(scene, highDetail && initialBackend === 'webgpu');
+      const adapter = new BabylonRendererAdapter(scene);
+
+      const initialState = useRoomLayoutStore.getState();
+      const centre = new Vector3(initialState.floorDims.widthM / 2, 0, initialState.floorDims.lengthM / 2);
+      const orbitRadius = Math.max(initialState.floorDims.widthM, initialState.floorDims.lengthM);
+      let orbitCamera = createOrbitCamera(scene, canvas, centre, orbitRadius);
+      let cameraController = new BabylonCameraController(orbitCamera, canvas);
+      let walkCamera: ReturnType<typeof createWalkCamera> | null = null;
+      const richModeRef = { current: richMode };
+
+      const isDraggingRef = { current: false };
+      const transformBridge = new BabylonTransformBridge(
+        scene,
+        (dragging) => {
+          isDraggingRef.current = dragging;
+          // Prevents camera orbit and gizmo dragging from fighting over the same
+          // pointer gesture (hardening spec §5) — routed through one explicit mode
+          // state machine instead of scattered detachControl()/attachControl() calls.
+          cameraController.setMode(dragging ? 'disabled-for-transform' : 'orbit');
+        },
+        (x, y, rotationDeg) => {
+          const id = useRoomLayoutStore.getState().selectedObjectId;
+          if (!id) return;
+          if (gizmoModeRef.current === 'translate') useRoomLayoutStore.getState().moveObject(id, x, y);
+          else useRoomLayoutStore.getState().rotateObject(id, rotationDeg);
+        },
+      );
+
+      const removeClickSelection = attachClickSelection(
+        scene,
+        adapter.entityMapper,
+        (id) => useRoomLayoutStore.getState().selectObject(id),
+        isDraggingRef,
+      );
+
+      const removeDeviceLossWatch = watchDeviceLoss(engine, setContextLost);
+
+      function syncFromStore() {
+        const s = useRoomLayoutStore.getState();
+        adapter.syncRoomShell(s.floorDims, s.walls, s.doors, richModeRef.current);
+        adapter.syncObjects(s.placedObjects, s.clearanceViolations, s.selectedObjectId, richModeRef.current);
+        const selectedObj = s.placedObjects.find((o) => o.id === s.selectedObjectId);
+        // Locked/hidden entities stay selectable/inspectable but never get a gizmo
+        // (spec §4: "detach gizmos when selection clears, entity unloads, or entity
+        // becomes hidden/locked").
+        const node = selectedObj && !selectedObj.locked && !selectedObj.hidden ? (adapter.getObjectRoot(selectedObj.id) ?? null) : null;
+        transformBridge.attachTo(node);
+      }
+
+      syncFromStore();
+      const unsubscribeStore = useRoomLayoutStore.subscribe(syncFromStore);
+
+      // Walk-through mode: pointer-lock FPS movement with basic collision against wall
+      // segments and placed-object footprints (ported directly from the old
+      // WalkControls3D.tsx's pure collide() logic — same tolerance, same "circle, not
+      // rotated rectangle" simplification for object footprints).
+      const pressed = new Set<string>();
+      function onKeyDown(e: KeyboardEvent) {
+        pressed.add(e.code);
+      }
+      function onKeyUp(e: KeyboardEvent) {
+        pressed.delete(e.code);
+      }
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+
+      function collides(x: number, z: number): boolean {
+        const s = useRoomLayoutStore.getState();
+        for (const wall of s.walls) {
+          const door = s.doors.find((d) => d.wallId === wall.id);
+          for (const seg of wallSegmentsWithDoorGap(wall, door)) {
+            const { distance } = projectPointToSegment({ x, y: z }, seg.start, seg.end);
+            if (distance < wall.thicknessM / 2 + PLAYER_RADIUS_M) return true;
+          }
+        }
+        for (const obj of s.placedObjects) {
+          const objRadius = Math.hypot(obj.footprintM.w, obj.footprintM.l) / 2;
+          if (Math.hypot(x - obj.x, z - obj.y) < objRadius + PLAYER_RADIUS_M) return true;
+        }
+        return false;
+      }
+
+      scene.onBeforeRenderObservable.add(() => {
+        if (!walkingRef.current || !walkCamera) return;
+        let dx = 0;
+        let dz = 0;
+        for (const key of pressed) {
+          const axis = KEY_TO_AXIS[key];
+          if (axis) {
+            dx += axis[0];
+            dz += axis[1];
+          }
+        }
+        if (dx === 0 && dz === 0) return;
+        const forward = walkCamera.getDirection(new Vector3(0, 0, 1));
+        forward.y = 0;
+        forward.normalize();
+        const right = Vector3.Cross(forward, Vector3.Up());
+        const step = (reduceMotion ? MOVE_SPEED_M_S * 0.5 : MOVE_SPEED_M_S) * (engine.getDeltaTime() / 1000);
+        const nextX = walkCamera.position.x + forward.x * -dz * step + right.x * dx * step;
+        const nextZ = walkCamera.position.z + forward.z * -dz * step + right.z * dx * step;
+        if (!collides(nextX, walkCamera.position.z)) walkCamera.position.x = nextX;
+        if (!collides(walkCamera.position.x, nextZ)) walkCamera.position.z = nextZ;
+        walkCamera.position.y = EYE_HEIGHT_M;
+      });
+
+      // TS loses narrowing on `canvas` inside hoisted function declarations below
+      // (it doesn't for arrow functions/const) — rebind to a definitely-non-null const.
+      const canvasEl: HTMLCanvasElement = canvas;
+      function enterWalkMode() {
+        const s = useRoomLayoutStore.getState();
+        walkCamera = createWalkCamera(scene, canvasEl, new Vector3(s.floorDims.widthM / 2, EYE_HEIGHT_M, s.floorDims.lengthM / 2));
+        engine.enterPointerlock();
+      }
+      function exitWalkMode() {
+        engine.exitPointerlock();
+        walkCamera?.dispose();
+        walkCamera = null;
+        orbitCamera = createOrbitCamera(scene, canvasEl, centre, orbitRadius);
+        cameraController = new BabylonCameraController(orbitCamera, canvasEl);
+      }
+
+      function onPointerLockChange() {
+        if (!document.pointerLockElement && walkingRef.current) setWalking(false);
+      }
+      document.addEventListener('pointerlockchange', onPointerLockChange);
+
+      engine.runRenderLoop(() => scene.render());
+      const onResize = () => engine.resize();
+      window.addEventListener('resize', onResize);
+
+      enterOrExitWalkModeRef.current = { enterWalkMode, exitWalkMode };
+      richModeUpdaterRef.current = (value: boolean) => {
+        richModeRef.current = value;
+      };
+
+      cleanupRef.current = () => {
+        window.removeEventListener('resize', onResize);
+        document.removeEventListener('pointerlockchange', onPointerLockChange);
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        removeClickSelection();
+        removeDeviceLossWatch();
+        unsubscribeStore();
+        transformBridge.dispose();
+        adapter.dispose();
+        walkCamera?.dispose();
+        orbitCamera.dispose();
+        scene.dispose();
+        engine.dispose();
+      };
+    })();
+
+    return () => {
+      disposed = true;
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only; richMode/walking flow through refs, not deps, to avoid tearing down the engine on every prop tick
+  }, []);
+
+  useEffect(() => {
+    richModeUpdaterRef.current?.(richMode);
+  }, [richMode]);
+
+  useEffect(() => {
+    if (walking) enterOrExitWalkModeRef.current?.enterWalkMode();
+    else enterOrExitWalkModeRef.current?.exitWalkMode();
+  }, [walking]);
 
   return (
     <div className="relative h-full w-full">
@@ -120,49 +320,18 @@ export default function RoomViewer3D({
               Walk mode involves continuous camera movement.
             </span>
           )}
+          <span className="rounded-md bg-white/90 px-2 py-1 text-xs text-slate-700 shadow">
+            {backend === 'initializing'
+              ? 'Starting renderer…'
+              : backend === 'failed'
+                ? `Renderer failed to start${failureReason ? `: ${failureReason}` : ''} — reload to retry`
+                : contextLost
+                  ? 'Renderer disconnected — reload to recover'
+                  : `Renderer: ${backend}`}
+          </span>
         </div>
       )}
-      <Canvas
-        shadows={richMode}
-        gl={createRenderer}
-        camera={{ position: [centreX, walking ? 1.6 : Math.max(floorDims.widthM, floorDims.lengthM), centreZ + 0.01], fov: 55 }}
-        onPointerMissed={() => selectObject(null)}
-        onCreated={(state: RootState) => {
-          state.camera.lookAt(centreX, 0, centreZ);
-          // Force a resize with R3F's own authoritative container size, now that the
-          // renderer is confirmed initialized. WebGPURenderer only pushes a resize to
-          // the GPU backend (recreating the depth attachment to match) when already
-          // initialized — a setSize() call before init() (what this used to do) is
-          // silently a no-op on the GPU side regardless of what size it's given, which
-          // is why the depth/color attachment size mismatch persisted even after an
-          // earlier attempt to size the canvas pre-init.
-          state.gl.setSize(state.size.width, state.size.height, false);
-          onCanvasReady?.(state.gl.domElement);
-        }}
-      >
-        <ambientLight intensity={richMode ? 0.4 : 0.7} />
-        <directionalLight
-          position={[5, 8, 5]}
-          intensity={richMode ? 1.1 : 0.8}
-          castShadow={richMode}
-          shadow-mapSize={[1024, 1024]}
-        />
-        <Suspense fallback={null}>
-          <RoomGeometry3D highDetail={richMode} />
-          <ObjectMesh3D highDetail={richMode} gizmoMode={gizmoMode} onDraggingChange={(d) => setOrbitEnabled(!d)} />
-        </Suspense>
-        {walking ? (
-          <WalkControls3D onExit={() => setWalking(false)} reducedMotion={reduceMotion} />
-        ) : (
-          <OrbitControls
-            target={[centreX, 0, centreZ]}
-            makeDefault
-            enabled={orbitEnabled}
-            enableDamping={!reduceMotion}
-            dampingFactor={reduceMotion ? 0 : 0.05}
-          />
-        )}
-      </Canvas>
+      <canvas ref={canvasRef} className="h-full w-full outline-none" />
     </div>
   );
 }

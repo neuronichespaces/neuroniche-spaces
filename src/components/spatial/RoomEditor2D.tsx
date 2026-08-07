@@ -25,6 +25,8 @@ const DEFAULT_GRID_SNAP_M = 0.1;
 const DEFAULT_DOOR_WIDTH_M = 0.9;
 const PX_PER_M = 60;
 const WALL_THICKNESS_M = 0.1;
+const ROTATE_STEP_DEG = 15; // matches the CAD foundation spec's default rotation snap
+const MIN_DIM_M = 0.2; // matches ObjectLayer.tsx's Transformer floor, kept in sync deliberately
 const ZONE_KINDS = Object.keys(ZONE_KIND_LABELS) as ZoneKind[];
 const HEATMAP_CATEGORIES: (SensoryCategory | 'crowding')[] = ['movement', 'noise', 'light', 'touch', 'pressure', 'crowding'];
 const HEATMAP_CATEGORY_LABELS: Record<SensoryCategory | 'crowding', string> = {
@@ -105,7 +107,10 @@ export default function RoomEditor2D({
   const stageHeight = floorDims.lengthM * pxPerM + 80;
 
   // Keyboard alternative to pointer-only wall/object interaction: arrow keys nudge
-  // the selected object (Shift = bigger step), Tab cycles selection through objects.
+  // the selected object (Shift = bigger step), R/Shift+R rotates (matches the CAD
+  // spec's 15deg rotation snap default), [/] resizes width and Shift+[/] resizes
+  // depth (matches ObjectLayer's Transformer MIN_DIM_M floor of 0.2m so keyboard and
+  // drag-handle resize can't disagree), Tab cycles selection through objects.
   // Scoped to keydown events inside the editor root so it doesn't hijack page-level Tab.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -123,7 +128,28 @@ export default function RoomEditor2D({
 
       if (!selectedObjectId) return;
       const obj = placedObjects.find((o) => o.id === selectedObjectId);
-      if (!obj) return;
+      if (!obj || obj.locked) return;
+
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        const turn = e.shiftKey ? -ROTATE_STEP_DEG : ROTATE_STEP_DEG;
+        rotateObject(obj.id, (obj.rotationDeg + turn + 360) % 360);
+        return;
+      }
+
+      if (e.key === '[' || e.key === ']') {
+        e.preventDefault();
+        const sign = e.key === ']' ? 1 : -1;
+        const step = sign * gridSnapM;
+        if (e.shiftKey) {
+          const newDepthM = Math.max(MIN_DIM_M, obj.footprintM.l + step);
+          updateObjectProps(obj.id, { depthM: newDepthM });
+        } else {
+          const newWidthM = Math.max(MIN_DIM_M, obj.footprintM.w + step);
+          updateObjectProps(obj.id, { widthM: newWidthM });
+        }
+        return;
+      }
 
       const step = e.shiftKey ? gridSnapM * 10 : gridSnapM;
       let dx = 0;
@@ -141,7 +167,7 @@ export default function RoomEditor2D({
     const root = editorRootRef.current;
     root?.addEventListener('keydown', onKeyDown);
     return () => root?.removeEventListener('keydown', onKeyDown);
-  }, [placedObjects, selectedObjectId, gridSnapM, moveObject, selectObject]);
+  }, [placedObjects, selectedObjectId, gridSnapM, moveObject, selectObject, rotateObject, updateObjectProps]);
 
   function pointerMetres(): { x: number; y: number } | null {
     const stage = stageRef.current;

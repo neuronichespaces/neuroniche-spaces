@@ -395,6 +395,219 @@ not silently dropped.
   scoping pass, not a quick extension), room height (no field exists in the model at
   all — floorDims is 2D only, ceiling height isn't modelled anywhere in this codebase).
 
+## Milestone 4 — keyboard resize/rotate for objects, verified live (2026-08-07)
+
+Picked up the deferred half of the partial Milestone 4 entry above.
+
+- `RoomEditor2D.tsx`: extended the existing arrow-key-nudge keydown handler (same
+  `useEffect`, same editor-root-scoped listener, no new component). `R`/`Shift+R`
+  rotates the selected object ±15° (`ROTATE_STEP_DEG` — matches the foundation
+  spec's own default rotation-snap value) via the store's existing `rotateObject`.
+  `[`/`]` resizes width, `Shift+[`/`Shift+]` resizes depth, in `gridSnapM` (0.1m)
+  steps via the store's existing `updateObjectProps`, floored at `MIN_DIM_M` (0.2m —
+  duplicated as a same-named constant from `ObjectLayer.tsx`'s Transformer floor, kept
+  in sync deliberately in a comment, not re-exported — a 2-line constant isn't worth a
+  new shared module). No new store actions needed; `rotateObject`/`updateObjectProps`
+  already existed and are already on the undo/redo history from the 3D-gizmo and
+  numeric-panel work.
+- `node --test "src/lib/spatial/**/*.test.ts"`: 48/48 pass (no new tests needed — this
+  wires existing, already-tested store actions to new key branches, not new logic).
+  `npm run build`: clean. `eslint` on the touched file: clean.
+- **Verified live in a browser** (`npm run dev`, chrome-devtools MCP): loaded
+  `/spatial`, picked a template, Tab-selected an object (properties panel showed
+  Rotation 0°, Width/Depth 0.5m). Pressed `r` → Rotation slider updated to 15°.
+  Pressed `]` then `Shift+]` → Width and Depth independently updated to 0.6m each.
+  Undo button enabled after each change (confirmed on the normal undo/redo history,
+  not a side-channel mutation). Zero new console errors from this change (one
+  pre-existing WebGPU `drawIndexed` error reproduced during an unrelated accidental
+  walk-mode trigger while getting the page into a testable state — already documented
+  above, not caused by this edit).
+- Milestone 4 is now fully done: numeric room-dimension editing (2026-08-06) + keyboard
+  object resize/rotate (this entry). Still out of scope, per the earlier partial entry:
+  wall-level numeric editing, room height (not modelled in `FloorDims` at all).
+
+## 3D runtime migration: Three.js/R3F → Babylon.js (2026-08-07)
+
+User pasted a follow-up "APPROVED 3D RUNTIME: BABYLON.JS" directive that explicitly
+overrides the earlier foundation-plan audit's "keep Three.js" verdict (2026-08-06,
+same day). Confirmed via `AskUserQuestion` this was a deliberate full-scope choice
+("Full acceptance criteria in one go") before starting, given the size of the diff.
+
+Built `src/renderer/babylon/` (renderer-independent of React, per the spec's dependency
+rules): `BabylonEngineFactory.ts` (WebGPU-with-WebGL-fallback, same detection contract
+as the old `webgpu.ts`), `BabylonSceneController.ts` (scene/lights/orbit+walk cameras),
+`BabylonEntityMapper.ts` (EntityId <-> node, GLB-child-to-parent resolution),
+`BabylonPickingService.ts` (click-to-select), `BabylonTransformBridge.ts` (GizmoManager
+wrapped as preview-only, commits one store action on drag-end — never the source of
+persisted truth), `BabylonAssetCache.ts`/`BabylonAssetRegistry.ts` (refcounted GLB
+load-by-productId, bridging the existing `lib/spatial/assetRegistry.ts` metadata
+unchanged), `BabylonDisposalManager.ts`, `BabylonDiagnostics.ts` (backend/device-loss
+state for the status UI).
+
+Rewrote `RoomViewer3D.tsx` on this layer; deleted `ObjectMesh3D.tsx`, `RoomGeometry3D.tsx`,
+`WalkControls3D.tsx`, `webgpu.ts` (folded into `BabylonEngineFactory.ts`). Walk-through
+mode ported directly from the old `WalkControls3D.tsx`'s pure `collide()` logic (same
+wall/object collision tolerance), now driven by Babylon's `UniversalCamera` + pointer
+lock instead of drei's `PointerLockControls`. Removed `three`/`@react-three/fiber`/
+`@react-three/drei` from `package.json` — spec explicitly forbids running both runtimes
+in the production editor, and grep confirmed no other file in the repo imported them.
+
+- `npm run build`: clean. `node --test` (full suite): 118/118 pass. `eslint`: 0 issues
+  in every new/changed spatial/renderer file (repo-wide lint unchanged at its
+  pre-existing 12-error baseline in unrelated files).
+- **Verified live in a browser** (chrome-devtools MCP): loaded `/spatial`, switched to
+  3D view — status pill correctly read "Renderer: webgpu" (real WebGPU init, not a
+  guess). Found and fixed a real defect during this verification: walls rendered
+  near-black. Root cause: Babylon's `HemisphericLight.groundColor` defaults to black,
+  so any face pointing away from "up" (i.e. every vertical wall) only picked up the
+  directional light's grazing contribution — the old Three.js version used a
+  non-directional `<ambientLight>` that lit every face equally, so this never showed up
+  there. Fix: `hemi.groundColor = hemi.diffuse.scale(0.8)` in
+  `BabylonSceneController.ts`. Re-verified after the fix: correctly lit floor/walls,
+  orbit camera responds to synthetic pointer-drag and wheel-zoom events (confirmed by a
+  visibly rotating/zooming room box), zero console errors or warnings throughout.
+- **Not verified live** (real mouse/pointer-drag limitation on this canvas, same
+  category already logged for the old Three.js gizmo and for Konva in the 2D editor):
+  actual gizmo-drag-to-move/rotate an object, and walk-mode's pointer-lock + WASD. The
+  orbit-camera check above used synthetic `PointerEvent`/`WheelEvent` dispatch, which
+  worked for camera controls but real gizmo dragging needs a manual click-through before
+  fully trusting it. Room-shell rendering, lighting, backend detection, and click-driven
+  camera navigation are all confirmed; object-level interaction parity is inferred from
+  code review (the drag-commit logic is a direct, tested-by-typecheck port of the old
+  Three.js `onMouseUp` handler's math) but not click-tested pixel-for-pixel.
+- Known limitation carried over from the old implementation, not a new regression:
+  Escape-cancel-mid-gizmo-drag still isn't wired (documented in
+  `BabylonTransformBridge.ts`'s own header comment).
+- GLB loading path (`BabylonAssetRegistry.ts`/`BabylonAssetCache.ts`) is real, working,
+  load-by-productId code exercised by zero real data today — same status as the old
+  Three.js `GLTFObject` branch it replaces (every catalogue entry is still `glb: null`,
+  confirmed zero `.glb` files under `public/`).
+
+## Babylon.js infrastructure hardening (2026-08-07)
+
+User pasted a follow-up "BABYLON.JS HARDENING AND INFRASTRUCTURE IMPROVEMENT" spec the
+same session as the Three.js→Babylon migration above. Given quota was flagged as likely
+to run dry within the hour, `AskUserQuestion` offered a scoped-down option; user chose
+"push the full spec anyway" — proceeded with judgment calls on which of the spec's 17
+listed files earn their existence now vs. later (documented below, not silently dropped).
+
+**Phase 0**: `docs/architecture/babylon-infrastructure-audit.md` (new) — audited the
+just-built Babylon layer against this spec's checklist. Found the core ownership
+boundary already correct (Babylon never owns canonical transforms — `syncFromStore` is a
+one-way projection), but no render-role system, no pick-proxy separation, no camera-mode
+state machine, no perf/error instrumentation.
+
+Built:
+
+- `types.ts` (new): `BabylonRenderRole` (12 roles per spec §2), `setRenderRole`/
+  `getRenderRole`/`isEditorPickable`/`isExportableRenderNode`. `types.test.ts` (new):
+  5 tests — role classification, pickability, export eligibility.
+- `BabylonRendererAdapter.ts`: every mesh now tagged (`ARCHITECTURE` for walls/floor/
+  ceiling, `EQUIPMENT_ROOT`/`EQUIPMENT_VISUAL`/`ANNOTATION` for objects/labels). Added a
+  dedicated invisible `EQUIPMENT_PICK_PROXY` box per object, sized to catalogue
+  footprint — the visible box (or, once a real GLB loads, its meshes) is now
+  `isPickable = false` at the Babylon level (belt-and-braces alongside the role-metadata
+  filter), so picking always resolves through the proxy regardless of visual complexity.
+- `BabylonPickingService.ts`: `attachClickSelection` now checks `isEditorPickable`
+  before resolving a hit — a click on a future gizmo/overlay/debug node is ignored
+  outright rather than treated as empty space (spec §3: must not alter selection).
+- `BabylonGizmoController.ts` (new): extracted from `BabylonTransformBridge.ts` —
+  owns `GizmoManager` lifecycle/attach/mode only. `BabylonTransformBridge.ts` now wraps
+  it and owns only the preview-drag→commit-one-store-action conversion (spec §4's
+  separation of "how the gizmo looks" from "what a commit means"). Public API of
+  `BabylonTransformBridge` unchanged, so `RoomViewer3D.tsx` needed no interface change.
+- `BabylonCameraController.ts` (new): `CameraInteractionMode` state machine
+  (`orbit`/`pan`/`frame-selection`/`disabled-for-transform`) replacing the inline
+  `orbitCamera.detachControl()`/`attachControl()` calls that lived directly in
+  `RoomViewer3D.tsx`'s transform-bridge callback (spec §5).
+- `BabylonErrorBoundary.ts` (new): `withRendererErrorBoundary` — engine-creation failure
+  used to leave the status pill stuck on "Starting renderer…" forever with no visible
+  recovery; now surfaces as a typed `{ok:false, reason}` the component renders as
+  "Renderer failed to start: … — reload to retry" (spec §1/§10).
+- `RoomViewer3D.tsx`: wired the above in; added `?forceWebGL=1` query-param dev override
+  (spec §1 point 8 — lets the WebGL fallback path be exercised without spoofing
+  `navigator.gpu`).
+- `BabylonPerformanceMonitor.ts` (new): `getPerformanceSnapshot` — pull-based
+  frame-time/active-mesh-count/backend reader over Babylon's own counters. Not wired
+  into any UI yet (no perf HUD exists in this app) — exists for a future dev overlay to
+  poll, per spec §9's "add development metrics" without inventing a dashboard nobody
+  asked for.
+
+**Deliberately not built, and why** (spec listed 17 files; these two are the ones cut,
+not silently — see the audit doc's "Scope for this hardening pass" section):
+
+- `BabylonUtilityLayerManager.ts` — Babylon's `GizmoManager` already owns a single
+  internal `UtilityLayerRenderer` for its whole lifetime (confirmed: one `GizmoManager`
+  per viewer, never recreated per-selection), which already satisfies the spec's "do not
+  create a utility layer per selected entity" rule. A wrapper file around a single
+  Babylon-owned instance with no behavioural difference would be ceremony, not hardening.
+- `BabylonOverlayManager.ts` / `BabylonAssetInstanceManager.ts` — no 3D overlay content
+  exists yet (heatmap/clearance overlays are 2D-only, `HeatmapOverlay.tsx`/`ZoneLayer.tsx`
+  render into the Konva canvas, not Babylon), and `BabylonAssetCache.ts` already covers
+  instance refcounting for the zero real GLBs that exist today. Building managers for
+  content that doesn't exist is the "scaffolding for later" this codebase avoids
+  everywhere else — add when a 3D overlay or a real multi-instance GLB actually lands.
+
+Verification:
+
+- `npx tsc --noEmit`: clean (same pre-existing 4 unrelated `report.test.ts` errors).
+- `npx eslint` on every touched/new file: 0 issues.
+- `node --test "src/**/*.test.ts"`: 123/123 pass (5 new: render-role classification).
+- `npm run build`: clean.
+- **Verified live in a browser**: reloaded `/spatial`, switched to 3D view — zero
+  console errors/warnings with the hardened picking/role layer active, "Renderer:
+  webgpu" status pill correct, room shell still correctly lit (the earlier lighting fix
+  held through this pass). Synthetic pointer click on the canvas (role-filtered picking
+  path) produced zero errors.
+- **Not verified live**: `?forceWebGL=1` fallback path, the `failed` status-pill state
+  (no reachable failure condition to trigger in this environment), and — same limitation
+  as the migration above — real mouse-drag gizmo interaction and the new pick-proxy's
+  behaviour against an actual multi-mesh GLB (still zero real `.glb` files in `public/`).
+- Locked/hidden entity states referenced throughout the spec (§3, §4) don't exist on
+  `PlacedObject` yet — documented as a real gap in `BabylonGizmoController.ts`'s own
+  comment, not fabricated fields.
+
+## Closing the hardening pass's honest gaps (2026-08-07)
+
+User asked to close the 3 gaps flagged at the end of the hardening pass "completely."
+All three addressed:
+
+- **WebGL-fallback path**: verified live at `/spatial?forceWebGL=1` — status pill read
+  "Renderer: webgl", zero console errors.
+- **Failure-state path**: added a `?forceFail=1` dev-only hook (`RoomViewer3D.tsx`) that
+  makes `withRendererErrorBoundary`'s failure branch genuinely reachable — otherwise
+  there was no real-browser way to trigger it. Verified live: status pill correctly
+  showed "Renderer failed to start: Forced failure (dev: ?forceFail=1) — reload to
+  retry", zero uncaught console errors (the boundary's try/catch worked as designed).
+- **Real gizmo mouse-drag interaction**: attempted via the same synthetic-`PointerEvent`
+  technique that worked for orbit-camera drag/zoom earlier, but couldn't reliably
+  pixel-click a small object in 3D perspective from screenshot-guessed coordinates
+  after several tries — this specific check remains unverified by automation (the
+  underlying click-to-select path itself is confirmed working with zero errors, per the
+  hardening pass above; it's specifically dragging a gizmo handle that's untested).
+  Genuinely not closed — a manual click-through is still owed.
+- **Locked/hidden entity fields**: this one required real feature work, not just
+  verification — the spec referenced fields that didn't exist. Added end-to-end:
+  - `types.ts`: `PlacedObject.locked?`/`hidden?` (optional, non-breaking).
+  - `store.ts`: `toggleObjectLocked`/`toggleObjectHidden` actions (same `mutate()`
+    pattern as every other object mutator, on the normal undo/redo history).
+  - `BabylonRendererAdapter.ts`: `root.setEnabled(!obj.hidden)` — one call excludes the
+    visual, pick proxy, and label from render+pick together, rather than toggling each
+    child individually.
+  - `RoomViewer3D.tsx`: gizmo attach now checks `!selectedObj.locked && !selectedObj.hidden`.
+  - `ObjectLayer.tsx` (2D): hidden objects filtered out of render entirely; `draggable={!obj.locked}`;
+    Transformer only attaches to an unlocked, visible selection — parity with the 3D side.
+  - `RoomEditor2D.tsx`: the keyboard rotate/resize/move handler (from this session's
+    earlier Milestone-4 work) now returns early on `obj.locked`.
+  - `PropertiesPanel.tsx`: Lock/Hide toggle buttons — the actual UI surface that makes
+    this reachable by a user, not dead code sitting behind no control.
+  - **Verified live**: selected an object via Tab, clicked Lock (button showed "Locked",
+    `aria-pressed="true"`), pressed `r` — Rotation **stayed at 15°** instead of jumping
+    to 30°, confirming the keyboard-shortcut guard actually blocks the mutation, not
+    just that the button toggles a flag nobody reads.
+- `npx tsc --noEmit`: clean. `npx eslint` on every touched file: 0 issues.
+  `node --test "src/**/*.test.ts"`: 123/123 pass. `npm run build`: clean.
+
 ## To activate this milestone
 
 Pick one row from the phase table above as a session's actual task, and it goes through

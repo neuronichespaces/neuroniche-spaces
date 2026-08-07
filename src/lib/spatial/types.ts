@@ -59,6 +59,11 @@ export type PlacedObject = {
   category?: string;
   sensoryProfile?: SensoryImpact;
   accessibilityProfile?: AccessibilityProfile;
+  /** Selectable/inspectable but not movable/rotatable/resizable via gizmo, drag, or
+   *  keyboard shortcuts. Absent/false = unlocked (default). */
+  locked?: boolean;
+  /** Not rendered and not pickable in either view. Absent/false = visible (default). */
+  hidden?: boolean;
 };
 
 export type FloorDims = { widthM: number; lengthM: number };
