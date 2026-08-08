@@ -141,3 +141,51 @@ test('undo/redo preserve the command id across the past/future move', () => {
   redo();
   assert.equal(useRoomLayoutStore.getState().past[0].id, originalId);
 });
+
+test('jumpToCommand jumps backward into past by id, in one multi-step move', () => {
+  reset();
+  const { addWall, addObject, jumpToCommand } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  const targetId = useRoomLayoutStore.getState().past[0].id; // "Add wall" command
+  addObject({ id: 'o1', productId: 'p1', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o2', productId: 'p2', x: 2, y: 2, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  jumpToCommand(targetId);
+
+  const s = useRoomLayoutStore.getState();
+  // Restored to the state right before "Add wall" — i.e. before anything happened.
+  assert.equal(s.walls.length, 0);
+  assert.equal(s.placedObjects.length, 0);
+  // The two later commands (add o1, add o2) are now redoable, plus the wall command itself.
+  assert.equal(s.future.length, 3);
+});
+
+test('jumpToCommand jumps forward into future by id, in one multi-step move', () => {
+  reset();
+  const { addWall, addObject, undo, jumpToCommand } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  addObject({ id: 'o1', productId: 'p1', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o2', productId: 'p2', x: 2, y: 2, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  undo();
+  undo();
+  undo();
+  // Now fully undone: nothing exists, all 3 commands sit in `future`.
+  const targetId = useRoomLayoutStore.getState().future[1].id; // the "add o1" command
+
+  jumpToCommand(targetId);
+
+  const s = useRoomLayoutStore.getState();
+  assert.equal(s.walls.length, 1);
+  assert.equal(s.placedObjects.length, 1);
+  assert.equal(s.placedObjects[0].id, 'o1');
+  // Only "add o2" remains ahead in future.
+  assert.equal(s.future.length, 1);
+});
+
+test('jumpToCommand no-ops on an unknown id', () => {
+  reset();
+  const { addWall, jumpToCommand } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  jumpToCommand('does-not-exist');
+  assert.equal(useRoomLayoutStore.getState().walls.length, 1);
+});

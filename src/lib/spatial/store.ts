@@ -69,6 +69,12 @@ type RoomLayoutState = RoomLayout & {
   applyRemoteLayout: (layout: RoomLayout) => void;
   undo: () => void;
   redo: () => void;
+  /** Multi-step jump to a specific command's id, found in either `past` or `future` —
+   *  the CommandHistoryPanel's click-to-jump. Implemented as repeated undo()/redo()
+   *  calls rather than reimplementing the past/future array splice logic: reuses
+   *  already-tested single-step behavior instead of a second, riskier implementation
+   *  of the same semantics. No-ops if the id isn't found in either array. */
+  jumpToCommand: (id: string) => void;
   hydrateFromLocalStorage: () => void;
   saveToLocalStorage: () => void;
 };
@@ -271,6 +277,25 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         clearanceViolations: withRecomputedViolations(next.layout),
       });
       scheduleAutosaveAndBroadcast(next.layout);
+    },
+
+    jumpToCommand: (id) => {
+      const s = get();
+      const pastIdx = s.past.findIndex((e) => e.id === id);
+      if (pastIdx !== -1) {
+        // Undoing back to "the state right before this command" requires undoing every
+        // entry after it, plus the command itself — length - pastIdx total steps.
+        const steps = s.past.length - pastIdx;
+        for (let i = 0; i < steps; i++) get().undo();
+        return;
+      }
+      const futureIdx = s.future.findIndex((e) => e.id === id);
+      if (futureIdx !== -1) {
+        // Redoing forward through this command requires redoing every entry up to and
+        // including it — futureIdx + 1 total steps.
+        const steps = futureIdx + 1;
+        for (let i = 0; i < steps; i++) get().redo();
+      }
     },
 
     hydrateFromLocalStorage: () => {

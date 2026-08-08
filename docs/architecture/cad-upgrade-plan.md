@@ -184,6 +184,26 @@ multi-field on-canvas overlay, distinct from the single command-line-style text 
 built so far) are a materially different UI pattern — not attempted this pass, flagged
 honestly rather than half-built under time pressure.
 
+## 2026-08-09: click-to-jump on the Command History panel
+
+Closed the gap the read-only panel deliberately left open. `store.ts` gained
+`jumpToCommand(id)` — found either in `past` or `future`, implemented as **repeated
+calls to the already-tested `undo()`/`redo()`** rather than a second, riskier
+reimplementation of the past/future array splice logic. Backward: `past.length - idx`
+undo() calls (undo everything after the target, then the target itself, landing on
+"the state right before this command"). Forward: `futureIdx + 1` redo() calls.
+`CommandHistoryPanel.tsx`'s list items are now buttons calling this action.
+
+4 new store tests (jump backward, jump forward, unknown-id no-op, plus the existing
+id/description tests unaffected) — 10/10 pass on first try, no debugging needed, which
+is the payoff of reusing tested primitives instead of writing new array algebra.
+**Live-verified**: created two walls, clicked the *older* history entry, confirmed
+Undo became disabled and Redo became enabled with the panel showing zero remaining
+past entries — exactly "jumped back before both commands," matching the unit test's
+semantics for jumping to the oldest entry.
+
+152/152 tests pass, `tsc`/`eslint`/`npm run build` clean.
+
 ## 2026-08-08: read-only Command History panel (Gap 7/8 groundwork)
 
 First visible surface for the `id`/`lastCommandDescription` fields shipped above —
