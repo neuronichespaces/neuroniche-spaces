@@ -13,8 +13,10 @@ function reset() {
     floorDims: { widthM: 6, lengthM: 6 },
     placedObjects: [],
     zones: [],
+    dimensions: [],
     selectedObjectId: null,
     selectedWallId: null,
+    selectedDimensionId: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -188,4 +190,41 @@ test('jumpToCommand no-ops on an unknown id', () => {
   addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
   jumpToCommand('does-not-exist');
   assert.equal(useRoomLayoutStore.getState().walls.length, 1);
+});
+
+test('addDimension/removeDimension add and remove a real model entity (Gap 6)', () => {
+  reset();
+  const { addDimension, removeDimension, undo } = useRoomLayoutStore.getState();
+  addDimension({ id: 'dim1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3 });
+  assert.equal(useRoomLayoutStore.getState().dimensions.length, 1);
+  assert.equal(useRoomLayoutStore.getState().dimensions[0].id, 'dim1');
+
+  removeDimension('dim1');
+  assert.equal(useRoomLayoutStore.getState().dimensions.length, 0);
+
+  // Both operations are real undoable commands, same as every other mutator.
+  undo(); // undoes the remove
+  assert.equal(useRoomLayoutStore.getState().dimensions.length, 1);
+  undo(); // undoes the add
+  assert.equal(useRoomLayoutStore.getState().dimensions.length, 0);
+});
+
+test('selectDimension is mutually exclusive with object/wall selection', () => {
+  reset();
+  const { addDimension, addWall, addObject, selectDimension, selectWall, selectObject } = useRoomLayoutStore.getState();
+  addDimension({ id: 'dim1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3 });
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  addObject({ id: 'o1', productId: 'p1', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  selectDimension('dim1');
+  assert.equal(useRoomLayoutStore.getState().selectedDimensionId, 'dim1');
+  assert.equal(useRoomLayoutStore.getState().selectedWallId, null);
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, null);
+
+  selectWall('w1');
+  assert.equal(useRoomLayoutStore.getState().selectedDimensionId, null);
+
+  selectDimension('dim1');
+  selectObject('o1');
+  assert.equal(useRoomLayoutStore.getState().selectedDimensionId, null);
 });

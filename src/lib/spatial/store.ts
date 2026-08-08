@@ -8,9 +8,16 @@
 import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension } from './types.ts';
 
-type RoomLayout = { walls: WallSegment[]; doors: DoorPlacement[]; floorDims: FloorDims; placedObjects: PlacedObject[]; zones: Zone[] };
+type RoomLayout = {
+  walls: WallSegment[];
+  doors: DoorPlacement[];
+  floorDims: FloorDims;
+  placedObjects: PlacedObject[];
+  zones: Zone[];
+  dimensions: Dimension[];
+};
 
 // CAD-upgrade Milestone 1/2: each undo/redo entry carries a stable id and a
 // plain-language description of the command that produced it — groundwork for a future
@@ -31,6 +38,7 @@ const AUTOSAVE_DEBOUNCE_MS = 500;
 type RoomLayoutState = RoomLayout & {
   selectedObjectId: string | null;
   selectedWallId: string | null;
+  selectedDimensionId: string | null;
   clearanceViolations: Set<string>;
   hasLoadedInitialData: boolean; // false only before any template/localStorage/user edit has applied — see B3 fix in page.tsx
   past: HistoryEntry[];
@@ -63,6 +71,10 @@ type RoomLayoutState = RoomLayout & {
   selectObject: (id: string | null) => void;
   selectWall: (id: string | null) => void;
 
+  addDimension: (dimension: Dimension) => void;
+  removeDimension: (id: string) => void;
+  selectDimension: (id: string | null) => void;
+
   loadLayout: (layout: RoomLayout) => void;
   /** Applies a layout without touching the undo/redo history — used for incoming
    *  cross-tab BroadcastChannel updates, which shouldn't spam a local user's undo stack. */
@@ -85,7 +97,14 @@ function withRecomputedViolations(state: { walls: WallSegment[]; placedObjects: 
 }
 
 function snapshot(s: RoomLayout): RoomLayout {
-  return { walls: s.walls, doors: s.doors, floorDims: s.floorDims, placedObjects: s.placedObjects, zones: s.zones };
+  return {
+    walls: s.walls,
+    doors: s.doors,
+    floorDims: s.floorDims,
+    placedObjects: s.placedObjects,
+    zones: s.zones,
+    dimensions: s.dimensions,
+  };
 }
 
 let broadcastChannel: BroadcastChannel | null = null;
@@ -131,6 +150,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const walls = patch.walls ?? s.walls;
       const placedObjects = patch.placedObjects ?? s.placedObjects;
       const zones = patch.zones ?? s.zones;
+      const dimensions = patch.dimensions ?? s.dimensions;
       const next = {
         ...historyPatch,
         ...patch,
@@ -140,7 +160,14 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         clearanceViolations: withRecomputedViolations({ walls, placedObjects }),
       };
       scheduleAutosaveAndBroadcast(
-        snapshot({ walls, doors: patch.doors ?? s.doors, floorDims: patch.floorDims ?? s.floorDims, placedObjects, zones }),
+        snapshot({
+          walls,
+          doors: patch.doors ?? s.doors,
+          floorDims: patch.floorDims ?? s.floorDims,
+          placedObjects,
+          zones,
+          dimensions,
+        }),
       );
       return next;
     });
@@ -152,8 +179,10 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     floorDims: { widthM: 6, lengthM: 6 },
     placedObjects: [],
     zones: [],
+    dimensions: [],
     selectedObjectId: null,
     selectedWallId: null,
+    selectedDimensionId: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -214,10 +243,21 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       mutate('Toggle object lock', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, locked: !o.locked } : o)) })),
     toggleObjectHidden: (id) =>
       mutate('Toggle object visibility', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, hidden: !o.hidden } : o)) })),
-    // Transient selection — not pushed to history. Wall/object selection are mutually
-    // exclusive (single inspector panel shown at a time), so selecting one clears the other.
-    selectObject: (id) => set({ selectedObjectId: id, selectedWallId: id ? null : get().selectedWallId }),
-    selectWall: (id) => set({ selectedWallId: id, selectedObjectId: id ? null : get().selectedObjectId }),
+    // Transient selection — not pushed to history. Wall/object/dimension selection are
+    // mutually exclusive (single inspector panel shown at a time), so selecting one
+    // clears the other two.
+    selectObject: (id) =>
+      set({ selectedObjectId: id, selectedWallId: id ? null : get().selectedWallId, selectedDimensionId: id ? null : get().selectedDimensionId }),
+    selectWall: (id) =>
+      set({ selectedWallId: id, selectedObjectId: id ? null : get().selectedObjectId, selectedDimensionId: id ? null : get().selectedDimensionId }),
+
+    addDimension: (dimension) => mutate('Add dimension', (s) => ({ dimensions: [...s.dimensions, dimension] })),
+    removeDimension: (id) => {
+      mutate('Delete dimension', (s) => ({ dimensions: s.dimensions.filter((d) => d.id !== id) }));
+      set((s) => (s.selectedDimensionId === id ? { selectedDimensionId: null } : {}));
+    },
+    selectDimension: (id) =>
+      set({ selectedDimensionId: id, selectedObjectId: id ? null : get().selectedObjectId, selectedWallId: id ? null : get().selectedWallId }),
 
     loadLayout: (layout) => {
       const valid = validateRoomLayout(layout);

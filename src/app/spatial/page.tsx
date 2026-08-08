@@ -58,6 +58,7 @@ function SpatialDesignEngineInner() {
   const walls = useRoomLayoutStore((s) => s.walls);
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const zones = useRoomLayoutStore((s) => s.zones);
+  const dimensions = useRoomLayoutStore((s) => s.dimensions);
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
@@ -113,6 +114,7 @@ function SpatialDesignEngineInner() {
         : { widthM: template.targetWidthM.max, lengthM: template.targetLengthM.max },
       placedObjects: template.defaultObjects,
       zones: hasLoadedInitialData ? zones : [],
+      dimensions: hasLoadedInitialData ? dimensions : [],
     });
   }
 

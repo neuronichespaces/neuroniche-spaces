@@ -10,6 +10,7 @@ const validLayout = {
     { id: 'o1', productId: 'p1', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} },
   ],
   zones: [{ id: 'z1', kind: 'calm', x: 1, y: 1, widthM: 2, lengthM: 2, rotationDeg: 0 }],
+  dimensions: [{ id: 'd1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3 }],
 };
 
 test('accepts a well-formed layout', () => {
@@ -20,6 +21,18 @@ test('defaults missing zones to empty array (pre-zone payloads)', () => {
   const { zones, ...withoutZones } = validLayout;
   const result = validateRoomLayout(withoutZones);
   assert.deepEqual(result?.zones, []);
+});
+
+test('defaults missing dimensions to empty array (pre-dimensions payloads)', () => {
+  const { dimensions, ...withoutDimensions } = validLayout;
+  const result = validateRoomLayout(withoutDimensions);
+  assert.deepEqual(result?.dimensions, []);
+});
+
+test('accepts a dimension with an optional label', () => {
+  const withLabel = { ...validLayout, dimensions: [{ ...validLayout.dimensions[0], label: 'Custom 4.2m' }] };
+  const result = validateRoomLayout(withLabel);
+  assert.equal(result?.dimensions[0].label, 'Custom 4.2m');
 });
 
 test('rejects non-object input', () => {
@@ -40,5 +53,10 @@ test('rejects a placedObject with wrong footprint shape', () => {
 
 test('rejects malformed zones array', () => {
   const broken = { ...validLayout, zones: [{ id: 'z1' }] };
+  assert.equal(validateRoomLayout(broken), null);
+});
+
+test('rejects malformed dimensions array', () => {
+  const broken = { ...validLayout, dimensions: [{ id: 'd1' }] };
   assert.equal(validateRoomLayout(broken), null);
 });

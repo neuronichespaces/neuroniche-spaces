@@ -96,15 +96,23 @@ unchanged all session).
 
 ## Gap 6 — Annotation, sections, elevations, documentation
 
-**Status: minimal precedent (2D labels), no annotation model.**
+**Status: manual dimensions now a real model entity (2026-08-09); everything else
+still minimal precedent / missing.**
 
-- 2D view renders room-name/area/wall-length text and a clearance readout as
-  **rendering-only** Konva `<Text>` nodes — not model entities. This violates this
-  prompt's own rule ("Annotations must not exist only as SVG pixels or Babylon render
-  objects") today, by design of the existing (pre-this-prompt) codebase.
-- No manual dimension tool, no leaders/callouts/revision-clouds, no section-line or
-  elevation-marker entities, no generated section/elevation views, no north arrow,
-  scale bar (2D view has neither today), no title-block/export-metadata system.
+- **Closed**: manual dimension tool. `Dimension` (`types.ts`) is a canonical model
+  entity — `{id, start, end, offsetM, label?}` — persisted through the store's normal
+  `mutate()`/undo-redo/validate path, not rendering-only pixels. `DimensionLayer.tsx`
+  is a pure view over it (extension lines, offset dimension line, length label).
+  Click-click tool in `RoomEditor2D.tsx` (first click = measure-from point, second =
+  measure-to + commit); select a dimension line and press Delete to remove it. This
+  closes the specific violation the prompt flagged: "annotations must not exist only
+  as SVG pixels or Babylon render objects" no longer applies to dimensions.
+- 2D view still renders room-name/area/wall-length text and a clearance readout as
+  **rendering-only** Konva `<Text>` nodes, unrelated to the new Dimension entity — same
+  gap as before for those specific labels.
+- Still missing: leaders/callouts/revision-clouds, section-line or elevation-marker
+  entities, generated section/elevation views, north arrow, scale bar, title-block/
+  export-metadata system.
 - PDF export exists (`PrintableExport.tsx`/`ExportPanel.tsx`) but produces a snapshot
   of the current view, not a canonical-model-driven technical drawing sheet.
 

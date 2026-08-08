@@ -184,6 +184,57 @@ multi-field on-canvas overlay, distinct from the single command-line-style text 
 built so far) are a materially different UI pattern — not attempted this pass, flagged
 honestly rather than half-built under time pressure.
 
+## 2026-08-09: Gap 6 — manual dimensions as a real model entity
+
+First real annotation work, unblocked once wall-selection (Milestone 1) landed. Added
+`Dimension` to `types.ts` — `{id, start, end, offsetM, label?}` — a canonical model
+entity, not rendering-only pixels, closing the specific violation
+`cad-gap-audit.md`'s Gap 6 flagged against this codebase's foundation spec.
+
+- `geometry.ts`: `offsetLine(start, end, offsetM)` — the perpendicular-offset dimension
+  line, standard architectural convention. 3 new tests.
+- `store.ts`/`validate.ts`: `dimensions: Dimension[]` threaded through `RoomLayout`
+  everywhere it appears (store state, `snapshot()`, `mutate()`, `validateRoomLayout`,
+  `persistence.ts`'s Supabase load/save). `addDimension`/`removeDimension` go through
+  the normal `mutate()` undo/redo path — a dimension is exactly as undoable as a wall
+  or object. `selectDimension` joins the existing mutual-exclusivity group with
+  `selectObject`/`selectWall`. Dimensions aren't persisted to Supabase yet (no DB
+  column/migration for them) — `saveRoomToSupabase`'s parameter type is narrowed to
+  `Omit<RoomLayout, 'dimensions'>` since it never reads that field, rather than forcing
+  every caller to supply a value that goes nowhere.
+- `DimensionLayer.tsx` (new): pure rendering over the model — extension lines from the
+  measured points to the offset line, the dimension line itself, a length label.
+- `RoomEditor2D.tsx`: new "dimension" tool, click-click (not click-drag — a dimension
+  has no useful in-progress preview shape). Select a dimension line, press Delete to
+  remove it — reusing the existing global keydown handler's input-guard from the Gap 2
+  work, checked *before* the placedObjects-empty early return since a dimension can
+  exist with zero objects in the room.
+- **A real, incidental lint finding fixed along the way**: `validate.ts`'s 8
+  pre-existing `as any` casts (predating this session) turned out to violate
+  `@typescript-eslint/no-explicit-any` once actually run — not something my one new
+  cast introduced, but leaving 8 failures unfixed while adding a 9th would've been
+  indefensible. Root-cause fixed the whole file to a typed `Record<string, unknown>`
+  narrowing helper instead of patching just the new function.
+
+**Verified live**, and a real technique upgrade discovered along the way: raw
+synthetic `MouseEvent` dispatch on the Konva container (the technique already known
+to be unreliable for gizmo drag, confirmed again here — zero effect) was replaced
+with `stage.setPointersPositions()` + `stage.fire('mousedown', {evt}, true)`, which
+correctly drives Konva's own event system end-to-end. Two clicks at `(1,1)` and
+`(4,1)` produced exactly the right 3 rendered lines (`[60,60,60,84]`,
+`[240,60,240,84]`, `[60,84,240,84]` — matching a 3m horizontal dimension offset by
+the tool's `0.4m` default). Also verified selection (all 3 lines turn `#2563eb`) and
+removal (all 3 lines disappear) via a temporary debug hook, removed before commit.
+This `setPointersPositions`/`fire` technique is worth reusing for any future
+Konva-interaction verification instead of raw `MouseEvent` dispatch.
+
+160/160 tests pass (8 new: 3 geometry, 3 validate, 2 store). `npx tsc --noEmit`/
+`eslint`/`npm run build`: all clean.
+
+**Still open in Gap 6**: leaders/callouts, section/elevation entities and generated
+views, north arrow, scale bar, title block. The room-name/area/wall-length labels
+remain render-only Text, unrelated to the new Dimension entity.
+
 ## 2026-08-09: click-to-jump on the Command History panel
 
 Closed the gap the read-only panel deliberately left open. `store.ts` gained

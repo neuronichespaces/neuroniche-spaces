@@ -50,6 +50,24 @@ export function applyAxisLock(start: Point, point: Point): Point {
   return Math.abs(dx) >= Math.abs(dy) ? { x: point.x, y: start.y } : { x: start.x, y: point.y };
 }
 
+// Gap 6 (manual dimension annotations): the dimension line itself is drawn parallel to
+// start->end, offset perpendicular by `offsetM` — standard architectural dimension-line
+// convention, keeping the measurement line/label clear of the geometry being measured.
+// Positive offsetM is the left-hand normal of the start->end direction (consistent,
+// arbitrary sign — callers needing the annotation on a particular side pass a negative
+// offsetM to flip it).
+export function offsetLine(start: Point, end: Point, offsetM: number): { start: Point; end: Point } {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  return {
+    start: { x: start.x + nx * offsetM, y: start.y + ny * offsetM },
+    end: { x: end.x + nx * offsetM, y: end.y + ny * offsetM },
+  };
+}
+
 // Point at arc-length `offsetM` along the wall, measured from wall.start.
 // Works for any straight wall (axis-aligned or angled) — it's linear
 // interpolation along the segment, not full polygon geometry.

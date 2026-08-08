@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect } from 'react-konva';
 import type Konva from 'konva';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
-import type { WallSegment, Zone, ZoneKind } from '@/lib/spatial/types.ts';
+import type { WallSegment, Zone, ZoneKind, Dimension } from '@/lib/spatial/types.ts';
 import {
   snapPointToGrid,
   projectPointToSegment,
@@ -28,6 +28,7 @@ import { PERSONA_LIBRARY, evaluatePersonaForRoom } from '@/lib/spatial/persona.t
 import WallLayer, { WallDimensionLabel } from './WallLayer.tsx';
 import ObjectLayer from './ObjectLayer.tsx';
 import ZoneLayer, { ZONE_KIND_LABELS } from './ZoneLayer.tsx';
+import DimensionLayer from './DimensionLayer.tsx';
 import HeatmapOverlay from './HeatmapOverlay.tsx';
 import ViolationsList from './ViolationsList.tsx';
 
@@ -55,7 +56,8 @@ const HEATMAP_CATEGORY_LABELS: Record<SensoryCategory | 'crowding', string> = {
   crowding: 'Crowding',
 };
 
-type Tool = 'select' | 'wall' | 'door' | 'zone';
+type Tool = 'select' | 'wall' | 'door' | 'zone' | 'dimension';
+const DEFAULT_DIMENSION_OFFSET_M = 0.4;
 
 type Props = {
   gridSnapM?: number;
@@ -72,13 +74,18 @@ export default function RoomEditor2D({
   const doors = useRoomLayoutStore((s) => s.doors);
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const zones = useRoomLayoutStore((s) => s.zones);
+  const dimensions = useRoomLayoutStore((s) => s.dimensions);
   const clearanceViolations = useRoomLayoutStore((s) => s.clearanceViolations);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
+  const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const addWall = useRoomLayoutStore((s) => s.addWall);
   const addDoor = useRoomLayoutStore((s) => s.addDoor);
   const addZone = useRoomLayoutStore((s) => s.addZone);
+  const addDimension = useRoomLayoutStore((s) => s.addDimension);
+  const removeDimension = useRoomLayoutStore((s) => s.removeDimension);
+  const selectDimension = useRoomLayoutStore((s) => s.selectDimension);
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
   const selectWall = useRoomLayoutStore((s) => s.selectWall);
@@ -93,6 +100,11 @@ export default function RoomEditor2D({
     null,
   );
   const [nextZoneKind, setNextZoneKind] = useState<ZoneKind>('focus');
+  // Manual dimension tool (Gap 6): click-click, not click-drag — the first click sets
+  // the measured start point, the second sets the end and immediately commits the
+  // Dimension (unlike walls/zones, a dimension has no useful "in-progress drag" preview
+  // shape, so there's no draft rectangle/line to render mid-operation).
+  const [draftDimensionStart, setDraftDimensionStart] = useState<{ x: number; y: number } | null>(null);
   // Gap 2 (CAD-upgrade plan): typed coordinate entry for wall points, alongside the
   // existing click/drag flow — not a replacement for it. First Enter (no draft in
   // progress) sets the wall's start point; second Enter finishes it, same lifecycle as
@@ -170,6 +182,16 @@ export default function RoomEditor2D({
       // rather than a stopPropagation() scattered across every field.
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+
+      // Delete a selected dimension — checked before the placedObjects-empty early
+      // return below, since a dimension can exist and be selected with zero objects
+      // in the room.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedDimensionId) {
+        e.preventDefault();
+        removeDimension(selectedDimensionId);
+        return;
+      }
+
       if (placedObjects.length === 0) return;
 
       if (e.key === 'Tab') {
@@ -227,7 +249,17 @@ export default function RoomEditor2D({
     const root = editorRootRef.current;
     root?.addEventListener('keydown', onKeyDown);
     return () => root?.removeEventListener('keydown', onKeyDown);
-  }, [placedObjects, selectedObjectId, gridSnapM, moveObject, selectObject, rotateObject, updateObjectProps]);
+  }, [
+    placedObjects,
+    selectedObjectId,
+    selectedDimensionId,
+    gridSnapM,
+    moveObject,
+    selectObject,
+    rotateObject,
+    updateObjectProps,
+    removeDimension,
+  ]);
 
   function pointerMetres(): { x: number; y: number } | null {
     const stage = stageRef.current;
@@ -237,6 +269,25 @@ export default function RoomEditor2D({
   }
 
   function handleStageDown() {
+    if (tool === 'dimension') {
+      const p = pointerMetres();
+      if (!p) return;
+      const snapped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
+      if (!draftDimensionStart) {
+        setDraftDimensionStart(snapped);
+        return;
+      }
+      if (snapped.x === draftDimensionStart.x && snapped.y === draftDimensionStart.y) return; // zero-length, ignore
+      const dimension: Dimension = {
+        id: `dim-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+        start: draftDimensionStart,
+        end: snapped,
+        offsetM: DEFAULT_DIMENSION_OFFSET_M,
+      };
+      addDimension(dimension);
+      setDraftDimensionStart(null);
+      return;
+    }
     if (tool !== 'wall' && tool !== 'zone') return;
     const p = pointerMetres();
     if (!p) return;
@@ -390,7 +441,7 @@ export default function RoomEditor2D({
   return (
     <div ref={editorRootRef} tabIndex={0} className="flex flex-col gap-2 focus:outline-none">
       <div className="flex flex-wrap items-center gap-2">
-        {(['select', 'wall', 'door', 'zone'] as Tool[]).map((t) => (
+        {(['select', 'wall', 'door', 'zone', 'dimension'] as Tool[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -398,6 +449,7 @@ export default function RoomEditor2D({
               setTool(t);
               setDraftWall(null);
               setDraftZone(null);
+              setDraftDimensionStart(null);
               setWallCoordDraft('');
               setWallCoordError('');
               setZoneCoordDraft('');
@@ -478,6 +530,10 @@ export default function RoomEditor2D({
               : 'Pick a zone type, then click and drag to draw it, or type a corner.')}
           {tool === 'select' &&
             'Drag objects to reposition them, or press Tab to select one and use the arrow keys to move it (hold Alt for fine, Shift for coarse steps).'}
+          {tool === 'dimension' &&
+            (draftDimensionStart
+              ? 'Click the second point to finish the dimension.'
+              : 'Click the first point to measure from. Select a dimension line and press Delete to remove it.')}
         </span>
         {tool === 'wall' && wallCoordError && (
           <span role="alert" className="text-xs text-red-700">
@@ -603,6 +659,14 @@ export default function RoomEditor2D({
             onMove={moveObject}
             onRotate={rotateObject}
             onResize={(id, widthM, depthM) => updateObjectProps(id, { widthM, depthM })}
+          />
+        </Layer>
+        <Layer>
+          <DimensionLayer
+            dimensions={dimensions}
+            pxPerM={pxPerM}
+            selectedDimensionId={selectedDimensionId ?? undefined}
+            onSelect={tool === 'select' ? selectDimension : undefined}
           />
         </Layer>
       </Stage>

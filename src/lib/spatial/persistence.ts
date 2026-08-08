@@ -10,10 +10,20 @@
 // and manual exercise against a live Supabase project.
 
 import { supabase } from '@/lib/supabase/client';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension } from './types.ts';
 import { sensoryProfileFor } from './sensoryLibrary.ts';
 
-type RoomLayout = { walls: WallSegment[]; doors: DoorPlacement[]; floorDims: FloorDims; placedObjects: PlacedObject[]; zones: Zone[] };
+type RoomLayout = {
+  walls: WallSegment[];
+  doors: DoorPlacement[];
+  floorDims: FloorDims;
+  placedObjects: PlacedObject[];
+  zones: Zone[];
+  // Dimensions (CAD-upgrade Gap 6) aren't persisted to Supabase yet — no migration for
+  // a dimensions table/column exists. Loading always defaults to []; saving doesn't
+  // need this field at all (see saveRoomToSupabase's narrower parameter type below).
+  dimensions: Dimension[];
+};
 
 export async function loadRoomFromSupabase(roomId: string): Promise<RoomLayout | null> {
   const { data: layoutRow, error: layoutError } = await supabase
@@ -56,12 +66,13 @@ export async function loadRoomFromSupabase(roomId: string): Promise<RoomLayout |
     walls: (layoutRow.wall_geometry_json ?? []) as WallSegment[],
     doors: (layoutRow.door_positions_json ?? []) as DoorPlacement[],
     zones: (layoutRow.zones_json ?? []) as Zone[],
+    dimensions: [],
     floorDims: { widthM: Number(layoutRow.floor_width_m), lengthM: Number(layoutRow.floor_length_m) },
     placedObjects,
   };
 }
 
-export async function saveRoomToSupabase(roomId: string, layout: RoomLayout): Promise<void> {
+export async function saveRoomToSupabase(roomId: string, layout: Omit<RoomLayout, 'dimensions'>): Promise<void> {
   const { data: existing, error: findError } = await supabase
     .from('room_layouts')
     .select('id')

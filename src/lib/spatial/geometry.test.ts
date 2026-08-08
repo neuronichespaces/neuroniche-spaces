@@ -10,6 +10,7 @@ import {
   wallAngleDeg,
   pointAtAngleAndLength,
   applyAxisLock,
+  offsetLine,
 } from './geometry.ts';
 import type { WallSegment } from './types.ts';
 
@@ -95,4 +96,23 @@ test('applyAxisLock snaps to vertical when the y-delta dominates', () => {
 test('applyAxisLock picks horizontal on an exact tie (dx === dy)', () => {
   const locked = applyAxisLock({ x: 0, y: 0 }, { x: 2, y: 2 });
   assert.deepEqual(locked, { x: 2, y: 0 });
+});
+
+test('offsetLine shifts a horizontal line perpendicular by offsetM', () => {
+  const line = offsetLine({ x: 0, y: 0 }, { x: 4, y: 0 }, 0.5);
+  // For a start->end vector of (4,0), the left-hand normal is (0,1) — offset moves y, not x.
+  assert.ok(Math.abs(line.start.x - 0) < 1e-9 && Math.abs(line.start.y - 0.5) < 1e-9);
+  assert.ok(Math.abs(line.end.x - 4) < 1e-9 && Math.abs(line.end.y - 0.5) < 1e-9);
+});
+
+test('offsetLine preserves the original line length', () => {
+  const line = offsetLine({ x: 1, y: 1 }, { x: 4, y: 5 }, 1.2);
+  const originalLen = Math.hypot(3, 4);
+  const offsetLen = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
+  assert.ok(Math.abs(offsetLen - originalLen) < 1e-9);
+});
+
+test('offsetLine with offsetM 0 leaves the line unchanged', () => {
+  const line = offsetLine({ x: 2, y: 3 }, { x: 5, y: 3 }, 0);
+  assert.deepEqual(line, { start: { x: 2, y: 3 }, end: { x: 5, y: 3 } });
 });

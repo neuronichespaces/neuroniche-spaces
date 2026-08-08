@@ -94,3 +94,19 @@ export type Zone = {
   lengthM: number;
   rotationDeg: number;
 };
+
+// CAD-upgrade Gap 6 (Annotation, sections, elevations): a manual dimension is a real
+// canonical model entity, not just rendered pixels — this project's foundation spec
+// explicitly rules out "annotations that exist only as SVG pixels or Babylon render
+// objects" (see docs/architecture/cad-gap-audit.md's Gap 6). `start`/`end` are the two
+// points being measured between; `offsetM` is the perpendicular distance from that
+// line to where the dimension line/label is actually drawn (standard architectural
+// dimension-line convention — keeps the label from overlapping the measured geometry).
+export type Dimension = {
+  id: string;
+  start: Point;
+  end: Point;
+  offsetM: number;
+  /** Optional override — absent means "show the computed length" (the common case). */
+  label?: string;
+};
