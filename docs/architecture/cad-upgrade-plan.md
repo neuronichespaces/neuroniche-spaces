@@ -184,6 +184,23 @@ multi-field on-canvas overlay, distinct from the single command-line-style text 
 built so far) are a materially different UI pattern — not attempted this pass, flagged
 honestly rather than half-built under time pressure.
 
+## 2026-08-08: read-only Command History panel (Gap 7/8 groundwork)
+
+First visible surface for the `id`/`lastCommandDescription` fields shipped above —
+`CommandHistoryPanel.tsx` lists the 10 most recent commands (most-recent-first),
+rendered next to the Undo/Redo buttons in `page.tsx`. Deliberately **read-only**: no
+click-to-jump, since jumping more than one undo/redo step needs a store action that
+doesn't exist yet (today's `undo`/`redo` only move one step). Pure display over
+existing `past` state, no new store logic.
+
+**Not live-verified this pass** — quota was critical when this was built (informational
+cost warnings were firing repeatedly), so this was verified via `tsc`/`eslint`/
+`node --test` (149/149 pass) and a direct read of the render logic, not a live browser
+session. Flagging honestly rather than claiming a live check that didn't happen: the
+component is simple enough (a `.reverse().slice(0,10)` over already-correct, already-
+tested store data) that the risk is low, but it hasn't been watched render in a real
+browser.
+
 ## 2026-08-08: command id field (Milestone 2's remaining half)
 
 Milestone 2's table row asked for command *id* and *description* fields on top of the

@@ -16,6 +16,7 @@ import RoomEditor2D from '@/components/spatial/RoomEditor2D.tsx';
 import { PropertiesPanel } from '@/components/spatial/PropertiesPanel.tsx';
 import { RoomDimensionsPanel } from '@/components/spatial/RoomDimensionsPanel.tsx';
 import { WallDimensionsPanel } from '@/components/spatial/WallDimensionsPanel.tsx';
+import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
 import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
@@ -146,6 +147,7 @@ function SpatialDesignEngineInner() {
           >
             Redo
           </button>
+          <CommandHistoryPanel />
         </div>
         <ExportPanel roomName={roomName} catalogue={CATALOGUE} />
       </header>
