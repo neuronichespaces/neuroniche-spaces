@@ -1,6 +1,7 @@
 // Runtime guard for RoomLayout data crossing an untrusted boundary (localStorage,
 // BroadcastChannel, future project-file import). Domain-only — no React/Babylon imports.
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension, Layer } from './types.ts';
+import { defaultLayers } from './layers.ts';
 
 export type RoomLayout = {
   walls: WallSegment[];
@@ -9,6 +10,7 @@ export type RoomLayout = {
   placedObjects: PlacedObject[];
   zones: Zone[];
   dimensions: Dimension[];
+  layers: Layer[];
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -81,6 +83,11 @@ function isDimension(v: unknown): v is Dimension {
   );
 }
 
+function isLayer(v: unknown): v is Layer {
+  const l = asRecord(v);
+  return l !== null && typeof l.id === 'string' && typeof l.name === 'string' && typeof l.visible === 'boolean' && typeof l.locked === 'boolean';
+}
+
 /** Returns a validated RoomLayout, or null if the shape can't be trusted. Never throws. */
 export function validateRoomLayout(raw: unknown): RoomLayout | null {
   const r = asRecord(raw);
@@ -95,6 +102,8 @@ export function validateRoomLayout(raw: unknown): RoomLayout | null {
   if (!Array.isArray(zones) || !zones.every(isZone)) return null;
   const dimensions = r.dimensions === undefined ? [] : r.dimensions;
   if (!Array.isArray(dimensions) || !dimensions.every(isDimension)) return null;
+  const layers = r.layers === undefined ? defaultLayers() : r.layers;
+  if (!Array.isArray(layers) || !layers.every(isLayer)) return null;
   return {
     walls: r.walls as WallSegment[],
     doors: r.doors as DoorPlacement[],
@@ -102,5 +111,6 @@ export function validateRoomLayout(raw: unknown): RoomLayout | null {
     placedObjects: r.placedObjects as PlacedObject[],
     zones,
     dimensions,
+    layers,
   };
 }

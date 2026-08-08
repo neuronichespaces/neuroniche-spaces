@@ -14,6 +14,7 @@ function reset() {
     placedObjects: [],
     zones: [],
     dimensions: [],
+    layers: [{ id: 'layer-default', name: 'Default', visible: true, locked: false }],
     selectedObjectId: null,
     selectedWallId: null,
     selectedDimensionId: null,
@@ -227,4 +228,25 @@ test('selectDimension is mutually exclusive with object/wall selection', () => {
   selectDimension('dim1');
   selectObject('o1');
   assert.equal(useRoomLayoutStore.getState().selectedDimensionId, null);
+});
+
+test('addLayer/updateLayer/removeLayer manage real layer entities (Gap 4)', () => {
+  reset();
+  const { addLayer, updateLayer, removeLayer, addObject, setObjectLayer } = useRoomLayoutStore.getState();
+  addLayer({ id: 'layer-arch', name: 'Architecture', visible: true, locked: false });
+  assert.equal(useRoomLayoutStore.getState().layers.length, 2); // seeded default + new
+
+  updateLayer('layer-arch', { visible: false, locked: true });
+  const layer = useRoomLayoutStore.getState().layers.find((l) => l.id === 'layer-arch')!;
+  assert.equal(layer.visible, false);
+  assert.equal(layer.locked, true);
+
+  addObject({ id: 'o1', productId: 'p1', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  setObjectLayer('o1', 'layer-arch');
+  assert.equal(useRoomLayoutStore.getState().placedObjects[0].layerId, 'layer-arch');
+
+  // Deleting the layer never leaves an object pointing at a dangling layerId.
+  removeLayer('layer-arch');
+  assert.equal(useRoomLayoutStore.getState().layers.length, 1);
+  assert.equal(useRoomLayoutStore.getState().placedObjects[0].layerId, 'layer-default');
 });

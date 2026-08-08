@@ -11,6 +11,7 @@ const validLayout = {
   ],
   zones: [{ id: 'z1', kind: 'calm', x: 1, y: 1, widthM: 2, lengthM: 2, rotationDeg: 0 }],
   dimensions: [{ id: 'd1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3 }],
+  layers: [{ id: 'layer-default', name: 'Default', visible: true, locked: false }],
 };
 
 test('accepts a well-formed layout', () => {
@@ -58,5 +59,17 @@ test('rejects malformed zones array', () => {
 
 test('rejects malformed dimensions array', () => {
   const broken = { ...validLayout, dimensions: [{ id: 'd1' }] };
+  assert.equal(validateRoomLayout(broken), null);
+});
+
+test('defaults missing layers to the seeded default layer (pre-layers payloads)', () => {
+  const { layers, ...withoutLayers } = validLayout;
+  const result = validateRoomLayout(withoutLayers);
+  assert.equal(result?.layers.length, 1);
+  assert.equal(result?.layers[0].id, 'layer-default');
+});
+
+test('rejects malformed layers array', () => {
+  const broken = { ...validLayout, layers: [{ id: 'l1' }] };
   assert.equal(validateRoomLayout(broken), null);
 });

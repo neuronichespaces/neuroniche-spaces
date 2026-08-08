@@ -72,17 +72,25 @@ unchanged all session).
 
 ## Gap 4 — Layers, visibility, locking, and view states
 
-**Status: minimal precedent, no real system.**
+**Status: real layer entity now exists for placed objects (2026-08-09); walls/zones,
+3D/picking/export integration, and view-state save/restore still missing.**
 
-- `Zone` (kind/label/rect) exists but is a planning-zone concept, not a CAD layer —
-  no visibility/lock/print/order/colour/lineweight fields, no default-layer set
-  (Architecture/Doors/Furniture/etc.), no named view-state save/restore.
-- This session added `PlacedObject.locked`/`hidden` (object-level, not layer-level) —
-  real progress toward Foundation D but scoped narrower: per-entity, not per-layer.
-  A layer system would sit above this, not replace it (an object can be individually
-  locked AND belong to a locked layer).
-- **Missing entirely**: `ProjectLayer` model, layer CRUD, per-layer visibility/lock
-  affecting 2D+3D+picking+export, named view-state save/restore.
+- **Closed (objects only)**: `Layer` (`types.ts`) — `{id, name, visible, locked}` —
+  seeded with one "Default" layer (`layers.ts`'s `DEFAULT_LAYER_ID`), full CRUD through
+  the store's normal undo/redo path. `PlacedObject.layerId?` assigns an object to a
+  layer (absent = default). Effective state is computed, not stored twice:
+  `isEffectivelyVisible`/`isEffectivelyLocked` OR the object's own locked/hidden flags
+  with its layer's — an object can be individually locked AND on a locked layer.
+  `LayersPanel.tsx` (new) does CRUD + visibility/lock toggles; `PropertiesPanel.tsx`
+  gained a layer-assignment dropdown; `ObjectLayer.tsx`'s render filter, drag-ability,
+  and Transformer-attach all route through the effective-state helpers now, not the
+  raw per-object flags directly.
+- **Not done**: walls/zones/dimensions have no `layerId` field yet (scoped to objects
+  only this pass, documented deferral not an oversight) — a layer toggle only affects
+  placed objects. No 3D-side layer filtering (Babylon adapter doesn't read `layerId`
+  yet). No per-layer print/order/colour/lineweight fields. No named view-state
+  save/restore. No default-layer *set* (still just one seeded "Default", not
+  Architecture/Doors/Furniture/etc. presets).
 
 ## Gap 5 — Advanced selection, filtering, outliner, batch editing
 

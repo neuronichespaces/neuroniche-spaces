@@ -3,9 +3,10 @@
 import { useEffect, useRef } from 'react';
 import { Circle, Group, Rect, Text, Transformer } from 'react-konva';
 import type Konva from 'konva';
-import type { PlacedObject, WallSegment, Zone } from '@/lib/spatial/types.ts';
+import type { PlacedObject, WallSegment, Zone, Layer } from '@/lib/spatial/types.ts';
 import { computeBestSnap } from '@/lib/spatial/snapEngine.ts';
 import { clearanceToNearestWall } from '@/lib/spatial/measurements.ts';
+import { isEffectivelyVisible, isEffectivelyLocked } from '@/lib/spatial/layers.ts';
 
 const MIN_DIM_M = 0.2;
 
@@ -13,6 +14,9 @@ type Props = {
   objects: PlacedObject[];
   walls: WallSegment[];
   zones: Zone[];
+  /** CAD-upgrade Gap 4: layer visibility/lock applies on top of each object's own
+   *  locked/hidden flags — see layers.ts's isEffectivelyVisible/isEffectivelyLocked. */
+  layers: Layer[];
   violations: Set<string>;
   pxPerM: number;
   gridSnapM: number;
@@ -27,6 +31,7 @@ export default function ObjectLayer({
   objects,
   walls,
   zones,
+  layers,
   violations,
   pxPerM,
   gridSnapM,
@@ -45,17 +50,17 @@ export default function ObjectLayer({
     const tr = transformerRef.current;
     if (!tr) return;
     const selected = selectedObjectId ? objects.find((o) => o.id === selectedObjectId) : null;
-    const node = selected && !selected.locked && !selected.hidden ? groupRefs.current[selected.id] : null;
+    const node = selected && !isEffectivelyLocked(selected, layers) && isEffectivelyVisible(selected, layers) ? groupRefs.current[selected.id] : null;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
-  }, [selectedObjectId, objects]);
+  }, [selectedObjectId, objects, layers]);
 
   const selectedObj = objects.find((o) => o.id === selectedObjectId) ?? null;
   const selectedClearance = selectedObj ? clearanceToNearestWall({ x: selectedObj.x, y: selectedObj.y }, walls) : null;
 
   return (
     <>
-      {objects.filter((obj) => !obj.hidden).map((obj) => {
+      {objects.filter((obj) => isEffectivelyVisible(obj, layers)).map((obj) => {
         const violated = violations.has(obj.id);
         const wPx = obj.footprintM.w * pxPerM;
         const lPx = obj.footprintM.l * pxPerM;
@@ -80,7 +85,7 @@ export default function ObjectLayer({
               x={obj.x * pxPerM}
               y={obj.y * pxPerM}
               rotation={obj.rotationDeg}
-              draggable={!obj.locked}
+              draggable={!isEffectivelyLocked(obj, layers)}
               onClick={() => onSelect(obj.id)}
               onTap={() => onSelect(obj.id)}
               onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {

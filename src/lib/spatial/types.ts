@@ -64,6 +64,24 @@ export type PlacedObject = {
   locked?: boolean;
   /** Not rendered and not pickable in either view. Absent/false = visible (default). */
   hidden?: boolean;
+  /** CAD-upgrade Gap 4: which Layer this object belongs to. Absent = the seeded
+   *  default layer (see store.ts's DEFAULT_LAYER_ID) — every object always has an
+   *  effective layer, this field just distinguishes "never explicitly assigned" from
+   *  "explicitly assigned to the default layer" for import/export fidelity. */
+  layerId?: string;
+};
+
+// CAD-upgrade Gap 4 (Layers, visibility, locking, view states): a real layer entity,
+// distinct from the per-object locked/hidden flags added earlier — an object can be
+// individually locked/hidden AND belong to a locked/hidden layer; the effective state
+// is the OR of both (see layers.ts's isEffectivelyLocked/isEffectivelyHidden). Scoped
+// to placed objects only for now — walls/zones don't have a layerId field yet
+// (documented gap, not an oversight; extend the same way if/when needed).
+export type Layer = {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
 };
 
 export type FloorDims = { widthM: number; lengthM: number };

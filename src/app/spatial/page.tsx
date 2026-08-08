@@ -17,9 +17,11 @@ import { PropertiesPanel } from '@/components/spatial/PropertiesPanel.tsx';
 import { RoomDimensionsPanel } from '@/components/spatial/RoomDimensionsPanel.tsx';
 import { WallDimensionsPanel } from '@/components/spatial/WallDimensionsPanel.tsx';
 import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
+import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
 import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
+import { defaultLayers } from '@/lib/spatial/layers.ts';
 
 // Code-split: three.js/@react-three/fiber/drei only ship once needed, not in the
 // initial /spatial bundle. ExportPanel (rendered unconditionally in the header) also
@@ -59,6 +61,7 @@ function SpatialDesignEngineInner() {
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const zones = useRoomLayoutStore((s) => s.zones);
   const dimensions = useRoomLayoutStore((s) => s.dimensions);
+  const layers = useRoomLayoutStore((s) => s.layers);
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
@@ -115,6 +118,7 @@ function SpatialDesignEngineInner() {
       placedObjects: template.defaultObjects,
       zones: hasLoadedInitialData ? zones : [],
       dimensions: hasLoadedInitialData ? dimensions : [],
+      layers: hasLoadedInitialData ? layers : defaultLayers(),
     });
   }
 
@@ -150,6 +154,7 @@ function SpatialDesignEngineInner() {
             Redo
           </button>
           <CommandHistoryPanel />
+          <LayersPanel />
         </div>
         <ExportPanel roomName={roomName} catalogue={CATALOGUE} />
       </header>

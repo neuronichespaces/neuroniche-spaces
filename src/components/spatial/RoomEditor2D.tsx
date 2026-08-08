@@ -19,6 +19,7 @@ import {
   clampPointToBounds,
   applyAxisLock,
 } from '@/lib/spatial/geometry.ts';
+import { isEffectivelyLocked } from '@/lib/spatial/layers.ts';
 import { parseCoordinateInput } from '@/lib/spatial/coordinateInput.ts';
 import { parseLengthToMetres, formatMetres } from '@/lib/spatial/units.ts';
 import { buildGraphFromRoom } from '@/lib/spatial/graph.ts';
@@ -75,6 +76,7 @@ export default function RoomEditor2D({
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const zones = useRoomLayoutStore((s) => s.zones);
   const dimensions = useRoomLayoutStore((s) => s.dimensions);
+  const layers = useRoomLayoutStore((s) => s.layers);
   const clearanceViolations = useRoomLayoutStore((s) => s.clearanceViolations);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
@@ -206,7 +208,7 @@ export default function RoomEditor2D({
 
       if (!selectedObjectId) return;
       const obj = placedObjects.find((o) => o.id === selectedObjectId);
-      if (!obj || obj.locked) return;
+      if (!obj || isEffectivelyLocked(obj, layers)) return;
 
       if (e.key === 'r' || e.key === 'R') {
         e.preventDefault();
@@ -259,6 +261,7 @@ export default function RoomEditor2D({
     rotateObject,
     updateObjectProps,
     removeDimension,
+    layers,
   ]);
 
   function pointerMetres(): { x: number; y: number } | null {
@@ -651,6 +654,7 @@ export default function RoomEditor2D({
             objects={placedObjects}
             walls={walls}
             zones={zones}
+            layers={layers}
             violations={clearanceViolations}
             pxPerM={pxPerM}
             gridSnapM={gridSnapM}

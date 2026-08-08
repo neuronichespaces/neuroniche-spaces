@@ -8,7 +8,8 @@
 import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension } from './types.ts';
+import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -17,6 +18,7 @@ type RoomLayout = {
   placedObjects: PlacedObject[];
   zones: Zone[];
   dimensions: Dimension[];
+  layers: Layer[];
 };
 
 // CAD-upgrade Milestone 1/2: each undo/redo entry carries a stable id and a
@@ -75,6 +77,13 @@ type RoomLayoutState = RoomLayout & {
   removeDimension: (id: string) => void;
   selectDimension: (id: string | null) => void;
 
+  addLayer: (layer: Layer) => void;
+  updateLayer: (id: string, patch: Partial<Omit<Layer, 'id'>>) => void;
+  /** Deletes the layer and reassigns any objects on it back to the default layer —
+   *  never leaves an object pointing at a layerId that no longer exists. */
+  removeLayer: (id: string) => void;
+  setObjectLayer: (objId: string, layerId: string) => void;
+
   loadLayout: (layout: RoomLayout) => void;
   /** Applies a layout without touching the undo/redo history — used for incoming
    *  cross-tab BroadcastChannel updates, which shouldn't spam a local user's undo stack. */
@@ -104,6 +113,7 @@ function snapshot(s: RoomLayout): RoomLayout {
     placedObjects: s.placedObjects,
     zones: s.zones,
     dimensions: s.dimensions,
+    layers: s.layers,
   };
 }
 
@@ -151,6 +161,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const placedObjects = patch.placedObjects ?? s.placedObjects;
       const zones = patch.zones ?? s.zones;
       const dimensions = patch.dimensions ?? s.dimensions;
+      const layers = patch.layers ?? s.layers;
       const next = {
         ...historyPatch,
         ...patch,
@@ -167,6 +178,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
           placedObjects,
           zones,
           dimensions,
+          layers,
         }),
       );
       return next;
@@ -180,6 +192,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     placedObjects: [],
     zones: [],
     dimensions: [],
+    layers: defaultLayers(),
     selectedObjectId: null,
     selectedWallId: null,
     selectedDimensionId: null,
@@ -258,6 +271,20 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     },
     selectDimension: (id) =>
       set({ selectedDimensionId: id, selectedObjectId: id ? null : get().selectedObjectId, selectedWallId: id ? null : get().selectedWallId }),
+
+    addLayer: (layer) => mutate('Add layer', (s) => ({ layers: [...s.layers, layer] })),
+    updateLayer: (id, patch) =>
+      mutate('Edit layer', (s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
+    removeLayer: (id) =>
+      mutate('Delete layer', (s) => ({
+        layers: s.layers.filter((l) => l.id !== id),
+        // Never leave an object pointing at a layerId that no longer exists — reassign
+        // to the default layer, same "don't silently orphan a reference" rule as
+        // removeWall clearing that wall's door.
+        placedObjects: s.placedObjects.map((o) => (o.layerId === id ? { ...o, layerId: DEFAULT_LAYER_ID } : o)),
+      })),
+    setObjectLayer: (objId, layerId) =>
+      mutate('Change object layer', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === objId ? { ...o, layerId } : o)) })),
 
     loadLayout: (layout) => {
       const valid = validateRoomLayout(layout);

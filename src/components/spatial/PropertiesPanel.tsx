@@ -4,6 +4,7 @@
 
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { clearanceToNearestWall } from '@/lib/spatial/measurements.ts';
+import { DEFAULT_LAYER_ID } from '@/lib/spatial/layers.ts';
 
 function Slider({
   label,
@@ -52,6 +53,8 @@ export function PropertiesPanel() {
   const rotateObject = useRoomLayoutStore((s) => s.rotateObject);
   const toggleObjectLocked = useRoomLayoutStore((s) => s.toggleObjectLocked);
   const toggleObjectHidden = useRoomLayoutStore((s) => s.toggleObjectHidden);
+  const layers = useRoomLayoutStore((s) => s.layers);
+  const setObjectLayer = useRoomLayoutStore((s) => s.setObjectLayer);
 
   const obj = placedObjects.find((o) => o.id === selectedObjectId);
   if (!obj) return null;
@@ -88,6 +91,21 @@ export function PropertiesPanel() {
           </button>
         </div>
       </div>
+
+      <label className="block text-sm text-gray-700">
+        Layer
+        <select
+          value={obj.layerId ?? DEFAULT_LAYER_ID}
+          onChange={(e) => setObjectLayer(obj.id, e.target.value)}
+          className="mt-1 min-h-11 w-full rounded border border-gray-300 px-2"
+        >
+          {layers.map((layer) => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {clearance && (
         <p className="text-sm text-gray-600">

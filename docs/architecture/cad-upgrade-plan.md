@@ -184,6 +184,41 @@ multi-field on-canvas overlay, distinct from the single command-line-style text 
 built so far) are a materially different UI pattern — not attempted this pass, flagged
 honestly rather than half-built under time pressure.
 
+## 2026-08-09: Gap 4 — layers as a real entity (placed objects only)
+
+Scoped tightly given rising session cost: `Layer` (`types.ts`) with full CRUD through
+the normal `mutate()` undo/redo path, seeded with one default layer
+(`layers.ts`'s `defaultLayers()`/`DEFAULT_LAYER_ID`). `PlacedObject.layerId?` assigns
+an object; a pure `layers.ts` module (`isEffectivelyVisible`/`isEffectivelyLocked`)
+computes the OR of an object's own locked/hidden flags with its layer's — an object
+can be individually locked AND belong to a locked layer, and either one is enough.
+`ObjectLayer.tsx`'s render filter, drag-ability, and Transformer-attach all route
+through these helpers now instead of the raw per-object flags. `LayersPanel.tsx` (new)
+does layer CRUD + visibility/lock checkboxes; `PropertiesPanel.tsx` gained a
+layer-assignment `<select>`. `RoomEditor2D.tsx`'s keyboard-shortcut lock check
+(R/[/]/arrows) also routes through `isEffectivelyLocked` now.
+
+`removeLayer` never leaves an object pointing at a deleted `layerId` — reassigns to
+the default layer, same "don't silently orphan a reference" rule `removeWall`
+already follows for its doors.
+
+**Deliberately scoped to placed objects only** — walls/zones/dimensions have no
+`layerId` field yet, and the Babylon 3D adapter doesn't read `layerId` either. Both
+are documented gaps in `cad-gap-audit.md`, not oversights; extend the same way if/when
+a real need shows up.
+
+**Not live-verified this pass** — session cost was critical when this was built
+(repeated cost warnings). Verified via 13 new unit tests covering the actual logic
+(`isEffectivelyVisible`/`isEffectivelyLocked`'s OR-of-object-and-layer semantics, full
+CRUD, orphan-reassignment-on-delete) plus a direct read of the UI wiring, which mirrors
+already-proven patterns (`WallDimensionsPanel`'s self-contained-component convention,
+`PropertiesPanel`'s existing Lock/Hide buttons). Flagging honestly rather than
+claiming a live check that didn't happen — same principle as the CommandHistoryPanel's
+first commit.
+
+171/171 tests pass (11 new: 8 layers.ts, 1 store CRUD test, 2 validate). `npx tsc
+--noEmit`/`eslint`/`npm run build`: all clean.
+
 ## 2026-08-09: Gap 6 — manual dimensions as a real model entity
 
 First real annotation work, unblocked once wall-selection (Milestone 1) landed. Added
