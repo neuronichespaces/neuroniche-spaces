@@ -117,7 +117,7 @@ test('updateWallGeometry updates canonical wall fields and is undoable', () => {
   assert.equal(reverted.thicknessM, 0.1);
 });
 
-test('history entries carry a plain-language command description', () => {
+test('history entries carry a plain-language command description and a stable id', () => {
   reset();
   const { addWall, updateWallGeometry } = useRoomLayoutStore.getState();
   addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
@@ -125,4 +125,19 @@ test('history entries carry a plain-language command description', () => {
   const past = useRoomLayoutStore.getState().past;
   assert.equal(past[0].lastCommandDescription, 'Add wall');
   assert.equal(past[1].lastCommandDescription, 'Edit wall geometry');
+  assert.equal(typeof past[0].id, 'string');
+  assert.notEqual(past[0].id, past[1].id);
+});
+
+test('undo/redo preserve the command id across the past/future move', () => {
+  reset();
+  const { addWall, undo, redo } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  const originalId = useRoomLayoutStore.getState().past[0].id;
+
+  undo();
+  assert.equal(useRoomLayoutStore.getState().future[0].id, originalId);
+
+  redo();
+  assert.equal(useRoomLayoutStore.getState().past[0].id, originalId);
 });

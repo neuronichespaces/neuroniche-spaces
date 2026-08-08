@@ -12,10 +12,16 @@ import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectP
 
 type RoomLayout = { walls: WallSegment[]; doors: DoorPlacement[]; floorDims: FloorDims; placedObjects: PlacedObject[]; zones: Zone[] };
 
-// CAD-upgrade Milestone 1: each undo/redo entry carries a plain-language description of
-// the command that produced it — groundwork for a future audit-log UI (milestone 8),
-// not yet displayed anywhere itself.
-type HistoryEntry = { layout: RoomLayout; lastCommandDescription: string };
+// CAD-upgrade Milestone 1/2: each undo/redo entry carries a stable id and a
+// plain-language description of the command that produced it — groundwork for a future
+// audit-log UI (milestone 8), not yet displayed anywhere itself. The id is what a future
+// audit log would actually reference (e.g. "comment on command <id>"); the description
+// alone isn't a stable identity since two commands can share the same description text.
+type HistoryEntry = { id: string; layout: RoomLayout; lastCommandDescription: string };
+
+function generateCommandId(): string {
+  return `cmd-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+}
 
 const LOCAL_STORAGE_KEY = 'noniche-spatial-room-default';
 const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
@@ -105,7 +111,8 @@ function scheduleAutosaveAndBroadcast(layout: RoomLayout) {
 
 export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
   function pushHistory(prevState: RoomLayoutState, description: string) {
-    const past = [...prevState.past, { layout: snapshot(prevState), lastCommandDescription: description }].slice(-MAX_HISTORY);
+    const entry: HistoryEntry = { id: generateCommandId(), layout: snapshot(prevState), lastCommandDescription: description };
+    const past = [...prevState.past, entry].slice(-MAX_HISTORY);
     return { past, future: [] as HistoryEntry[] };
   }
 
@@ -230,8 +237,10 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const previous = s.past[s.past.length - 1];
       const past = s.past.slice(0, -1);
       // Redoing this undo should re-apply the same command, so it carries forward the
-      // description of what's being undone, not a new "Undo" label.
-      const future = [{ layout: snapshot(s), lastCommandDescription: previous.lastCommandDescription }, ...s.future].slice(
+      // description of what's being undone, not a new "Undo" label — and the SAME id,
+      // since this is the same logical command just relocated from the past stack to
+      // the future stack, not a newly issued one.
+      const future = [{ id: previous.id, layout: snapshot(s), lastCommandDescription: previous.lastCommandDescription }, ...s.future].slice(
         0,
         MAX_HISTORY,
       );
@@ -250,7 +259,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       if (s.future.length === 0) return;
       const next = s.future[0];
       const future = s.future.slice(1);
-      const past = [...s.past, { layout: snapshot(s), lastCommandDescription: next.lastCommandDescription }].slice(-MAX_HISTORY);
+      const past = [...s.past, { id: next.id, layout: snapshot(s), lastCommandDescription: next.lastCommandDescription }].slice(
+        -MAX_HISTORY,
+      );
       set({
         ...next.layout,
         past,

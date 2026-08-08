@@ -184,6 +184,17 @@ multi-field on-canvas overlay, distinct from the single command-line-style text 
 built so far) are a materially different UI pattern — not attempted this pass, flagged
 honestly rather than half-built under time pressure.
 
+## 2026-08-08: command id field (Milestone 2's remaining half)
+
+Milestone 2's table row asked for command *id* and *description* fields on top of the
+existing `mutate()`. Milestone 1 shipped the description; the id was still missing.
+Closed now: `HistoryEntry` gained a stable `id` (`generateCommandId()`, same
+`Date.now()-random` convention already used for wall/zone ids elsewhere in this file).
+Undo/redo preserve the same id when an entry moves between the past and future stacks
+— it's the same logical command relocating, not a newly issued one. 2 new tests
+(id present and distinct per command; id survives an undo→redo round trip). 149/149
+tests pass, `tsc`/`eslint`/`npm run build` clean.
+
 ## 2026-08-08: dynamic input overlay + Tab-between-fields closed
 
 Added a near-cursor Length/Angle field pair that appears once a wall's start point is
