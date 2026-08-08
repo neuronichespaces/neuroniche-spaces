@@ -17,7 +17,10 @@ import { attachClickSelection } from '@/renderer/babylon/BabylonPickingService.t
 import { watchDeviceLoss } from '@/renderer/babylon/BabylonDiagnostics.ts';
 import { withRendererErrorBoundary } from '@/renderer/babylon/BabylonErrorBoundary.ts';
 import { BabylonCameraController } from '@/renderer/babylon/BabylonCameraController.ts';
+import { getPerformanceSnapshot, type PerformanceSnapshot } from '@/renderer/babylon/BabylonPerformanceMonitor.ts';
 import { projectPointToSegment, wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
+
+const PERF_POLL_MS = 500;
 
 const PLAYER_RADIUS_M = 0.3;
 const EYE_HEIGHT_M = 1.6;
@@ -57,6 +60,7 @@ export default function RoomViewer3D({
   const [failureReason, setFailureReason] = useState<string | null>(null);
   const [contextLost, setContextLost] = useState(false);
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate');
+  const [perf, setPerf] = useState<PerformanceSnapshot | null>(null);
   const [osReducedMotion, setOsReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -153,6 +157,13 @@ export default function RoomViewer3D({
       );
 
       const removeDeviceLossWatch = watchDeviceLoss(engine, setContextLost);
+
+      // Dev-only perf HUD (?perf=1) — polled, not per-frame, so the readout itself
+      // doesn't add render-loop overhead to the thing it's measuring.
+      const perfEnabled = params?.get('perf') === '1';
+      const perfInterval = perfEnabled
+        ? setInterval(() => setPerf(getPerformanceSnapshot(engine, scene, initialBackend)), PERF_POLL_MS)
+        : null;
 
       function syncFromStore() {
         const s = useRoomLayoutStore.getState();
@@ -258,6 +269,7 @@ export default function RoomViewer3D({
         document.removeEventListener('pointerlockchange', onPointerLockChange);
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
+        if (perfInterval) clearInterval(perfInterval);
         removeClickSelection();
         removeDeviceLossWatch();
         unsubscribeStore();
@@ -329,6 +341,11 @@ export default function RoomViewer3D({
                   ? 'Renderer disconnected — reload to recover'
                   : `Renderer: ${backend}`}
           </span>
+          {perf && (
+            <span className="rounded-md bg-slate-900/85 px-2 py-1 font-mono text-xs text-white shadow">
+              {perf.frameTimeMs.toFixed(1)}ms · {perf.activeMeshCount} meshes · {perf.backend}
+            </span>
+          )}
         </div>
       )}
       <canvas ref={canvasRef} className="h-full w-full outline-none" />

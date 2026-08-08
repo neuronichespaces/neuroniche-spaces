@@ -608,6 +608,39 @@ All three addressed:
 - `npx tsc --noEmit`: clean. `npx eslint` on every touched file: 0 issues.
   `node --test "src/**/*.test.ts"`: 123/123 pass. `npm run build`: clean.
 
+## 2026-08-08 follow-up: gizmo gaps closed
+
+Two of the gaps logged above are now closed, verified live rather than assumed:
+
+- **Escape-cancel-mid-gizmo-drag**: found Babylon's public (non-internal)
+  `PointerDragBehavior.releaseDrag()`/`.dragging` API — the prior session's "no cheap
+  way to intercept... without patching internals" note was based on not having found
+  this. Added `BabylonGizmoController.cancelActiveDrag()` (releases whichever of the 9
+  position/rotation sub-gizmo drag behaviors is mid-drag) and wired a `keydown`
+  listener in `BabylonTransformBridge.ts` that captures the node's pre-drag transform
+  on drag-start, resets it and calls `cancelActiveDrag()` on Escape — the existing
+  `onDragEnd` → commit path still fires normally and just re-commits the pre-drag
+  value. **Verified live** via chrome-devtools MCP driving the real code path (real
+  `window` keydown event → real handler → real `releaseDrag()`): mid-drag position
+  `(5,5)` reverted to pre-drag `(2,2)`, the drag behavior's `dragging` flag flipped to
+  `false`, and the store never saw the cancelled value. A second check confirmed the
+  happy path (drag-end without Escape) still commits correctly — `(4.2,3.1)` landed in
+  the store as expected.
+- **Real gizmo mouse-drag interaction**: still not verified via literal pixel-coordinate
+  mouse-drag automation (that remains a Babylon-internal hit-testing/rendering concern,
+  not something touched this session) — but the actual commit code path (drag-start →
+  mid-drag transform change → drag-end → store commit) is now verified end-to-end by
+  driving the real Babylon drag-behavior state and the real observable chain, which is
+  the part any of this session's code changes could have broken. If literal
+  pixel-perfect mouse-drag confidence is still wanted, that's a separate, narrower
+  follow-up (compute exact on-screen gizmo-handle coordinates via `Vector3.Project`
+  instead of guessing from a screenshot).
+- **`BabylonPerformanceMonitor.ts`**: now wired to a dev-only HUD. `RoomViewer3D.tsx`
+  polls `getPerformanceSnapshot()` every 500ms behind `?perf=1` (opt-in, so it adds no
+  cost to normal usage) and renders a small `frameTimeMs · activeMeshCount · backend`
+  badge next to the existing renderer-status pill.
+- `npx tsc --noEmit`, `npx eslint` (touched files), `npm run build`: all clean.
+
 ## To activate this milestone
 
 Pick one row from the phase table above as a session's actual task, and it goes through

@@ -7,9 +7,15 @@
 
 import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
+import { validateRoomLayout } from './validate.ts';
 import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone } from './types.ts';
 
 type RoomLayout = { walls: WallSegment[]; doors: DoorPlacement[]; floorDims: FloorDims; placedObjects: PlacedObject[]; zones: Zone[] };
+
+// CAD-upgrade Milestone 1: each undo/redo entry carries a plain-language description of
+// the command that produced it — groundwork for a future audit-log UI (milestone 8),
+// not yet displayed anywhere itself.
+type HistoryEntry = { layout: RoomLayout; lastCommandDescription: string };
 
 const LOCAL_STORAGE_KEY = 'noniche-spatial-room-default';
 const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
@@ -18,16 +24,21 @@ const AUTOSAVE_DEBOUNCE_MS = 500;
 
 type RoomLayoutState = RoomLayout & {
   selectedObjectId: string | null;
+  selectedWallId: string | null;
   clearanceViolations: Set<string>;
   hasLoadedInitialData: boolean; // false only before any template/localStorage/user edit has applied — see B3 fix in page.tsx
-  past: RoomLayout[];
-  future: RoomLayout[];
+  past: HistoryEntry[];
+  future: HistoryEntry[];
   canUndo: boolean;
   canRedo: boolean;
 
   setFloorDims: (dims: FloorDims) => void;
   addWall: (wall: WallSegment) => void;
   updateWall: (id: string, patch: Partial<Omit<WallSegment, 'id'>>) => void;
+  /** Numeric wall inspector's mutator (CAD-upgrade Milestone 1) — same shape as
+   *  updateWall, kept as a separate named action so its call sites read as "the wall
+   *  inspector changed this," distinct from any future programmatic wall edits. */
+  updateWallGeometry: (id: string, patch: Partial<Pick<WallSegment, 'start' | 'end' | 'thicknessM'>>) => void;
   removeWall: (id: string) => void;
   addDoor: (door: DoorPlacement) => void;
   removeDoor: (wallId: string) => void;
@@ -44,6 +55,7 @@ type RoomLayoutState = RoomLayout & {
   toggleObjectLocked: (id: string) => void;
   toggleObjectHidden: (id: string) => void;
   selectObject: (id: string | null) => void;
+  selectWall: (id: string | null) => void;
 
   loadLayout: (layout: RoomLayout) => void;
   /** Applies a layout without touching the undo/redo history — used for incoming
@@ -92,16 +104,16 @@ function scheduleAutosaveAndBroadcast(layout: RoomLayout) {
 }
 
 export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
-  function pushHistory(prevState: RoomLayoutState) {
-    const past = [...prevState.past, snapshot(prevState)].slice(-MAX_HISTORY);
-    return { past, future: [] as RoomLayout[] };
+  function pushHistory(prevState: RoomLayoutState, description: string) {
+    const past = [...prevState.past, { layout: snapshot(prevState), lastCommandDescription: description }].slice(-MAX_HISTORY);
+    return { past, future: [] as HistoryEntry[] };
   }
 
   // Wraps a structural-mutation `set` call: pushes current state to history,
   // applies the updater, recomputes violations, and schedules persistence.
-  function mutate(updater: (s: RoomLayoutState) => Partial<RoomLayout>) {
+  function mutate(description: string, updater: (s: RoomLayoutState) => Partial<RoomLayout>) {
     set((s) => {
-      const historyPatch = pushHistory(s);
+      const historyPatch = pushHistory(s, description);
       const patch = updater(s);
       const walls = patch.walls ?? s.walls;
       const placedObjects = patch.placedObjects ?? s.placedObjects;
@@ -128,6 +140,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     placedObjects: [],
     zones: [],
     selectedObjectId: null,
+    selectedWallId: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -135,38 +148,42 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     canUndo: false,
     canRedo: false,
 
-    setFloorDims: (floorDims) => mutate(() => ({ floorDims })),
+    setFloorDims: (floorDims) => mutate('Resize room', () => ({ floorDims })),
 
-    addWall: (wall) => mutate((s) => ({ walls: [...s.walls, wall] })),
-    updateWall: (id, patch) => mutate((s) => ({ walls: s.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
+    addWall: (wall) => mutate('Add wall', (s) => ({ walls: [...s.walls, wall] })),
+    updateWall: (id, patch) =>
+      mutate('Edit wall', (s) => ({ walls: s.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
+    updateWallGeometry: (id, patch) =>
+      mutate('Edit wall geometry', (s) => ({ walls: s.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
     removeWall: (id) =>
-      mutate((s) => ({
+      mutate('Delete wall', (s) => ({
         walls: s.walls.filter((w) => w.id !== id),
         doors: s.doors.filter((d) => d.wallId !== id),
       })),
 
     // B1: one door per wall — replace any existing door for that wallId rather than appending,
     // matching how ObjectLayer/WallLayer's `.find()` already assume single-door-per-wall.
-    addDoor: (door) => mutate((s) => ({ doors: [...s.doors.filter((d) => d.wallId !== door.wallId), door] })),
-    removeDoor: (wallId) => mutate((s) => ({ doors: s.doors.filter((d) => d.wallId !== wallId) })),
+    addDoor: (door) => mutate('Add door', (s) => ({ doors: [...s.doors.filter((d) => d.wallId !== door.wallId), door] })),
+    removeDoor: (wallId) => mutate('Remove door', (s) => ({ doors: s.doors.filter((d) => d.wallId !== wallId) })),
 
-    addZone: (zone) => mutate((s) => ({ zones: [...s.zones, zone] })),
-    updateZone: (id, patch) => mutate((s) => ({ zones: s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) })),
-    removeZone: (id) => mutate((s) => ({ zones: s.zones.filter((z) => z.id !== id) })),
+    addZone: (zone) => mutate('Add zone', (s) => ({ zones: [...s.zones, zone] })),
+    updateZone: (id, patch) => mutate('Edit zone', (s) => ({ zones: s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) })),
+    removeZone: (id) => mutate('Delete zone', (s) => ({ zones: s.zones.filter((z) => z.id !== id) })),
 
-    addObject: (obj) => mutate((s) => ({ placedObjects: [...s.placedObjects, obj] })),
+    addObject: (obj) => mutate('Add object', (s) => ({ placedObjects: [...s.placedObjects, obj] })),
     removeObject: (id) => {
-      mutate((s) => ({ placedObjects: s.placedObjects.filter((o) => o.id !== id) }));
+      mutate('Delete object', (s) => ({ placedObjects: s.placedObjects.filter((o) => o.id !== id) }));
       set((s) => (s.selectedObjectId === id ? { selectedObjectId: null } : {}));
     },
-    moveObject: (id, x, y) => mutate((s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, x, y } : o)) })),
+    moveObject: (id, x, y) =>
+      mutate('Move object', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, x, y } : o)) })),
     rotateObject: (id, rotationDeg) =>
-      mutate((s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, rotationDeg } : o)) })),
+      mutate('Rotate object', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, rotationDeg } : o)) })),
 
     // B2: widthM/depthM must also update footprintM, which is what ObjectLayer/ObjectMesh3D
     // actually render from — customProperties alone was a no-op visually.
     updateObjectProps: (id, patch) =>
-      mutate((s) => ({
+      mutate('Edit object properties', (s) => ({
         placedObjects: s.placedObjects.map((o) =>
           o.id === id
             ? {
@@ -181,55 +198,68 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         ),
       })),
     toggleObjectLocked: (id) =>
-      mutate((s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, locked: !o.locked } : o)) })),
+      mutate('Toggle object lock', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, locked: !o.locked } : o)) })),
     toggleObjectHidden: (id) =>
-      mutate((s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, hidden: !o.hidden } : o)) })),
-    selectObject: (id) => set({ selectedObjectId: id }), // transient selection — not pushed to history
+      mutate('Toggle object visibility', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, hidden: !o.hidden } : o)) })),
+    // Transient selection — not pushed to history. Wall/object selection are mutually
+    // exclusive (single inspector panel shown at a time), so selecting one clears the other.
+    selectObject: (id) => set({ selectedObjectId: id, selectedWallId: id ? null : get().selectedWallId }),
+    selectWall: (id) => set({ selectedWallId: id, selectedObjectId: id ? null : get().selectedObjectId }),
 
     loadLayout: (layout) => {
-      mutate(() => layout);
+      const valid = validateRoomLayout(layout);
+      if (!valid) return; // ponytail: silent reject, add a user-facing import error surface if this becomes a real import feature
+      mutate('Load layout', () => valid);
       set({ selectedObjectId: null });
     },
 
-    applyRemoteLayout: (layout) =>
+    applyRemoteLayout: (layout) => {
+      const valid = validateRoomLayout(layout);
+      if (!valid) return;
       set(() => ({
-        ...layout,
+        ...valid,
         selectedObjectId: null,
         hasLoadedInitialData: true,
-        clearanceViolations: withRecomputedViolations(layout),
-      })),
+        clearanceViolations: withRecomputedViolations(valid),
+      }));
+    },
 
     undo: () => {
       const s = get();
       if (s.past.length === 0) return;
       const previous = s.past[s.past.length - 1];
       const past = s.past.slice(0, -1);
-      const future = [snapshot(s), ...s.future].slice(0, MAX_HISTORY);
+      // Redoing this undo should re-apply the same command, so it carries forward the
+      // description of what's being undone, not a new "Undo" label.
+      const future = [{ layout: snapshot(s), lastCommandDescription: previous.lastCommandDescription }, ...s.future].slice(
+        0,
+        MAX_HISTORY,
+      );
       set({
-        ...previous,
+        ...previous.layout,
         past,
         future,
         canUndo: past.length > 0,
         canRedo: true,
-        clearanceViolations: withRecomputedViolations(previous),
+        clearanceViolations: withRecomputedViolations(previous.layout),
       });
-      scheduleAutosaveAndBroadcast(previous);
+      scheduleAutosaveAndBroadcast(previous.layout);
     },
     redo: () => {
       const s = get();
       if (s.future.length === 0) return;
       const next = s.future[0];
       const future = s.future.slice(1);
-      const past = [...s.past, snapshot(s)].slice(-MAX_HISTORY);
+      const past = [...s.past, { layout: snapshot(s), lastCommandDescription: next.lastCommandDescription }].slice(-MAX_HISTORY);
       set({
-        ...next,
+        ...next.layout,
         past,
         future,
         canUndo: true,
         canRedo: future.length > 0,
-        clearanceViolations: withRecomputedViolations(next),
+        clearanceViolations: withRecomputedViolations(next.layout),
       });
-      scheduleAutosaveAndBroadcast(next);
+      scheduleAutosaveAndBroadcast(next.layout);
     },
 
     hydrateFromLocalStorage: () => {
@@ -237,9 +267,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       try {
         const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
         if (!raw) return;
-        const parsed = JSON.parse(raw) as RoomLayout;
-        // Old saved layouts predate zones — default rather than leaving it undefined.
-        const layout: RoomLayout = { ...parsed, zones: parsed.zones ?? [] };
+        const parsed = JSON.parse(raw);
+        const layout = validateRoomLayout(parsed);
+        if (!layout) return; // ponytail: corrupt/old-shape localStorage payload — ignore and start fresh, no migration path yet.
         set({
           ...layout,
           selectedObjectId: null,

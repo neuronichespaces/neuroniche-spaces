@@ -7,6 +7,9 @@ import {
   projectPointToSegment,
   snapObjectToNearestWall,
   clampPointToBounds,
+  wallAngleDeg,
+  pointAtAngleAndLength,
+  applyAxisLock,
 } from './geometry.ts';
 import type { WallSegment } from './types.ts';
 
@@ -56,4 +59,40 @@ test('snapObjectToNearestWall leaves position unchanged when no wall is close en
   const wall: WallSegment = { id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 };
   const p = snapObjectToNearestWall(2, 2, { w: 0.6, l: 0.6 }, [wall], 0.15);
   assert.deepEqual(p, { x: 2, y: 2 });
+});
+
+test('wallAngleDeg reads 0 for a wall pointing along +x', () => {
+  const wall: WallSegment = { id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 };
+  assert.ok(Math.abs(wallAngleDeg(wall) - 0) < 1e-9);
+});
+
+test('wallAngleDeg reads 90 for a wall pointing along +y', () => {
+  const wall: WallSegment = { id: 'w1', start: { x: 0, y: 0 }, end: { x: 0, y: 4 }, thicknessM: 0.1 };
+  assert.ok(Math.abs(wallAngleDeg(wall) - 90) < 1e-9);
+});
+
+test('wallAngleDeg normalizes a negative-direction wall into [0, 360)', () => {
+  const wall: WallSegment = { id: 'w1', start: { x: 0, y: 0 }, end: { x: -4, y: 0 }, thicknessM: 0.1 };
+  assert.ok(Math.abs(wallAngleDeg(wall) - 180) < 1e-9);
+});
+
+test('pointAtAngleAndLength is the inverse of wallAngleDeg/wallLengthM', () => {
+  const start = { x: 1, y: 1 };
+  const end = pointAtAngleAndLength(start, 45, Math.SQRT2);
+  assert.ok(Math.abs(end.x - 2) < 1e-9 && Math.abs(end.y - 2) < 1e-9);
+});
+
+test('applyAxisLock snaps to horizontal when the x-delta dominates', () => {
+  const locked = applyAxisLock({ x: 4, y: 4 }, { x: 5.3, y: 4.8 });
+  assert.deepEqual(locked, { x: 5.3, y: 4 });
+});
+
+test('applyAxisLock snaps to vertical when the y-delta dominates', () => {
+  const locked = applyAxisLock({ x: 4, y: 4 }, { x: 4.3, y: 5.8 });
+  assert.deepEqual(locked, { x: 4, y: 5.8 });
+});
+
+test('applyAxisLock picks horizontal on an exact tie (dx === dy)', () => {
+  const locked = applyAxisLock({ x: 0, y: 0 }, { x: 2, y: 2 });
+  assert.deepEqual(locked, { x: 2, y: 0 });
 });

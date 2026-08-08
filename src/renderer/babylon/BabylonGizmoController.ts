@@ -43,6 +43,30 @@ export class BabylonGizmoController {
     return this.manager.attachedNode as TransformNode | null;
   }
 
+  /** Force-ends whichever sub-gizmo drag behavior is currently mid-drag, without
+   *  applying its pending delta. Caller resets the node's transform first, then calls
+   *  this — releaseDrag() stops the pointer-move handler from computing further delta,
+   *  and its onDragEndObservable fires as normal so the bridge's existing commit path
+   *  runs (committing the just-reset, pre-drag transform). */
+  cancelActiveDrag(): void {
+    const position = this.manager.gizmos.positionGizmo;
+    const rotation = this.manager.gizmos.rotationGizmo;
+    const behaviors = [
+      position?.xGizmo.dragBehavior,
+      position?.yGizmo.dragBehavior,
+      position?.zGizmo.dragBehavior,
+      position?.xPlaneGizmo.dragBehavior,
+      position?.yPlaneGizmo.dragBehavior,
+      position?.zPlaneGizmo.dragBehavior,
+      rotation?.xGizmo.dragBehavior,
+      rotation?.yGizmo.dragBehavior,
+      rotation?.zGizmo.dragBehavior,
+    ];
+    for (const behavior of behaviors) {
+      if (behavior?.dragging) behavior.releaseDrag();
+    }
+  }
+
   private applyMode(): void {
     this.manager.positionGizmoEnabled = this.mode === 'translate';
     this.manager.rotationGizmoEnabled = this.mode === 'rotate';

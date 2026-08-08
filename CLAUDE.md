@@ -48,3 +48,7 @@ Data flow in the UI: organisation form → `matchFunding()` → top match auto-f
 - Calm-UX: deadlines render as plain dates + days remaining, never countdown/urgency styling.
 
 See `.planning/PHASES.md` for the full phase pipeline and `.planning/handoff-*.md` for the latest session's state and open questions.
+
+### Market scope
+
+`docs/MARKET-SCOPE.md` (adopted 2026-08-08) — the product targets any Australian organisation planning a sensory-inclusive space, not schools exclusively (schools, early intervention, healthcare, universities, workplaces, mining/regional enterprise, NGOs, airports, councils, sports venues, hotels/tourism). Funding logic differs by sector: NCCD (schools-only) vs NDIS (per-participant, not yet implemented) vs competitive grants (broadly applicable, fits current `eligibility_rules_json` model) vs corporate CSR (region-based, different data model, not yet designed). Read it before broadening `organisations.sector` or adding non-education `funding_sources` rows.

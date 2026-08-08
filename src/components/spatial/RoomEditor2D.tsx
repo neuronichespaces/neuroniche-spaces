@@ -10,7 +10,17 @@ import { Stage, Layer, Rect } from 'react-konva';
 import type Konva from 'konva';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import type { WallSegment, Zone, ZoneKind } from '@/lib/spatial/types.ts';
-import { snapPointToGrid, projectPointToSegment, wallLengthM, clampPointToBounds } from '@/lib/spatial/geometry.ts';
+import {
+  snapPointToGrid,
+  projectPointToSegment,
+  wallLengthM,
+  wallAngleDeg,
+  pointAtAngleAndLength,
+  clampPointToBounds,
+  applyAxisLock,
+} from '@/lib/spatial/geometry.ts';
+import { parseCoordinateInput } from '@/lib/spatial/coordinateInput.ts';
+import { parseLengthToMetres, formatMetres } from '@/lib/spatial/units.ts';
 import { buildGraphFromRoom } from '@/lib/spatial/graph.ts';
 import { evaluateConstraints } from '@/lib/spatial/constraints.ts';
 import { buildHeatmapGrid, type SensoryCategory } from '@/lib/spatial/heatmap.ts';
@@ -26,6 +36,13 @@ const DEFAULT_DOOR_WIDTH_M = 0.9;
 const PX_PER_M = 60;
 const WALL_THICKNESS_M = 0.1;
 const ROTATE_STEP_DEG = 15; // matches the CAD foundation spec's default rotation snap
+// 3-tier keyboard increment system (Gap 2): Alt = fine, plain = normal, Shift = coarse.
+// Applied to move (tiers derived from the gridSnapM prop at runtime, not this default)
+// and rotate — resize ([/]) keeps Shift as its existing width/depth selector
+// (documented in the resize handler below), so it stays 2-tier deliberately, not an
+// oversight.
+const ROTATE_STEP_FINE_DEG = 1;
+const ROTATE_STEP_COARSE_DEG = 45;
 const MIN_DIM_M = 0.2; // matches ObjectLayer.tsx's Transformer floor, kept in sync deliberately
 const ZONE_KINDS = Object.keys(ZONE_KIND_LABELS) as ZoneKind[];
 const HEATMAP_CATEGORIES: (SensoryCategory | 'crowding')[] = ['movement', 'noise', 'light', 'touch', 'pressure', 'crowding'];
@@ -57,12 +74,14 @@ export default function RoomEditor2D({
   const zones = useRoomLayoutStore((s) => s.zones);
   const clearanceViolations = useRoomLayoutStore((s) => s.clearanceViolations);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
+  const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const addWall = useRoomLayoutStore((s) => s.addWall);
   const addDoor = useRoomLayoutStore((s) => s.addDoor);
   const addZone = useRoomLayoutStore((s) => s.addZone);
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
+  const selectWall = useRoomLayoutStore((s) => s.selectWall);
   const rotateObject = useRoomLayoutStore((s) => s.rotateObject);
   const updateObjectProps = useRoomLayoutStore((s) => s.updateObjectProps);
 
@@ -74,6 +93,31 @@ export default function RoomEditor2D({
     null,
   );
   const [nextZoneKind, setNextZoneKind] = useState<ZoneKind>('focus');
+  // Gap 2 (CAD-upgrade plan): typed coordinate entry for wall points, alongside the
+  // existing click/drag flow — not a replacement for it. First Enter (no draft in
+  // progress) sets the wall's start point; second Enter finishes it, same lifecycle as
+  // mousedown->mouseup.
+  const [wallCoordDraft, setWallCoordDraft] = useState('');
+  const [wallCoordError, setWallCoordError] = useState('');
+  const [zoneCoordDraft, setZoneCoordDraft] = useState('');
+  const [zoneCoordError, setZoneCoordError] = useState('');
+  // Dynamic input (Gap 2): once a wall's start point is set (draftWall exists), a
+  // near-cursor length/angle pair tracks the live mouse position and stays freely
+  // editable — Tab moves between the two fields (native DOM tab order; no extra wiring
+  // needed since they're adjacent inputs). Persistence is keyed on "has this field been
+  // manually edited since the draft started" (a per-field dirty flag), not on which
+  // field currently has focus — tying it to focus was the first version's bug: tabbing
+  // from Length to Angle silently discarded the typed Length value because it fell back
+  // to "not focused -> show live mouse position" the instant focus moved away. A dirty
+  // field keeps showing the user's typed value regardless of focus; a clean field keeps
+  // tracking the mouse regardless of focus. Alternative to, not a replacement for, the
+  // toolbar's single coordinate field (still works throughout for both start/finish).
+  const [wallLengthDraft, setWallLengthDraft] = useState('');
+  const [wallAngleDraft, setWallAngleDraft] = useState('');
+  const [wallLengthDirty, setWallLengthDirty] = useState(false);
+  const [wallAngleDirty, setWallAngleDirty] = useState(false);
+  const [wallLengthError, setWallLengthError] = useState('');
+  const [wallAngleError, setWallAngleError] = useState('');
   const [confirmingSave, setConfirmingSave] = useState(false);
   const [heatmapCategory, setHeatmapCategory] = useState<SensoryCategory | 'crowding' | 'none'>('none');
   const [personaId, setPersonaId] = useState<string>('none');
@@ -106,14 +150,26 @@ export default function RoomEditor2D({
   const stageWidth = floorDims.widthM * pxPerM + 80;
   const stageHeight = floorDims.lengthM * pxPerM + 80;
 
-  // Keyboard alternative to pointer-only wall/object interaction: arrow keys nudge
-  // the selected object (Shift = bigger step), R/Shift+R rotates (matches the CAD
-  // spec's 15deg rotation snap default), [/] resizes width and Shift+[/] resizes
-  // depth (matches ObjectLayer's Transformer MIN_DIM_M floor of 0.2m so keyboard and
-  // drag-handle resize can't disagree), Tab cycles selection through objects.
+  // Keyboard alternative to pointer-only wall/object interaction: arrow keys nudge the
+  // selected object with a 3-tier increment (Alt = fine gridSnapM/10, plain = normal
+  // gridSnapM, Shift = coarse gridSnapM*10 — Gap 2's documented tier system), R/Shift+R
+  // rotates (Shift reverses direction, unchanged; Alt/Ctrl add fine 1deg/coarse 45deg
+  // tiers alongside the CAD spec's 15deg normal default), [/] resizes width and
+  // Shift+[/] resizes depth (matches ObjectLayer's Transformer MIN_DIM_M floor of 0.2m
+  // so keyboard and drag-handle resize can't disagree — Shift is already spoken for
+  // here as the dimension selector, so resize deliberately stays 2-tier, not 3),
+  // Tab cycles selection through objects.
   // Scoped to keydown events inside the editor root so it doesn't hijack page-level Tab.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // Object shortcuts (Tab/R/[/]/arrows) must never fire while the user is typing in
+      // a coordinate/dimension field nested inside this same root div — without this
+      // guard, e.g. typing an angle with an arrow key to move the cursor, or pressing
+      // Tab to move between the length/angle fields below, would silently also move or
+      // cycle-select the selected object. Root-cause fix at the one shared handler
+      // rather than a stopPropagation() scattered across every field.
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
       if (placedObjects.length === 0) return;
 
       if (e.key === 'Tab') {
@@ -132,7 +188,11 @@ export default function RoomEditor2D({
 
       if (e.key === 'r' || e.key === 'R') {
         e.preventDefault();
-        const turn = e.shiftKey ? -ROTATE_STEP_DEG : ROTATE_STEP_DEG;
+        // Shift keeps its existing meaning (reverse direction) untouched — Alt/Ctrl add
+        // the fine/coarse magnitude tiers alongside it rather than overloading it, so
+        // Shift+R (reverse-normal) still behaves exactly as before this change.
+        const magnitude = e.altKey ? ROTATE_STEP_FINE_DEG : e.ctrlKey ? ROTATE_STEP_COARSE_DEG : ROTATE_STEP_DEG;
+        const turn = e.shiftKey ? -magnitude : magnitude;
         rotateObject(obj.id, (obj.rotationDeg + turn + 360) % 360);
         return;
       }
@@ -151,7 +211,7 @@ export default function RoomEditor2D({
         return;
       }
 
-      const step = e.shiftKey ? gridSnapM * 10 : gridSnapM;
+      const step = e.altKey ? gridSnapM / 10 : e.shiftKey ? gridSnapM * 10 : gridSnapM;
       let dx = 0;
       let dy = 0;
       if (e.key === 'ArrowLeft') dx = -step;
@@ -185,44 +245,128 @@ export default function RoomEditor2D({
     else setDraftZone({ start: snapped, current: snapped });
   }
 
-  function handleStageMove() {
+  // Axis lock (Gap 2): while drawing a wall, hold Shift to snap the in-progress endpoint
+  // onto the nearest horizontal or vertical line through the start point (applyAxisLock
+  // in geometry.ts), matching common CAD "ortho mode" behavior. Zones stay free-form —
+  // a locked-axis rectangle is just a very thin zone, not a useful constraint the way
+  // it is for a wall.
+  function handleStageMove(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     const p = pointerMetres();
     if (!p) return;
-    const clamped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
-    if (tool === 'wall' && draftWall) setDraftWall({ ...draftWall, current: clamped });
-    else if (tool === 'zone' && draftZone) setDraftZone({ ...draftZone, current: clamped });
+    let clamped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
+    if (tool === 'wall' && draftWall) {
+      if ('shiftKey' in e.evt && e.evt.shiftKey) clamped = applyAxisLock(draftWall.start, clamped);
+      setDraftWall({ ...draftWall, current: clamped });
+    } else if (tool === 'zone' && draftZone) {
+      setDraftZone({ ...draftZone, current: clamped });
+    }
+  }
+
+  // Shared by the mouse-drag path (handleStageUp) and the typed-coordinate path
+  // (handleWallCoordCommit) — same wall-creation rules regardless of how the endpoint
+  // was determined.
+  function finishWallDraft(start: { x: number; y: number }, end: { x: number; y: number }) {
+    setDraftWall(null);
+    setWallLengthDirty(false);
+    setWallAngleDirty(false);
+    setWallLengthError('');
+    setWallAngleError('');
+    if (start.x === end.x && start.y === end.y) return; // zero-length, ignore
+    const wall: WallSegment = {
+      id: `wall-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+      start,
+      end,
+      thicknessM: WALL_THICKNESS_M,
+    };
+    addWall(wall);
+  }
+
+  // Derived, not synced-via-effect: the displayed length/angle come straight from
+  // draftWall on every render — live as the mouse moves — except whichever field the
+  // user currently has focus in, which shows their in-progress typed draft instead so
+  // mouse movement can't clobber an edit mid-keystroke. No useEffect needed; this is
+  // plain derived render state (react-hooks/set-state-in-effect: don't sync state in an
+  // effect when it can just be computed during render).
+  const liveWallDraftGeometry = draftWall ? { id: 'draft', start: draftWall.start, end: draftWall.current, thicknessM: 0 } : null;
+  const displayedWallLength =
+    wallLengthDirty || !liveWallDraftGeometry ? wallLengthDraft : formatMetres(wallLengthM(liveWallDraftGeometry));
+  const displayedWallAngle =
+    wallAngleDirty || !liveWallDraftGeometry ? wallAngleDraft : `${wallAngleDeg(liveWallDraftGeometry).toFixed(0)}°`;
+
+  function commitDynamicWallInput() {
+    if (!draftWall) return;
+    const length = parseLengthToMetres(displayedWallLength);
+    const angle = Number(displayedWallAngle.replace('°', '').trim());
+    if (length === null || length <= 0) {
+      setWallLengthError('Enter a positive length, e.g. 3m.');
+      return;
+    }
+    if (!Number.isFinite(angle)) {
+      setWallAngleError('Enter a number of degrees, e.g. 0, 90, 45.');
+      return;
+    }
+    setWallLengthError('');
+    setWallAngleError('');
+    const normalizedAngle = ((angle % 360) + 360) % 360;
+    const end = clampPointToBounds(pointAtAngleAndLength(draftWall.start, normalizedAngle, length), floorDims.widthM, floorDims.lengthM);
+    finishWallDraft(draftWall.start, end);
+  }
+
+  function handleWallCoordCommit() {
+    const reference = draftWall ? draftWall.start : { x: 0, y: 0 };
+    const result = parseCoordinateInput(wallCoordDraft, reference);
+    if (!result.ok) {
+      setWallCoordError(result.error);
+      return;
+    }
+    setWallCoordError('');
+    setWallCoordDraft('');
+    const clamped = clampPointToBounds(result.point, floorDims.widthM, floorDims.lengthM);
+    if (draftWall) finishWallDraft(draftWall.start, clamped);
+    else setDraftWall({ start: clamped, current: clamped });
+  }
+
+  // Shared by the mouse-drag path (handleStageUp) and the typed-coordinate path
+  // (handleZoneCoordCommit) — same zone-creation rules regardless of how the opposite
+  // corner was determined. Mirrors finishWallDraft's split.
+  function finishZoneDraft(start: { x: number; y: number }, current: { x: number; y: number }) {
+    setDraftZone(null);
+    const widthM = Math.abs(current.x - start.x);
+    const lengthM = Math.abs(current.y - start.y);
+    if (widthM < 0.2 || lengthM < 0.2) return; // too small to be a usable zone, ignore
+    const zone: Zone = {
+      id: `zone-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+      kind: nextZoneKind,
+      x: (start.x + current.x) / 2,
+      y: (start.y + current.y) / 2,
+      widthM,
+      lengthM,
+      rotationDeg: 0,
+    };
+    addZone(zone);
+  }
+
+  function handleZoneCoordCommit() {
+    const reference = draftZone ? draftZone.start : { x: 0, y: 0 };
+    const result = parseCoordinateInput(zoneCoordDraft, reference);
+    if (!result.ok) {
+      setZoneCoordError(result.error);
+      return;
+    }
+    setZoneCoordError('');
+    setZoneCoordDraft('');
+    const clamped = clampPointToBounds(result.point, floorDims.widthM, floorDims.lengthM);
+    if (draftZone) finishZoneDraft(draftZone.start, clamped);
+    else setDraftZone({ start: clamped, current: clamped });
   }
 
   function handleStageUp() {
     if (tool === 'wall' && draftWall) {
-      const { start, current } = draftWall;
-      setDraftWall(null);
-      if (start.x === current.x && start.y === current.y) return; // zero-length, ignore
-      const wall: WallSegment = {
-        id: `wall-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-        start,
-        end: current,
-        thicknessM: WALL_THICKNESS_M,
-      };
-      addWall(wall);
+      finishWallDraft(draftWall.start, draftWall.current);
       return;
     }
     if (tool === 'zone' && draftZone) {
-      const { start, current } = draftZone;
-      setDraftZone(null);
-      const widthM = Math.abs(current.x - start.x);
-      const lengthM = Math.abs(current.y - start.y);
-      if (widthM < 0.2 || lengthM < 0.2) return; // too small to be a usable zone, ignore
-      const zone: Zone = {
-        id: `zone-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-        kind: nextZoneKind,
-        x: (start.x + current.x) / 2,
-        y: (start.y + current.y) / 2,
-        widthM,
-        lengthM,
-        rotationDeg: 0,
-      };
-      addZone(zone);
+      finishZoneDraft(draftZone.start, draftZone.current);
     }
   }
 
@@ -254,6 +398,14 @@ export default function RoomEditor2D({
               setTool(t);
               setDraftWall(null);
               setDraftZone(null);
+              setWallCoordDraft('');
+              setWallCoordError('');
+              setZoneCoordDraft('');
+              setZoneCoordError('');
+              setWallLengthDirty(false);
+              setWallAngleDirty(false);
+              setWallLengthError('');
+              setWallAngleError('');
             }}
             className={`min-h-11 min-w-11 rounded border px-3 py-2 text-sm capitalize ${
               tool === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-700'
@@ -276,12 +428,67 @@ export default function RoomEditor2D({
             ))}
           </select>
         )}
+        {tool === 'wall' && (
+          <label className="flex items-center gap-1 text-sm text-slate-700">
+            Type a point
+            <input
+              value={wallCoordDraft}
+              onChange={(e) => setWallCoordDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleWallCoordCommit();
+                }
+              }}
+              placeholder="#x,y / @dx,dy / d<deg"
+              className={`min-h-11 w-48 rounded border px-2 ${wallCoordError ? 'border-red-400' : 'border-gray-300'}`}
+              aria-invalid={!!wallCoordError}
+              aria-label="Type a wall point as absolute, relative, or polar coordinates"
+            />
+          </label>
+        )}
+        {tool === 'zone' && (
+          <label className="flex items-center gap-1 text-sm text-slate-700">
+            Type a corner
+            <input
+              value={zoneCoordDraft}
+              onChange={(e) => setZoneCoordDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleZoneCoordCommit();
+                }
+              }}
+              placeholder="#x,y / @dx,dy / d<deg"
+              className={`min-h-11 w-48 rounded border px-2 ${zoneCoordError ? 'border-red-400' : 'border-gray-300'}`}
+              aria-invalid={!!zoneCoordError}
+              aria-label="Type a zone corner as absolute, relative, or polar coordinates"
+            />
+          </label>
+        )}
         <span className="text-xs text-slate-500">
-          {tool === 'wall' && 'Click and drag to draw a wall.'}
+          {tool === 'wall' &&
+            (draftWall
+              ? 'Click, drag, or type a point to finish the wall. Hold Shift while dragging to lock to horizontal/vertical.'
+              : 'Click and drag to draw a wall, or type a start point.')}
           {tool === 'door' && 'Click a wall to place a 0.9m door.'}
-          {tool === 'zone' && 'Pick a zone type, then click and drag to draw it.'}
-          {tool === 'select' && 'Drag objects to reposition them, or press Tab to select one and use the arrow keys to move it.'}
+          {tool === 'zone' &&
+            (draftZone
+              ? 'Pick a zone type, then click, drag, or type a corner to finish it.'
+              : 'Pick a zone type, then click and drag to draw it, or type a corner.')}
+          {tool === 'select' &&
+            'Drag objects to reposition them, or press Tab to select one and use the arrow keys to move it (hold Alt for fine, Shift for coarse steps).'}
         </span>
+        {tool === 'wall' && wallCoordError && (
+          <span role="alert" className="text-xs text-red-700">
+            {wallCoordError}
+          </span>
+        )}
+        {tool === 'zone' && zoneCoordError && (
+          <span role="alert" className="text-xs text-red-700">
+            {zoneCoordError}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -317,6 +524,7 @@ export default function RoomEditor2D({
         </label>
       </div>
 
+      <div className="relative inline-block">
       <Stage
         ref={stageRef}
         width={stageWidth}
@@ -360,7 +568,15 @@ export default function RoomEditor2D({
           )}
         </Layer>
         <Layer>
-          <WallLayer walls={walls} doors={doors} pxPerM={pxPerM} doorTool={tool === 'door'} onWallClick={handleWallClick} />
+          <WallLayer
+            walls={walls}
+            doors={doors}
+            pxPerM={pxPerM}
+            doorTool={tool === 'door'}
+            onWallClick={handleWallClick}
+            selectedWallId={selectedWallId ?? undefined}
+            onWallSelect={tool === 'select' ? selectWall : undefined}
+          />
           {draftWall && (
             <>
               <WallLayer
@@ -390,6 +606,63 @@ export default function RoomEditor2D({
           />
         </Layer>
       </Stage>
+      {tool === 'wall' && draftWall && (
+        <div
+          className="absolute z-10 flex gap-1 rounded border border-blue-400 bg-white p-1 shadow-lg"
+          style={{ left: draftWall.current.x * pxPerM + 12, top: draftWall.current.y * pxPerM + 12 }}
+        >
+          <label className="flex flex-col text-xs text-slate-700">
+            Length
+            <input
+              value={displayedWallLength}
+              onChange={(e) => {
+                setWallLengthDraft(e.target.value);
+                setWallLengthDirty(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitDynamicWallInput();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setWallLengthDirty(false);
+                }
+              }}
+              className={`min-h-11 w-20 rounded border px-1 ${wallLengthError ? 'border-red-400' : 'border-gray-300'}`}
+              aria-label="Wall length (dynamic input)"
+              aria-invalid={!!wallLengthError}
+            />
+          </label>
+          <label className="flex flex-col text-xs text-slate-700">
+            Angle
+            <input
+              value={displayedWallAngle}
+              onChange={(e) => {
+                setWallAngleDraft(e.target.value);
+                setWallAngleDirty(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitDynamicWallInput();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setWallAngleDirty(false);
+                }
+              }}
+              className={`min-h-11 w-16 rounded border px-1 ${wallAngleError ? 'border-red-400' : 'border-gray-300'}`}
+              aria-label="Wall angle (dynamic input)"
+              aria-invalid={!!wallAngleError}
+            />
+          </label>
+          {(wallLengthError || wallAngleError) && (
+            <span role="alert" className="max-w-[10rem] self-center text-xs text-red-700">
+              {wallLengthError || wallAngleError}
+            </span>
+          )}
+        </div>
+      )}
+      </div>
 
       <ViolationsList violations={violations} />
 

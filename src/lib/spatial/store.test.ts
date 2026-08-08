@@ -12,7 +12,9 @@ function reset() {
     doors: [],
     floorDims: { widthM: 6, lengthM: 6 },
     placedObjects: [],
+    zones: [],
     selectedObjectId: null,
+    selectedWallId: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -82,4 +84,45 @@ test('undo/redo restores structural mutations, not selection', () => {
   redo();
   assert.equal(useRoomLayoutStore.getState().placedObjects[0].x, 3);
   assert.equal(useRoomLayoutStore.getState().canRedo, false);
+});
+
+test('selectWall and selectObject are mutually exclusive', () => {
+  reset();
+  const { addWall, addObject, selectWall, selectObject } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  addObject({ id: 'o1', productId: 'crash-mat', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  selectObject('o1');
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, 'o1');
+  assert.equal(useRoomLayoutStore.getState().selectedWallId, null);
+
+  selectWall('w1');
+  assert.equal(useRoomLayoutStore.getState().selectedWallId, 'w1');
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, null);
+});
+
+test('updateWallGeometry updates canonical wall fields and is undoable', () => {
+  reset();
+  const { addWall, updateWallGeometry, undo } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+
+  updateWallGeometry('w1', { end: { x: 4, y: 3 }, thicknessM: 0.2 });
+  const wall = useRoomLayoutStore.getState().walls.find((w) => w.id === 'w1')!;
+  assert.deepEqual(wall.end, { x: 4, y: 3 });
+  assert.equal(wall.thicknessM, 0.2);
+
+  undo();
+  const reverted = useRoomLayoutStore.getState().walls.find((w) => w.id === 'w1')!;
+  assert.deepEqual(reverted.end, { x: 4, y: 0 });
+  assert.equal(reverted.thicknessM, 0.1);
+});
+
+test('history entries carry a plain-language command description', () => {
+  reset();
+  const { addWall, updateWallGeometry } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  updateWallGeometry('w1', { thicknessM: 0.15 });
+  const past = useRoomLayoutStore.getState().past;
+  assert.equal(past[0].lastCommandDescription, 'Add wall');
+  assert.equal(past[1].lastCommandDescription, 'Edit wall geometry');
 });

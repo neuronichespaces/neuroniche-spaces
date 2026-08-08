@@ -8,19 +8,20 @@
 // clockwise-positive, so commit negates it — same convention the old ObjectMesh3D.tsx
 // used before the Babylon migration.
 //
-// Known limitation (parity with the prior Three.js TransformControls implementation, not
-// a regression): Escape-cancel-mid-drag isn't wired. Babylon's GizmoManager commits
-// whatever the live drag position is on pointer-up; there's no cheap way to intercept an
-// Escape keypress mid-PointerDragBehavior without patching Babylon internals. Add if this
-// becomes a real accessibility gap in practice.
+// Escape-cancel-mid-drag: capture the node's transform on drag start, and on Escape
+// reset it and force-release whichever sub-gizmo drag behavior is active (see
+// BabylonGizmoController.cancelActiveDrag) — its onDragEndObservable still fires as
+// normal, so the existing commit path runs and simply re-commits the pre-drag transform.
 
-import type { Scene, TransformNode } from '@babylonjs/core';
+import { Vector3, type Scene, type TransformNode } from '@babylonjs/core';
 import { BabylonGizmoController, type GizmoMode } from './BabylonGizmoController.ts';
 
 export type { GizmoMode };
 
 export class BabylonTransformBridge {
   private readonly controller: BabylonGizmoController;
+  private preDragPosition: Vector3 | null = null;
+  private preDragRotationY: number | null = null;
 
   constructor(
     scene: Scene,
@@ -28,12 +29,29 @@ export class BabylonTransformBridge {
     private readonly onCommit: (x: number, y: number, rotationDeg: number) => void,
   ) {
     this.controller = new BabylonGizmoController(scene);
-    this.controller.onDragStart(() => this.onDraggingChange(true));
+    this.controller.onDragStart(() => {
+      const node = this.controller.getAttachedNode();
+      this.preDragPosition = node ? node.position.clone() : null;
+      this.preDragRotationY = node ? node.rotation.y : null;
+      this.onDraggingChange(true);
+    });
     this.controller.onDragEnd(() => {
       this.onDraggingChange(false);
       this.commitFromNode();
+      this.preDragPosition = null;
+      this.preDragRotationY = null;
     });
+    window.addEventListener('keydown', this.handleKeyDown);
   }
+
+  private handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.key !== 'Escape' || this.preDragPosition === null || this.preDragRotationY === null) return;
+    const node = this.controller.getAttachedNode();
+    if (!node) return;
+    node.position.copyFrom(this.preDragPosition);
+    node.rotation.y = this.preDragRotationY;
+    this.controller.cancelActiveDrag();
+  };
 
   private commitFromNode(): void {
     const node = this.controller.getAttachedNode();
@@ -51,6 +69,7 @@ export class BabylonTransformBridge {
   }
 
   dispose(): void {
+    window.removeEventListener('keydown', this.handleKeyDown);
     this.controller.dispose();
   }
 }

@@ -26,6 +26,30 @@ export function wallLengthM(wall: WallSegment): number {
   return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
 }
 
+// Angle of the start->end vector, degrees, normalized to [0, 360). Screen/plan
+// convention (atan2(dy, dx)) — 0 = pointing along +x, 90 = pointing along +y.
+export function wallAngleDeg(wall: WallSegment): number {
+  const deg = (Math.atan2(wall.end.y - wall.start.y, wall.end.x - wall.start.x) * 180) / Math.PI;
+  return ((deg % 360) + 360) % 360;
+}
+
+// Inverse of wallAngleDeg + wallLengthM: the point reached from `start` travelling
+// `lengthM` along `angleDeg`. Used by the wall inspector to recompute `end` when the
+// user edits length or angle numerically, keeping `start` fixed as the pivot.
+export function pointAtAngleAndLength(start: Point, angleDeg: number, lengthM: number): Point {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: start.x + Math.cos(rad) * lengthM, y: start.y + Math.sin(rad) * lengthM };
+}
+
+// Axis lock (Gap 2, wall-drawing "ortho mode"): snap `point` onto the nearest
+// horizontal or vertical line through `start` — whichever axis has the larger delta
+// wins. Pure so it's testable without a Konva/React drag simulation.
+export function applyAxisLock(start: Point, point: Point): Point {
+  const dx = point.x - start.x;
+  const dy = point.y - start.y;
+  return Math.abs(dx) >= Math.abs(dy) ? { x: point.x, y: start.y } : { x: start.x, y: point.y };
+}
+
 // Point at arc-length `offsetM` along the wall, measured from wall.start.
 // Works for any straight wall (axis-aligned or angled) — it's linear
 // interpolation along the segment, not full polygon geometry.

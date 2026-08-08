@@ -15,6 +15,7 @@ import { TemplatePicker } from '@/components/spatial/TemplatePicker.tsx';
 import RoomEditor2D from '@/components/spatial/RoomEditor2D.tsx';
 import { PropertiesPanel } from '@/components/spatial/PropertiesPanel.tsx';
 import { RoomDimensionsPanel } from '@/components/spatial/RoomDimensionsPanel.tsx';
+import { WallDimensionsPanel } from '@/components/spatial/WallDimensionsPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
 import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
@@ -58,6 +59,7 @@ function SpatialDesignEngineInner() {
   const zones = useRoomLayoutStore((s) => s.zones);
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
+  const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
   const loadLayout = useRoomLayoutStore((s) => s.loadLayout);
   const hydrateFromLocalStorage = useRoomLayoutStore((s) => s.hydrateFromLocalStorage);
   const saveToLocalStorage = useRoomLayoutStore((s) => s.saveToLocalStorage);
@@ -224,6 +226,11 @@ function SpatialDesignEngineInner() {
           {selectedObjectId && (
             <div className="w-full lg:w-72">
               <PropertiesPanel />
+            </div>
+          )}
+          {selectedWallId && (
+            <div className="w-full lg:w-72">
+              <WallDimensionsPanel />
             </div>
           )}
         </div>
