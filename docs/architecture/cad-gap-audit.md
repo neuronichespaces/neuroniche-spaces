@@ -149,9 +149,20 @@ dimension filtering and view-state save/restore still missing.**
   assigned a wall to a hidden layer, switched to 3D, saw a visible gap in the room
   shell where that wall would be, zero console errors. Not scene-graph-verified (same
   disclosed limitation as the 3D-objects entry above — no Babylon debug hook).
-- **Not done**: no zone/dimension layer filtering in 3D at all yet (only objects and
-  now walls do). No per-layer print/order/colour/lineweight fields. No named
-  view-state save/restore. No
+- **Closed (zones rendered + layer-filtered in 3D, 2026-08-10)**: zones had zero 3D
+  presence before this — `BabylonRendererAdapter.syncZones()` (new) renders flat,
+  translucent, colour-per-kind floor overlays and is layer-filtered from day one (no
+  prior unfiltered version existed to retrofit). `ZONE_KIND_COLOURS`/`ZONE_KIND_LABELS`
+  extracted from `ZoneLayer.tsx` (a react-konva component) into a new pure
+  `zoneKinds.ts` so the 3D-only bundle doesn't pull in Konva. Non-pickable — zones are
+  a 3D visual planning aid, not yet a selectable 3D entity (that's separate, larger
+  scope). Switching to 3D with a zone present: zero console errors. **Not visually
+  confirmed** the overlay is distinctly visible at every camera angle/lighting — code
+  reviewed and follows the same `CreateGround`/`StandardMaterial` pattern the floor
+  itself already uses successfully, but this wasn't screenshot-confirmed showing the
+  actual coloured patch, stated honestly rather than assumed.
+- **Not done**: dimension rendering/layer filtering in 3D still doesn't exist. No
+  per-layer print/order/colour/lineweight fields. No named view-state save/restore. No
   default-layer *set* (still just one seeded "Default", not
   Architecture/Doors/Furniture/etc. presets).
 
