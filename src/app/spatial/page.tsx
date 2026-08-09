@@ -16,6 +16,7 @@ import RoomEditor2D from '@/components/spatial/RoomEditor2D.tsx';
 import { PropertiesPanel } from '@/components/spatial/PropertiesPanel.tsx';
 import { RoomDimensionsPanel } from '@/components/spatial/RoomDimensionsPanel.tsx';
 import { WallDimensionsPanel } from '@/components/spatial/WallDimensionsPanel.tsx';
+import { ZonePropertiesPanel } from '@/components/spatial/ZonePropertiesPanel.tsx';
 import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
 import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
@@ -65,6 +66,7 @@ function SpatialDesignEngineInner() {
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
+  const selectedZoneId = useRoomLayoutStore((s) => s.selectedZoneId);
   const loadLayout = useRoomLayoutStore((s) => s.loadLayout);
   const hydrateFromLocalStorage = useRoomLayoutStore((s) => s.hydrateFromLocalStorage);
   const saveToLocalStorage = useRoomLayoutStore((s) => s.saveToLocalStorage);
@@ -240,6 +242,11 @@ function SpatialDesignEngineInner() {
           {selectedWallId && (
             <div className="w-full lg:w-72">
               <WallDimensionsPanel />
+            </div>
+          )}
+          {selectedZoneId && (
+            <div className="w-full lg:w-72">
+              <ZonePropertiesPanel />
             </div>
           )}
         </div>

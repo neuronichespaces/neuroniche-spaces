@@ -40,6 +40,7 @@ const AUTOSAVE_DEBOUNCE_MS = 500;
 type RoomLayoutState = RoomLayout & {
   selectedObjectId: string | null;
   selectedWallId: string | null;
+  selectedZoneId: string | null;
   selectedDimensionId: string | null;
   clearanceViolations: Set<string>;
   hasLoadedInitialData: boolean; // false only before any template/localStorage/user edit has applied — see B3 fix in page.tsx
@@ -61,7 +62,12 @@ type RoomLayoutState = RoomLayout & {
 
   addZone: (zone: Zone) => void;
   updateZone: (id: string, patch: Partial<Omit<Zone, 'id'>>) => void;
+  /** Numeric zone inspector's mutator — same shape as updateWallGeometry, kept as a
+   *  separate named action so its call sites read as "the zone inspector changed
+   *  this," distinct from any future programmatic zone edits. */
+  updateZoneGeometry: (id: string, patch: Partial<Pick<Zone, 'x' | 'y' | 'widthM' | 'lengthM' | 'rotationDeg' | 'kind' | 'label'>>) => void;
   removeZone: (id: string) => void;
+  selectZone: (id: string | null) => void;
 
   addObject: (obj: PlacedObject) => void;
   removeObject: (id: string) => void;
@@ -195,6 +201,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     layers: defaultLayers(),
     selectedObjectId: null,
     selectedWallId: null,
+    selectedZoneId: null,
     selectedDimensionId: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
@@ -223,7 +230,12 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
 
     addZone: (zone) => mutate('Add zone', (s) => ({ zones: [...s.zones, zone] })),
     updateZone: (id, patch) => mutate('Edit zone', (s) => ({ zones: s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) })),
-    removeZone: (id) => mutate('Delete zone', (s) => ({ zones: s.zones.filter((z) => z.id !== id) })),
+    updateZoneGeometry: (id, patch) =>
+      mutate('Edit zone geometry', (s) => ({ zones: s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) })),
+    removeZone: (id) => {
+      mutate('Delete zone', (s) => ({ zones: s.zones.filter((z) => z.id !== id) }));
+      set((s) => (s.selectedZoneId === id ? { selectedZoneId: null } : {}));
+    },
 
     addObject: (obj) => mutate('Add object', (s) => ({ placedObjects: [...s.placedObjects, obj] })),
     removeObject: (id) => {
@@ -256,13 +268,30 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       mutate('Toggle object lock', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, locked: !o.locked } : o)) })),
     toggleObjectHidden: (id) =>
       mutate('Toggle object visibility', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === id ? { ...o, hidden: !o.hidden } : o)) })),
-    // Transient selection — not pushed to history. Wall/object/dimension selection are
-    // mutually exclusive (single inspector panel shown at a time), so selecting one
-    // clears the other two.
+    // Transient selection — not pushed to history. Wall/object/zone/dimension selection
+    // are mutually exclusive (single inspector panel shown at a time), so selecting one
+    // clears the other three.
     selectObject: (id) =>
-      set({ selectedObjectId: id, selectedWallId: id ? null : get().selectedWallId, selectedDimensionId: id ? null : get().selectedDimensionId }),
+      set({
+        selectedObjectId: id,
+        selectedWallId: id ? null : get().selectedWallId,
+        selectedZoneId: id ? null : get().selectedZoneId,
+        selectedDimensionId: id ? null : get().selectedDimensionId,
+      }),
     selectWall: (id) =>
-      set({ selectedWallId: id, selectedObjectId: id ? null : get().selectedObjectId, selectedDimensionId: id ? null : get().selectedDimensionId }),
+      set({
+        selectedWallId: id,
+        selectedObjectId: id ? null : get().selectedObjectId,
+        selectedZoneId: id ? null : get().selectedZoneId,
+        selectedDimensionId: id ? null : get().selectedDimensionId,
+      }),
+    selectZone: (id) =>
+      set({
+        selectedZoneId: id,
+        selectedObjectId: id ? null : get().selectedObjectId,
+        selectedWallId: id ? null : get().selectedWallId,
+        selectedDimensionId: id ? null : get().selectedDimensionId,
+      }),
 
     addDimension: (dimension) => mutate('Add dimension', (s) => ({ dimensions: [...s.dimensions, dimension] })),
     removeDimension: (id) => {
@@ -270,7 +299,12 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       set((s) => (s.selectedDimensionId === id ? { selectedDimensionId: null } : {}));
     },
     selectDimension: (id) =>
-      set({ selectedDimensionId: id, selectedObjectId: id ? null : get().selectedObjectId, selectedWallId: id ? null : get().selectedWallId }),
+      set({
+        selectedDimensionId: id,
+        selectedObjectId: id ? null : get().selectedObjectId,
+        selectedWallId: id ? null : get().selectedWallId,
+        selectedZoneId: id ? null : get().selectedZoneId,
+      }),
 
     addLayer: (layer) => mutate('Add layer', (s) => ({ layers: [...s.layers, layer] })),
     updateLayer: (id, patch) =>

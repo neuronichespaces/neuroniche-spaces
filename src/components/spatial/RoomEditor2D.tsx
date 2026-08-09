@@ -80,6 +80,7 @@ export default function RoomEditor2D({
   const clearanceViolations = useRoomLayoutStore((s) => s.clearanceViolations);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
+  const selectedZoneId = useRoomLayoutStore((s) => s.selectedZoneId);
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const addWall = useRoomLayoutStore((s) => s.addWall);
@@ -91,6 +92,7 @@ export default function RoomEditor2D({
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
   const selectWall = useRoomLayoutStore((s) => s.selectWall);
+  const selectZone = useRoomLayoutStore((s) => s.selectZone);
   const rotateObject = useRoomLayoutStore((s) => s.rotateObject);
   const updateObjectProps = useRoomLayoutStore((s) => s.updateObjectProps);
 
@@ -612,7 +614,13 @@ export default function RoomEditor2D({
           </Layer>
         )}
         <Layer>
-          <ZoneLayer zones={zones} pxPerM={pxPerM} personaScores={personaScores} />
+          <ZoneLayer
+            zones={zones}
+            pxPerM={pxPerM}
+            personaScores={personaScores}
+            selectedZoneId={selectedZoneId ?? undefined}
+            onZoneClick={tool === 'select' ? (zone) => selectZone(zone.id) : undefined}
+          />
           {draftZone && (
             <Rect
               x={Math.min(draftZone.start.x, draftZone.current.x) * pxPerM}

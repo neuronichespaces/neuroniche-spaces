@@ -17,6 +17,7 @@ function reset() {
     layers: [{ id: 'layer-default', name: 'Default', visible: true, locked: false }],
     selectedObjectId: null,
     selectedWallId: null,
+    selectedZoneId: null,
     selectedDimensionId: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
@@ -102,6 +103,52 @@ test('selectWall and selectObject are mutually exclusive', () => {
   selectWall('w1');
   assert.equal(useRoomLayoutStore.getState().selectedWallId, 'w1');
   assert.equal(useRoomLayoutStore.getState().selectedObjectId, null);
+});
+
+test('selectZone is mutually exclusive with object/wall/dimension selection', () => {
+  reset();
+  const { addZone, addObject, selectZone, selectObject } = useRoomLayoutStore.getState();
+  addZone({ id: 'z1', kind: 'focus', x: 2, y: 2, widthM: 2, lengthM: 2, rotationDeg: 0 });
+  addObject({ id: 'o1', productId: 'crash-mat', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  selectObject('o1');
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, 'o1');
+
+  selectZone('z1');
+  assert.equal(useRoomLayoutStore.getState().selectedZoneId, 'z1');
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, null);
+
+  selectObject('o1');
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, 'o1');
+  assert.equal(useRoomLayoutStore.getState().selectedZoneId, null);
+});
+
+test('updateZoneGeometry updates canonical zone fields and is undoable', () => {
+  reset();
+  const { addZone, updateZoneGeometry, undo } = useRoomLayoutStore.getState();
+  addZone({ id: 'z1', kind: 'focus', x: 2, y: 2, widthM: 2, lengthM: 2, rotationDeg: 0 });
+
+  updateZoneGeometry('z1', { widthM: 2.5, label: 'Reading nook' });
+  const zone = useRoomLayoutStore.getState().zones.find((z) => z.id === 'z1')!;
+  assert.equal(zone.widthM, 2.5);
+  assert.equal(zone.label, 'Reading nook');
+
+  undo();
+  const reverted = useRoomLayoutStore.getState().zones.find((z) => z.id === 'z1')!;
+  assert.equal(reverted.widthM, 2);
+  assert.equal(reverted.label, undefined);
+});
+
+test('removeZone clears selection when the removed zone was selected', () => {
+  reset();
+  const { addZone, selectZone, removeZone } = useRoomLayoutStore.getState();
+  addZone({ id: 'z1', kind: 'focus', x: 2, y: 2, widthM: 2, lengthM: 2, rotationDeg: 0 });
+  selectZone('z1');
+  assert.equal(useRoomLayoutStore.getState().selectedZoneId, 'z1');
+
+  removeZone('z1');
+  assert.equal(useRoomLayoutStore.getState().selectedZoneId, null);
+  assert.equal(useRoomLayoutStore.getState().zones.length, 0);
 });
 
 test('updateWallGeometry updates canonical wall fields and is undoable', () => {
