@@ -5,36 +5,11 @@
 // draft-zone-while-drawing is handled by RoomEditor2D itself (same split as draftWall).
 
 import { Group, Rect, Text } from 'react-konva';
-import type { Zone, ZoneKind, Layer as LayerEntity } from '@/lib/spatial/types.ts';
+import type { Zone, Layer as LayerEntity } from '@/lib/spatial/types.ts';
 import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
+import { ZONE_KIND_COLOURS, ZONE_KIND_LABELS } from '@/lib/spatial/zoneKinds.ts';
 
-// One fill colour per kind — calm/muted, not saturated (calm-UX rule applies to the
-// editor's own chrome, not just end-user-facing copy).
-export const ZONE_KIND_COLOURS: Record<ZoneKind, string> = {
-  focus: '#dbeafe',
-  calm: '#dcfce7',
-  transition: '#fef9c3',
-  movement: '#fee2e2',
-  regulation: '#ede9fe',
-  collaboration: '#ffedd5',
-  storage: '#e2e8f0',
-  breakout: '#fce7f3',
-  sensory_support: '#cffafe',
-  reflection: '#e0e7ff',
-};
-
-export const ZONE_KIND_LABELS: Record<ZoneKind, string> = {
-  focus: 'Focus',
-  calm: 'Calm',
-  transition: 'Transition',
-  movement: 'Movement',
-  regulation: 'Regulation',
-  collaboration: 'Collaboration',
-  storage: 'Storage',
-  breakout: 'Breakout',
-  sensory_support: 'Sensory Support',
-  reflection: 'Reflection',
-};
+export { ZONE_KIND_COLOURS, ZONE_KIND_LABELS };
 
 type Props = {
   zones: Zone[];

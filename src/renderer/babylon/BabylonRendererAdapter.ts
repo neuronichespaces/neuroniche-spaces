@@ -16,9 +16,10 @@ import {
   Vector3,
   type Scene,
 } from '@babylonjs/core';
-import type { DoorPlacement, FloorDims, Layer, PlacedObject, WallSegment } from '@/lib/spatial/types.ts';
+import type { DoorPlacement, FloorDims, Layer, PlacedObject, WallSegment, Zone } from '@/lib/spatial/types.ts';
 import { wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
 import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
+import { ZONE_KIND_COLOURS } from '@/lib/spatial/zoneKinds.ts';
 import { BabylonDisposalManager } from './BabylonDisposalManager.ts';
 import { BabylonEntityMapper } from './BabylonEntityMapper.ts';
 import { loadEquipmentModel } from './BabylonAssetRegistry.ts';
@@ -28,6 +29,8 @@ import { setRenderRole } from './types.ts';
 const DEFAULT_WALL_HEIGHT_M = 2.4;
 const DEFAULT_OBJECT_HEIGHT_M = 0.5;
 const ROOM_GROUP_KEY = 'room-shell';
+const ZONE_GROUP_KEY = 'zones';
+const ZONE_PLANE_HEIGHT_M = 0.01; // just above the floor, avoids z-fighting
 
 function colourFor(id: string): Color3 {
   // ponytail: deterministic hash-to-hue, same scheme as the old Three.js colourFor.
@@ -125,6 +128,31 @@ export class BabylonRendererAdapter {
         setRenderRole(box, 'ARCHITECTURE');
         this.disposal.track(ROOM_GROUP_KEY, box);
       }
+    }
+  }
+
+  /** Zones weren't rendered in 3D at all before this (CAD Gap 4/6) — flat, translucent
+   *  floor overlays, same colour-per-kind convention as ZoneLayer.tsx's 2D rects (both
+   *  now read from the shared zoneKinds.ts instead of one owning the other). Full
+   *  rebuild each call, same "cheap at this app's object ceiling" reasoning as
+   *  syncRoomShell. Layer-filtered as a full new capability, not a follow-on to an
+   *  existing gap — zones had no 3D presence to filter until this method existed. */
+  syncZones(zones: Zone[], layers: Layer[]): void {
+    this.disposal.disposeGroup(ZONE_GROUP_KEY);
+    for (const zone of zones) {
+      if (!isEffectivelyVisible(zone, layers)) continue;
+      const plane = CreateGround(`zone-${zone.id}`, { width: zone.widthM, height: zone.lengthM }, this.scene);
+      plane.position = new Vector3(zone.x, ZONE_PLANE_HEIGHT_M, zone.y);
+      plane.rotation.y = -((zone.rotationDeg * Math.PI) / 180);
+      const mat = new StandardMaterial(`zone-${zone.id}-mat`, this.scene);
+      mat.diffuseColor = Color3.FromHexString(ZONE_KIND_COLOURS[zone.kind]);
+      mat.alpha = 0.5;
+      mat.backFaceCulling = false;
+      plane.material = mat;
+      plane.isPickable = false;
+      setRenderRole(plane, 'ARCHITECTURE');
+      this.disposal.track(ZONE_GROUP_KEY, plane);
+      this.disposal.track(ZONE_GROUP_KEY, mat);
     }
   }
 
