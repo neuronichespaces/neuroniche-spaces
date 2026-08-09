@@ -174,3 +174,18 @@ export type BlockDefinition = {
     customProperties: PlacedObjectProps;
   }>;
 };
+
+// CAD-upgrade Gap 7 (Collaboration, versioning, review, audit): a review comment/
+// markup pinned to a point on the plan — distinct from Leader (a permanent drawing
+// annotation meant to stay on the plan, e.g. "mount switch here") in that a Comment
+// is a review-workflow artifact meant to be resolved and eventually go away. Kept
+// local/in-memory + localStorage for this pass, same as the rest of this session's
+// non-Supabase-persisted entities — no DB migration for a comments table exists yet.
+export type Comment = {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  resolved: boolean;
+  createdAt: number;
+};

@@ -24,6 +24,7 @@ function reset() {
     multiSelectedObjectIds: [],
     isolatedObjectIds: null,
     blocks: [],
+    auditLog: [],
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -167,6 +168,25 @@ test('isolateObjects/unisolate toggle the transient view filter (CAD Gap 5)', ()
 
   unisolate();
   assert.equal(useRoomLayoutStore.getState().isolatedObjectIds, null);
+});
+
+test('every mutate() call appends a persisted audit log entry, unaffected by undo (CAD Gap 7)', () => {
+  reset();
+  const { addWall, addObject, undo } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  const log = useRoomLayoutStore.getState().auditLog;
+  assert.equal(log.length, 2);
+  assert.equal(log[0].description, 'Add wall');
+  assert.equal(log[1].description, 'Add object');
+  assert.ok(log[0].id); // same command id convention as past/future entries
+  assert.ok(typeof log[0].timestamp === 'number');
+
+  // Undo rewinds the model, but the audit trail is a record of what happened —
+  // it must NOT shrink back down, unlike `past`/`future`.
+  undo();
+  assert.equal(useRoomLayoutStore.getState().auditLog.length, 2);
 });
 
 test('saveSelectionAsBlock captures items relative to the selection centroid (CAD Gap 3)', () => {

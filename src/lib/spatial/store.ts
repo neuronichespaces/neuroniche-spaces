@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
 import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -38,6 +38,42 @@ const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
 const MAX_HISTORY = 50;
 const AUTOSAVE_DEBOUNCE_MS = 500;
 
+// CAD-upgrade Gap 7 (Collaboration, versioning, review, audit): a persisted audit
+// log, separate from `past`/`future` (which are undo/redo mechanics, live in memory
+// only, and get truncated by MAX_HISTORY). This survives reload and is never rewound
+// by undo — an audit trail must record what happened, not what's currently applied.
+// Reuses each command's id (same one `past`/`future` entries carry) so a future
+// "comment on command <id>" feature can cross-reference the two, per this file's
+// own long-standing comment on HistoryEntry's id field.
+const AUDIT_LOG_KEY = 'noniche-spatial-room-default-audit';
+const MAX_AUDIT_LOG = 500;
+
+export type AuditLogEntry = { id: string; description: string; timestamp: number };
+
+function readAuditLogFromLocalStorage(): AuditLogEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(AUDIT_LOG_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e): e is AuditLogEntry => typeof e?.id === 'string' && typeof e?.description === 'string' && typeof e?.timestamp === 'number',
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeAuditLogToLocalStorage(log: AuditLogEntry[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(AUDIT_LOG_KEY, JSON.stringify(log));
+  } catch {
+    // ponytail: same best-effort as writeToLocalStorage — quota/private mode, no user-facing error surface yet.
+  }
+}
+
 type RoomLayoutState = RoomLayout & {
   selectedObjectId: string | null;
   selectedWallId: string | null;
@@ -59,10 +95,15 @@ type RoomLayoutState = RoomLayout & {
    *  localStorage/Supabase (in-memory for the session only) — stated scope cut, not an
    *  oversight; see BlocksPanel.tsx. */
   blocks: BlockDefinition[];
+  /** CAD-upgrade Gap 7: review comments/markups. Same treatment as `blocks` — not
+   *  undo-tracked (a review comment isn't "layout content"), not yet persisted beyond
+   *  this session. See CommentsPanel.tsx. */
+  comments: Comment[];
   clearanceViolations: Set<string>;
   hasLoadedInitialData: boolean; // false only before any template/localStorage/user edit has applied — see B3 fix in page.tsx
   past: HistoryEntry[];
   future: HistoryEntry[];
+  auditLog: AuditLogEntry[];
   canUndo: boolean;
   canRedo: boolean;
 
@@ -95,6 +136,11 @@ type RoomLayoutState = RoomLayout & {
    *  there. IS undo-tracked: it adds real placed objects to the layout. */
   insertBlock: (blockId: string, x: number, y: number) => void;
   removeBlock: (blockId: string) => void;
+
+  /** CAD-upgrade Gap 7: comment/markup CRUD. Not undo-tracked (see `comments`'s comment). */
+  addComment: (x: number, y: number, text: string) => void;
+  resolveComment: (id: string, resolved: boolean) => void;
+  removeComment: (id: string) => void;
   removeObject: (id: string) => void;
   moveObject: (id: string, x: number, y: number) => void;
   rotateObject: (id: string, rotationDeg: number) => void;
@@ -201,14 +247,19 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
   function pushHistory(prevState: RoomLayoutState, description: string) {
     const entry: HistoryEntry = { id: generateCommandId(), layout: snapshot(prevState), lastCommandDescription: description };
     const past = [...prevState.past, entry].slice(-MAX_HISTORY);
-    return { past, future: [] as HistoryEntry[] };
+    return { past, future: [] as HistoryEntry[], commandId: entry.id };
   }
 
   // Wraps a structural-mutation `set` call: pushes current state to history,
   // applies the updater, recomputes violations, and schedules persistence.
   function mutate(description: string, updater: (s: RoomLayoutState) => Partial<RoomLayout>) {
     set((s) => {
-      const historyPatch = pushHistory(s, description);
+      const { commandId, ...historyPatch } = pushHistory(s, description);
+      // Audit log: real (not undo-tracked) record of what happened. Written to its
+      // own localStorage key immediately, not debounced with the layout autosave —
+      // an audit trail losing an entry to a cancelled timer defeats its purpose.
+      const auditLog = [...s.auditLog, { id: commandId, description, timestamp: Date.now() }].slice(-MAX_AUDIT_LOG);
+      writeAuditLogToLocalStorage(auditLog);
       const patch = updater(s);
       const walls = patch.walls ?? s.walls;
       const placedObjects = patch.placedObjects ?? s.placedObjects;
@@ -219,6 +270,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const next = {
         ...historyPatch,
         ...patch,
+        auditLog,
         canUndo: true,
         canRedo: false,
         hasLoadedInitialData: true,
@@ -257,6 +309,8 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     multiSelectedObjectIds: [],
     isolatedObjectIds: null,
     blocks: [],
+    comments: [],
+    auditLog: readAuditLogFromLocalStorage(),
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -326,6 +380,14 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       mutate('Insert block', (s) => ({ placedObjects: [...s.placedObjects, ...newObjects] }));
     },
     removeBlock: (blockId) => set((s) => ({ blocks: s.blocks.filter((b) => b.id !== blockId) })),
+
+    addComment: (x, y, text) =>
+      set((s) => ({
+        comments: [...s.comments, { id: `comment-${Date.now()}-${Math.round(Math.random() * 1000)}`, x, y, text, resolved: false, createdAt: Date.now() }],
+      })),
+    resolveComment: (id, resolved) =>
+      set((s) => ({ comments: s.comments.map((c) => (c.id === id ? { ...c, resolved } : c)) })),
+    removeComment: (id) => set((s) => ({ comments: s.comments.filter((c) => c.id !== id) })),
     removeObject: (id) => {
       mutate('Delete object', (s) => ({ placedObjects: s.placedObjects.filter((o) => o.id !== id) }));
       set((s) => (s.selectedObjectId === id ? { selectedObjectId: null } : {}));

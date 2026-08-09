@@ -23,6 +23,9 @@ import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.ts
 import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
 import { OutlinerPanel } from '@/components/spatial/OutlinerPanel.tsx';
 import { BlocksPanel } from '@/components/spatial/BlocksPanel.tsx';
+import { AuditLogPanel } from '@/components/spatial/AuditLogPanel.tsx';
+import { CommentsPanel } from '@/components/spatial/CommentsPanel.tsx';
+import { ScenariosPanel } from '@/components/spatial/ScenariosPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
 import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
@@ -167,6 +170,9 @@ function SpatialDesignEngineInner() {
           <LayersPanel />
           <OutlinerPanel />
           <BlocksPanel />
+          <CommentsPanel />
+          <AuditLogPanel />
+          {roomId && <ScenariosPanel roomId={roomId} />}
         </div>
         <ExportPanel roomName={roomName} catalogue={CATALOGUE} />
       </header>
