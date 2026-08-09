@@ -31,6 +31,7 @@ import ObjectLayer from './ObjectLayer.tsx';
 import ZoneLayer, { ZONE_KIND_LABELS } from './ZoneLayer.tsx';
 import DimensionLayer from './DimensionLayer.tsx';
 import LeaderLayer from './LeaderLayer.tsx';
+import CommentLayer from './CommentLayer.tsx';
 import HeatmapOverlay from './HeatmapOverlay.tsx';
 import ViolationsList from './ViolationsList.tsx';
 
@@ -86,6 +87,7 @@ export default function RoomEditor2D({
   const isolatedObjectIds = useRoomLayoutStore((s) => s.isolatedObjectIds);
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
   const leaders = useRoomLayoutStore((s) => s.leaders);
+  const comments = useRoomLayoutStore((s) => s.comments);
   const selectedLeaderId = useRoomLayoutStore((s) => s.selectedLeaderId);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const addWall = useRoomLayoutStore((s) => s.addWall);
@@ -733,6 +735,7 @@ export default function RoomEditor2D({
             onSelect={tool === 'select' ? selectLeader : undefined}
             layers={layers}
           />
+          <CommentLayer comments={comments} pxPerM={pxPerM} />
         </Layer>
       </Stage>
       {tool === 'wall' && draftWall && (

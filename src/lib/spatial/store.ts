@@ -310,7 +310,13 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     isolatedObjectIds: null,
     blocks: [],
     comments: [],
-    auditLog: readAuditLogFromLocalStorage(),
+    // Not readAuditLogFromLocalStorage() here — this initial state feeds SSR too,
+    // where window/localStorage don't exist, so reading real data here (vs. an
+    // always-[] default) produces a client/server mismatch and a hydration failure
+    // that silently remounts the whole tree. Loaded in hydrateFromLocalStorage()
+    // instead, which is only ever called from a client-side useEffect — same
+    // SSR-safety rule the rest of this file's localStorage reads already follow.
+    auditLog: [],
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -609,6 +615,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
 
     hydrateFromLocalStorage: () => {
       if (typeof window === 'undefined') return;
+      set({ auditLog: readAuditLogFromLocalStorage() });
       try {
         const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
         if (!raw) return;
