@@ -20,6 +20,7 @@ import { ZonePropertiesPanel } from '@/components/spatial/ZonePropertiesPanel.ts
 import { DimensionPropertiesPanel } from '@/components/spatial/DimensionPropertiesPanel.tsx';
 import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
 import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
+import { OutlinerPanel } from '@/components/spatial/OutlinerPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
 import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
@@ -159,6 +160,7 @@ function SpatialDesignEngineInner() {
           </button>
           <CommandHistoryPanel />
           <LayersPanel />
+          <OutlinerPanel />
         </div>
         <ExportPanel roomName={roomName} catalogue={CATALOGUE} />
       </header>
