@@ -75,13 +75,24 @@ so the "Missing entirely"/"Stale" labels are literal, not decorative.**
 
 ## Gap 3 — Blocks, components, and template library
 
-**Status: adjacent system exists, not this system.**
+**Status: core save/insert loop closed (2026-08-09); linked instances, versioning,
+nesting, and click-to-place still missing.**
 
-- `templates.ts` (`Calm Corner`, `Movement Zone`, etc.) — a fixed, hard-coded set of
-  starting-room presets applied once at room creation. This is NOT a `BlockDefinition`/
-  `BlockInstance` model: no stable block IDs, no linked-vs-detached instances, no
-  save-selection-as-block, no insert-into-existing-room, no versioning, no nesting.
-  Genuinely missing, not a rename of existing work.
+- `templates.ts` (`Calm Corner`, `Movement Zone`, etc.) remains a separate, fixed,
+  hard-coded set of starting-room presets applied once at room creation — distinct by
+  design from the block system below, not superseded by it.
+- **Closed**: `BlockDefinition` (`types.ts`) — a named, stable-id group of objects,
+  captured from the current multi-selection (`saveSelectionAsBlock`, items stored
+  relative to the selection's centroid) and re-insertable anywhere
+  (`insertBlock` — undo-tracked, unlike the block library itself). `BlocksPanel.tsx`
+  is the library UI; `OutlinerPanel.tsx`'s batch bar gained "Save as block."
+  Live-verified in Chrome end-to-end (see `cad-upgrade-plan.md`'s dated entry).
+- **Not done**: every instance is fully detached (no linked-instance/"edit propagates
+  to all copies" concept), no versioning, no nesting (a block can't contain another
+  block), no click-to-place — `insertBlock` always lands at the room's centre point,
+  repositioning after insert relies on existing drag. Blocks are in-memory only, not
+  yet persisted to localStorage/Supabase (stated scope cut, matches how the rest of
+  this session's newer entities work before their own persistence pass).
 
 ## Gap 4 — Layers, visibility, locking, and view states
 
@@ -142,13 +153,22 @@ integration for the other three and view-state save/restore still missing.**
 
 ## Gap 5 — Advanced selection, filtering, outliner, batch editing
 
-**Status: missing entirely.**
+**Status: core loop closed for objects (2026-08-09); cross-type multi-select, saved
+selection sets, and Quick-Select-style filtering still missing.**
 
-- No object outliner/tree of any kind exists in the UI.
-- No Quick-Select-style filter system, no saved selection sets, no isolate/unisolate,
-  no batch edit of multiple selected entities (today's store only supports single
-  `selectedObjectId`, not a multi-select array).
-- This is real, unstarted work.
+- **Closed (objects only)**: `OutlinerPanel.tsx` — a flat tree of every
+  object/zone/wall/dimension, grouped by layer, click-to-select. `multiSelectedObjectIds`
+  (Shift-click in the outliner) + `isolatedObjectIds` (transient view filter, not a
+  persisted flag) in the store. Batch mutators: `batchSetObjectLayer`,
+  `batchRemoveObjects`, `batchSetObjectsLocked`, `batchSetObjectsHidden`. All
+  live-verified in Chrome (isolate correctly filtered the Konva render, batch delete
+  removed exactly the selected objects).
+- **Not done**: zones/walls/dimensions have no batch mutators or multi-select — scoped
+  to objects deliberately (see `OutlinerPanel.tsx`'s own comment for why: true
+  cross-type multi-select needs every entity's actions to accept an id array, a bigger
+  change than this pass). Canvas click still does single-select only; the outliner is
+  the only multi-select entry point. No Quick-Select-style filter system, no saved
+  selection sets.
 
 ## Gap 6 — Annotation, sections, elevations, documentation
 
