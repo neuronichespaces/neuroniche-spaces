@@ -85,9 +85,9 @@ so the "Missing entirely"/"Stale" labels are literal, not decorative.**
 
 ## Gap 4 — Layers, visibility, locking, and view states
 
-**Status: real layer entity now covers objects, zones, and walls in 2D, and objects in
-3D (2026-08-09). Dimensions, 3D room-shell integration, and view-state save/restore
-still missing.**
+**Status: real layer entity now covers all four canonical entity types (objects,
+zones, walls, dimensions) in 2D as of 2026-08-09, and objects in 3D. 3D room-shell
+integration for the other three and view-state save/restore still missing.**
 
 - **Closed (objects, 2026-08-09)**: `Layer` (`types.ts`) — `{id, name, visible, locked}`
   — seeded with one "Default" layer (`layers.ts`'s `DEFAULT_LAYER_ID`), full CRUD
@@ -121,12 +121,21 @@ still missing.**
   a Layer-assignment dropdown. Live-verified in Chrome for both: assigning a zone/wall
   to a hidden layer removed it from the Konva canvas (dashed zone-rect count and Line
   count both dropped by exactly one).
-- **Not done**: dimensions have no `layerId` field yet. No 3D room-shell integration
-  for wall layers — `BabylonRendererAdapter.syncRoomShell` rebuilds walls
-  unconditionally; walls are structurally load-bearing for the 3D room-shell geometry
-  in a way objects/zones aren't, so hiding one via layer needs its own design decision
-  rather than a copy-paste of the object/zone pattern (deliberately scoped out, not an
-  oversight). No zone/wall layer filtering in 3D at all yet (only objects). No
+- **Closed (dimensions, 2026-08-09, later same session)**: `Dimension.layerId?` added,
+  same convention. New `updateDimension` store action (layerId + label patch).
+  `DimensionLayer.tsx` filters render through `isEffectivelyVisible` when given a
+  `layers` prop. New `DimensionPropertiesPanel.tsx` — dimensions have no other
+  editable geometry (start/end come from the click-click draw tool, not typed), so
+  it's just the Layer dropdown plus a Delete button (parity with the existing
+  Delete-key shortcut). Live-verified in Chrome: drew a dimension, assigned it to a
+  hidden layer via the dropdown, confirmed it disappeared from the Konva canvas.
+  **All four canonical entity types now have layer support in 2D.**
+- **Not done**: no 3D room-shell integration for wall layers —
+  `BabylonRendererAdapter.syncRoomShell` rebuilds walls unconditionally; walls are
+  structurally load-bearing for the 3D room-shell geometry in a way objects/zones
+  aren't, so hiding one via layer needs its own design decision rather than a
+  copy-paste of the object/zone pattern (deliberately scoped out, not an oversight).
+  No zone/wall/dimension layer filtering in 3D at all yet (only objects). No
   per-layer print/order/colour/lineweight fields. No named view-state save/restore. No
   default-layer *set* (still just one seeded "Default", not
   Architecture/Doors/Furniture/etc. presets).
