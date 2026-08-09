@@ -81,6 +81,8 @@ export default function RoomEditor2D({
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
   const selectedZoneId = useRoomLayoutStore((s) => s.selectedZoneId);
+  const multiSelectedObjectIds = useRoomLayoutStore((s) => s.multiSelectedObjectIds);
+  const isolatedObjectIds = useRoomLayoutStore((s) => s.isolatedObjectIds);
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const addWall = useRoomLayoutStore((s) => s.addWall);
@@ -673,6 +675,8 @@ export default function RoomEditor2D({
             onMove={moveObject}
             onRotate={rotateObject}
             onResize={(id, widthM, depthM) => updateObjectProps(id, { widthM, depthM })}
+            multiSelectedObjectIds={multiSelectedObjectIds}
+            isolatedObjectIds={isolatedObjectIds}
           />
         </Layer>
         <Layer>

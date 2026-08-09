@@ -25,6 +25,13 @@ type Props = {
   onMove: (id: string, xM: number, yM: number) => void;
   onRotate: (id: string, rotationDeg: number) => void;
   onResize: (id: string, widthM: number, depthM: number) => void;
+  /** CAD-upgrade Gap 5: ids currently multi-selected via the outliner (for visual
+   *  highlight only — canvas click still does single-select; the outliner is the
+   *  multi-select entry point in this pass). */
+  multiSelectedObjectIds?: string[];
+  /** CAD-upgrade Gap 5: when set, only these ids render/are pickable, on top of
+   *  normal layer visibility. */
+  isolatedObjectIds?: string[] | null;
 };
 
 export default function ObjectLayer({
@@ -40,6 +47,8 @@ export default function ObjectLayer({
   onMove,
   onRotate,
   onResize,
+  multiSelectedObjectIds = [],
+  isolatedObjectIds = null,
 }: Props) {
   const groupRefs = useRef<Record<string, Konva.Group>>({});
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -60,8 +69,11 @@ export default function ObjectLayer({
 
   return (
     <>
-      {objects.filter((obj) => isEffectivelyVisible(obj, layers)).map((obj) => {
+      {objects
+        .filter((obj) => isEffectivelyVisible(obj, layers) && (isolatedObjectIds === null || isolatedObjectIds.includes(obj.id)))
+        .map((obj) => {
         const violated = violations.has(obj.id);
+        const multiSelected = multiSelectedObjectIds.includes(obj.id);
         const wPx = obj.footprintM.w * pxPerM;
         const lPx = obj.footprintM.l * pxPerM;
         return (
@@ -117,8 +129,8 @@ export default function ObjectLayer({
                 width={wPx}
                 height={lPx}
                 fill={violated ? '#fee2e2' : '#e2e8f0'}
-                stroke={violated ? '#dc2626' : selectedObjectId === obj.id ? '#2563eb' : '#64748b'}
-                strokeWidth={selectedObjectId === obj.id ? 2 : 1}
+                stroke={violated ? '#dc2626' : selectedObjectId === obj.id || multiSelected ? '#2563eb' : '#64748b'}
+                strokeWidth={selectedObjectId === obj.id || multiSelected ? 2 : 1}
                 cornerRadius={2}
               />
               <Text

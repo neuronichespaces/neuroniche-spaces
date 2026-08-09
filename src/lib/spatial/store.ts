@@ -42,6 +42,15 @@ type RoomLayoutState = RoomLayout & {
   selectedWallId: string | null;
   selectedZoneId: string | null;
   selectedDimensionId: string | null;
+  /** CAD-upgrade Gap 5: multi-select is object-only for this pass (see
+   *  OutlinerPanel.tsx's comment for why) — Shift-click in the outliner toggles
+   *  membership. Transient, like the single-selection ids, not pushed to history. */
+  multiSelectedObjectIds: string[];
+  /** CAD-upgrade Gap 5: isolate/unisolate — when non-null, only these object ids
+   *  render/are pickable, on top of (not instead of) normal layer visibility. A
+   *  separate transient concept from Layer.visible, not a second copy of it: isolation
+   *  is a temporary view filter the user toggles off, not a persisted per-object flag. */
+  isolatedObjectIds: string[] | null;
   clearanceViolations: Set<string>;
   hasLoadedInitialData: boolean; // false only before any template/localStorage/user edit has applied — see B3 fix in page.tsx
   past: HistoryEntry[];
@@ -78,6 +87,18 @@ type RoomLayoutState = RoomLayout & {
   toggleObjectHidden: (id: string) => void;
   selectObject: (id: string | null) => void;
   selectWall: (id: string | null) => void;
+
+  /** CAD-upgrade Gap 5: adds/removes id from the multi-select set; clears the
+   *  single-object/wall/zone/dimension selection (mutually exclusive, same rule as
+   *  every other selection action). */
+  toggleObjectMultiSelect: (id: string) => void;
+  clearObjectMultiSelect: () => void;
+  batchSetObjectLayer: (ids: string[], layerId: string) => void;
+  batchRemoveObjects: (ids: string[]) => void;
+  batchSetObjectsLocked: (ids: string[], locked: boolean) => void;
+  batchSetObjectsHidden: (ids: string[], hidden: boolean) => void;
+  isolateObjects: (ids: string[]) => void;
+  unisolate: () => void;
 
   addDimension: (dimension: Dimension) => void;
   removeDimension: (id: string) => void;
@@ -206,6 +227,8 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     selectedWallId: null,
     selectedZoneId: null,
     selectedDimensionId: null,
+    multiSelectedObjectIds: [],
+    isolatedObjectIds: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -280,13 +303,46 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedWallId: id ? null : get().selectedWallId,
         selectedZoneId: id ? null : get().selectedZoneId,
         selectedDimensionId: id ? null : get().selectedDimensionId,
+        multiSelectedObjectIds: [],
       }),
+    toggleObjectMultiSelect: (id) =>
+      set((s) => ({
+        multiSelectedObjectIds: s.multiSelectedObjectIds.includes(id)
+          ? s.multiSelectedObjectIds.filter((i) => i !== id)
+          : [...s.multiSelectedObjectIds, id],
+        selectedObjectId: null,
+        selectedWallId: null,
+        selectedZoneId: null,
+        selectedDimensionId: null,
+      })),
+    clearObjectMultiSelect: () => set({ multiSelectedObjectIds: [] }),
+    batchSetObjectLayer: (ids, layerId) =>
+      mutate('Batch: change object layer', (s) => ({
+        placedObjects: s.placedObjects.map((o) => (ids.includes(o.id) ? { ...o, layerId } : o)),
+      })),
+    batchRemoveObjects: (ids) => {
+      mutate('Batch: delete objects', (s) => ({ placedObjects: s.placedObjects.filter((o) => !ids.includes(o.id)) }));
+      set({ multiSelectedObjectIds: [] });
+    },
+    batchSetObjectsLocked: (ids, locked) =>
+      mutate('Batch: set object lock', (s) => ({
+        placedObjects: s.placedObjects.map((o) => (ids.includes(o.id) ? { ...o, locked } : o)),
+      })),
+    batchSetObjectsHidden: (ids, hidden) =>
+      mutate('Batch: set object visibility', (s) => ({
+        placedObjects: s.placedObjects.map((o) => (ids.includes(o.id) ? { ...o, hidden } : o)),
+      })),
+    // Isolate/unisolate is a transient view filter, not a history-tracked mutation —
+    // same reasoning as selection: it changes what you're looking at, not the model.
+    isolateObjects: (ids) => set({ isolatedObjectIds: ids }),
+    unisolate: () => set({ isolatedObjectIds: null }),
     selectWall: (id) =>
       set({
         selectedWallId: id,
         selectedObjectId: id ? null : get().selectedObjectId,
         selectedZoneId: id ? null : get().selectedZoneId,
         selectedDimensionId: id ? null : get().selectedDimensionId,
+        multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
       }),
     selectZone: (id) =>
       set({
@@ -294,6 +350,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedObjectId: id ? null : get().selectedObjectId,
         selectedWallId: id ? null : get().selectedWallId,
         selectedDimensionId: id ? null : get().selectedDimensionId,
+        multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
       }),
 
     addDimension: (dimension) => mutate('Add dimension', (s) => ({ dimensions: [...s.dimensions, dimension] })),
@@ -307,6 +364,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedObjectId: id ? null : get().selectedObjectId,
         selectedWallId: id ? null : get().selectedWallId,
         selectedZoneId: id ? null : get().selectedZoneId,
+        multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
       }),
     updateDimension: (id, patch) =>
       mutate('Edit dimension', (s) => ({ dimensions: s.dimensions.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),

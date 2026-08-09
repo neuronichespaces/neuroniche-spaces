@@ -19,6 +19,8 @@ function reset() {
     selectedWallId: null,
     selectedZoneId: null,
     selectedDimensionId: null,
+    multiSelectedObjectIds: [],
+    isolatedObjectIds: null,
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -103,6 +105,65 @@ test('selectWall and selectObject are mutually exclusive', () => {
   selectWall('w1');
   assert.equal(useRoomLayoutStore.getState().selectedWallId, 'w1');
   assert.equal(useRoomLayoutStore.getState().selectedObjectId, null);
+});
+
+test('toggleObjectMultiSelect adds/removes ids and clears single selection (CAD Gap 5)', () => {
+  reset();
+  const { addObject, selectObject, toggleObjectMultiSelect } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o2', productId: 'p2', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  selectObject('o1');
+
+  toggleObjectMultiSelect('o1');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedObjectIds, ['o1']);
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, null);
+
+  toggleObjectMultiSelect('o2');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedObjectIds, ['o1', 'o2']);
+
+  toggleObjectMultiSelect('o1');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedObjectIds, ['o2']);
+});
+
+test('batchRemoveObjects deletes all given ids and clears multi-select (CAD Gap 5)', () => {
+  reset();
+  const { addObject, toggleObjectMultiSelect, batchRemoveObjects } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o2', productId: 'p2', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o3', productId: 'p3', x: 2, y: 2, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  toggleObjectMultiSelect('o1');
+  toggleObjectMultiSelect('o2');
+
+  batchRemoveObjects(['o1', 'o2']);
+  const remaining = useRoomLayoutStore.getState().placedObjects.map((o) => o.id);
+  assert.deepEqual(remaining, ['o3']);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedObjectIds, []);
+});
+
+test('batchSetObjectLayer/batchSetObjectsLocked/batchSetObjectsHidden apply to every given id (CAD Gap 5)', () => {
+  reset();
+  const { addObject, batchSetObjectLayer, batchSetObjectsLocked, batchSetObjectsHidden } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o2', productId: 'p2', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  batchSetObjectLayer(['o1', 'o2'], 'layer-arch');
+  batchSetObjectsLocked(['o1', 'o2'], true);
+  batchSetObjectsHidden(['o1', 'o2'], true);
+
+  const objects = useRoomLayoutStore.getState().placedObjects;
+  assert.ok(objects.every((o) => o.layerId === 'layer-arch' && o.locked === true && o.hidden === true));
+});
+
+test('isolateObjects/unisolate toggle the transient view filter (CAD Gap 5)', () => {
+  reset();
+  const { isolateObjects, unisolate } = useRoomLayoutStore.getState();
+  assert.equal(useRoomLayoutStore.getState().isolatedObjectIds, null);
+
+  isolateObjects(['o1', 'o2']);
+  assert.deepEqual(useRoomLayoutStore.getState().isolatedObjectIds, ['o1', 'o2']);
+
+  unisolate();
+  assert.equal(useRoomLayoutStore.getState().isolatedObjectIds, null);
 });
 
 test('selectZone is mutually exclusive with object/wall/dimension selection', () => {

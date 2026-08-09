@@ -1,11 +1,14 @@
-// CAD-upgrade Gap 5 (Advanced selection... outliner): first slice — a single tree
-// view of every object/zone/wall/dimension, grouped by layer, with click-to-select.
-// No multi-select/batch-edit/isolate yet (that's the rest of Gap 5, "missing
-// entirely" until this), but this is the load-bearing piece: today the only way to
-// find a specific entity is to spot it on canvas. Self-contained, no props — same
-// pattern as LayersPanel/CommandHistoryPanel.
+// CAD-upgrade Gap 5 (Advanced selection, filtering, outliner, batch editing).
+// A single tree view of every object/zone/wall/dimension, grouped by layer, with
+// click-to-select. Shift-click on an OBJECT row toggles multi-select, which shows a
+// batch-action bar (delete/lock/hide/isolate/reassign layer) — scoped to objects only
+// for this pass: zones/walls/dimensions don't have batch mutators yet, and true
+// cross-type multi-select would need every entity's store actions to accept an id
+// array, a bigger change than this slice. Self-contained, no props — same pattern as
+// LayersPanel/CommandHistoryPanel.
 'use client';
 
+import { useState } from 'react';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { DEFAULT_LAYER_ID } from '@/lib/spatial/layers.ts';
 import { ZONE_KIND_LABELS } from './ZoneLayer.tsx';
@@ -24,10 +27,21 @@ export function OutlinerPanel() {
   const selectedZoneId = useRoomLayoutStore((s) => s.selectedZoneId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
+  const multiSelectedObjectIds = useRoomLayoutStore((s) => s.multiSelectedObjectIds);
+  const isolatedObjectIds = useRoomLayoutStore((s) => s.isolatedObjectIds);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
   const selectZone = useRoomLayoutStore((s) => s.selectZone);
   const selectWall = useRoomLayoutStore((s) => s.selectWall);
   const selectDimension = useRoomLayoutStore((s) => s.selectDimension);
+  const toggleObjectMultiSelect = useRoomLayoutStore((s) => s.toggleObjectMultiSelect);
+  const clearObjectMultiSelect = useRoomLayoutStore((s) => s.clearObjectMultiSelect);
+  const batchSetObjectLayer = useRoomLayoutStore((s) => s.batchSetObjectLayer);
+  const batchRemoveObjects = useRoomLayoutStore((s) => s.batchRemoveObjects);
+  const batchSetObjectsLocked = useRoomLayoutStore((s) => s.batchSetObjectsLocked);
+  const batchSetObjectsHidden = useRoomLayoutStore((s) => s.batchSetObjectsHidden);
+  const isolateObjects = useRoomLayoutStore((s) => s.isolateObjects);
+  const unisolate = useRoomLayoutStore((s) => s.unisolate);
+  const [batchLayerId, setBatchLayerId] = useState('');
 
   const rows: Row[] = [
     ...placedObjects.map((o): Row => ({ id: o.id, label: o.productId, kind: 'object', layerId: o.layerId })),
@@ -49,6 +63,14 @@ export function OutlinerPanel() {
     dimension: selectDimension,
   };
 
+  function handleRowClick(row: Row, e: React.MouseEvent) {
+    if (row.kind === 'object' && e.shiftKey) {
+      toggleObjectMultiSelect(row.id);
+      return;
+    }
+    selectFor[row.kind](row.id);
+  }
+
   if (rows.length === 0) {
     return (
       <div className="rounded border border-slate-200 bg-white p-2">
@@ -60,7 +82,76 @@ export function OutlinerPanel() {
 
   return (
     <div className="flex flex-col gap-2 rounded border border-slate-200 bg-white p-2">
-      <h2 className="text-xs font-medium text-slate-500">Outliner</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-medium text-slate-500">Outliner</h2>
+        {placedObjects.length > 0 && <span className="text-xs text-slate-400">Shift-click objects to multi-select</span>}
+      </div>
+
+      {multiSelectedObjectIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded bg-blue-50 p-2 text-sm">
+          <span className="text-blue-700">{multiSelectedObjectIds.length} selected</span>
+          <button
+            type="button"
+            onClick={() => isolateObjects(multiSelectedObjectIds)}
+            className="min-h-11 rounded border border-blue-300 px-2 text-blue-700 hover:bg-blue-100"
+          >
+            Isolate
+          </button>
+          <button
+            type="button"
+            onClick={() => batchSetObjectsLocked(multiSelectedObjectIds, true)}
+            className="min-h-11 rounded border border-blue-300 px-2 text-blue-700 hover:bg-blue-100"
+          >
+            Lock
+          </button>
+          <button
+            type="button"
+            onClick={() => batchSetObjectsHidden(multiSelectedObjectIds, true)}
+            className="min-h-11 rounded border border-blue-300 px-2 text-blue-700 hover:bg-blue-100"
+          >
+            Hide
+          </button>
+          <select
+            value={batchLayerId}
+            onChange={(e) => {
+              setBatchLayerId(e.target.value);
+              if (e.target.value) batchSetObjectLayer(multiSelectedObjectIds, e.target.value);
+            }}
+            className="min-h-11 rounded border border-blue-300 px-2 text-blue-700"
+          >
+            <option value="">Move to layer…</option>
+            {layers.map((layer) => (
+              <option key={layer.id} value={layer.id}>
+                {layer.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => batchRemoveObjects(multiSelectedObjectIds)}
+            className="min-h-11 rounded border border-red-300 px-2 text-red-700 hover:bg-red-50"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            onClick={clearObjectMultiSelect}
+            className="min-h-11 rounded px-2 text-slate-500 hover:bg-slate-100"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {isolatedObjectIds !== null && (
+        <div className="flex items-center justify-between rounded bg-amber-50 p-2 text-sm text-amber-700">
+          <span>Isolating {isolatedObjectIds.length} object{isolatedObjectIds.length === 1 ? '' : 's'}</span>
+          <button type="button" onClick={unisolate} className="min-h-11 rounded border border-amber-300 px-2 hover:bg-amber-100">
+            Unisolate
+          </button>
+        </div>
+      )}
+
       <ul className="flex flex-col gap-2">
         {layers.map((layer) => {
           const layerRows = rows.filter((r) => (r.layerId ?? DEFAULT_LAYER_ID) === layer.id);
@@ -70,12 +161,12 @@ export function OutlinerPanel() {
               <div className="text-xs font-medium text-slate-400">{layer.name}</div>
               <ul className="mt-1 flex flex-col gap-1">
                 {layerRows.map((row) => {
-                  const selected = selectedIdFor[row.kind] === row.id;
+                  const selected = selectedIdFor[row.kind] === row.id || multiSelectedObjectIds.includes(row.id);
                   return (
                     <li key={`${row.kind}-${row.id}`}>
                       <button
                         type="button"
-                        onClick={() => selectFor[row.kind](row.id)}
+                        onClick={(e) => handleRowClick(row, e)}
                         className={`min-h-11 w-full rounded px-2 text-left text-sm ${
                           selected ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
                         }`}
