@@ -140,3 +140,138 @@ export async function saveRoomToSupabase(roomId: string, layout: Omit<RoomLayout
     if (insertError) throw new Error(`Failed to save placed objects: ${insertError.message}`);
   }
 }
+
+// CAD-upgrade Gap 7 (Collaboration, versioning, review, audit): scenario versioning,
+// on top of the load/save-the-one-default-layout functions above (which are
+// unchanged — existing callers keep working exactly as before). This is genuinely
+// new capability: room_layouts always technically permitted multiple rows per room,
+// but nothing above ever wrote or read more than the single earliest one. Requires
+// migration 0011_scenario_versioning.sql (name/status columns) to be applied — not
+// verified against a live Supabase project, same disclosed limitation as the rest of
+// this file (see the header comment).
+
+export type ScenarioSummary = {
+  id: string;
+  name: string;
+  status: 'draft' | 'in_review' | 'approved' | 'superseded';
+  createdAt: string;
+};
+
+export async function listScenarios(roomId: string): Promise<ScenarioSummary[]> {
+  const { data, error } = await supabase
+    .from('room_layouts')
+    .select('id, name, status, created_at')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(`Failed to list scenarios: ${error.message}`);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    status: row.status as ScenarioSummary['status'],
+    createdAt: row.created_at,
+  }));
+}
+
+/** Always inserts a new room_layouts row (never upserts) — the point of a named
+ *  scenario is that saving it doesn't silently overwrite a different one. Reuses
+ *  saveRoomToSupabase's placed_objects logic isn't possible without duplicating it
+ *  (that function looks up the existing row by room_id, which is exactly what a named
+ *  scenario must NOT do) — this is deliberately a separate insert-only path. */
+export async function saveScenarioAs(
+  roomId: string,
+  name: string,
+  layout: Omit<RoomLayout, 'dimensions' | 'layers' | 'leaders'>,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('room_layouts')
+    .insert({
+      room_id: roomId,
+      name,
+      wall_geometry_json: layout.walls,
+      door_positions_json: layout.doors,
+      zones_json: layout.zones,
+      floor_width_m: layout.floorDims.widthM,
+      floor_length_m: layout.floorDims.lengthM,
+    })
+    .select('id')
+    .single();
+  if (error) throw new Error(`Failed to save scenario: ${error.message}`);
+  const layoutId = data.id as string;
+
+  const distinctSlugs = [...new Set(layout.placedObjects.map((o) => o.productId))];
+  const slugToId = new Map<string, string>();
+  if (distinctSlugs.length > 0) {
+    const { data: products, error: productsError } = await supabase.from('products').select('id, slug').in('slug', distinctSlugs);
+    if (productsError) throw new Error(`Failed to resolve product ids: ${productsError.message}`);
+    for (const p of products ?? []) if (p.slug) slugToId.set(p.slug, p.id);
+  }
+  const unresolved = distinctSlugs.filter((s) => !slugToId.has(s));
+  if (unresolved.length > 0) {
+    throw new Error(`No product row found for: ${unresolved.join(', ')} — run migration 0010 or add a products row with this slug`);
+  }
+  if (layout.placedObjects.length > 0) {
+    const rows = layout.placedObjects.map((o) => ({
+      room_layout_id: layoutId,
+      product_id: slugToId.get(o.productId),
+      position_x: o.x,
+      position_y: o.y,
+      rotation_deg: o.rotationDeg,
+      custom_properties_json: o.customProperties,
+      clearance_violated: false,
+    }));
+    const { error: insertError } = await supabase.from('placed_objects').insert(rows);
+    if (insertError) throw new Error(`Failed to save scenario's placed objects: ${insertError.message}`);
+  }
+  return layoutId;
+}
+
+export async function loadScenarioById(layoutId: string): Promise<RoomLayout | null> {
+  const { data: layoutRow, error: layoutError } = await supabase
+    .from('room_layouts')
+    .select('id, wall_geometry_json, door_positions_json, zones_json, floor_width_m, floor_length_m')
+    .eq('id', layoutId)
+    .maybeSingle();
+  if (layoutError) throw new Error(`Failed to load scenario: ${layoutError.message}`);
+  if (!layoutRow) return null;
+
+  const { data: objectRows, error: objectsError } = await supabase
+    .from('placed_objects')
+    .select('id, position_x, position_y, rotation_deg, custom_properties_json, clearance_violated, products(slug)')
+    .eq('room_layout_id', layoutRow.id);
+  if (objectsError) throw new Error(`Failed to load scenario's placed objects: ${objectsError.message}`);
+
+  const placedObjects: PlacedObject[] = (objectRows ?? []).flatMap((row) => {
+    const productRel = Array.isArray(row.products) ? row.products[0] : row.products;
+    const slug = productRel?.slug;
+    if (!slug) return [];
+    const customProperties = (row.custom_properties_json ?? {}) as PlacedObject['customProperties'];
+    return [
+      {
+        id: row.id,
+        productId: slug,
+        x: row.position_x,
+        y: row.position_y,
+        rotationDeg: row.rotation_deg,
+        footprintM: { w: customProperties.widthM ?? 0.5, l: customProperties.depthM ?? 0.5 },
+        customProperties,
+        sensoryProfile: sensoryProfileFor(slug),
+      },
+    ];
+  });
+
+  return {
+    walls: (layoutRow.wall_geometry_json ?? []) as WallSegment[],
+    doors: (layoutRow.door_positions_json ?? []) as DoorPlacement[],
+    zones: (layoutRow.zones_json ?? []) as Zone[],
+    dimensions: [],
+    leaders: [],
+    layers: defaultLayers(),
+    floorDims: { widthM: layoutRow.floor_width_m, lengthM: layoutRow.floor_length_m },
+    placedObjects,
+  };
+}
+
+export async function setScenarioStatus(layoutId: string, status: ScenarioSummary['status']): Promise<void> {
+  const { error } = await supabase.from('room_layouts').update({ status }).eq('id', layoutId);
+  if (error) throw new Error(`Failed to update scenario status: ${error.message}`);
+}
