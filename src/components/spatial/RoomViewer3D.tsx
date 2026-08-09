@@ -19,6 +19,7 @@ import { withRendererErrorBoundary } from '@/renderer/babylon/BabylonErrorBounda
 import { BabylonCameraController } from '@/renderer/babylon/BabylonCameraController.ts';
 import { getPerformanceSnapshot, type PerformanceSnapshot } from '@/renderer/babylon/BabylonPerformanceMonitor.ts';
 import { projectPointToSegment, wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
+import { isEffectivelyLocked, isEffectivelyVisible } from '@/lib/spatial/layers.ts';
 
 const PERF_POLL_MS = 500;
 
@@ -168,12 +169,15 @@ export default function RoomViewer3D({
       function syncFromStore() {
         const s = useRoomLayoutStore.getState();
         adapter.syncRoomShell(s.floorDims, s.walls, s.doors, richModeRef.current);
-        adapter.syncObjects(s.placedObjects, s.clearanceViolations, s.selectedObjectId, richModeRef.current);
+        adapter.syncObjects(s.placedObjects, s.clearanceViolations, s.selectedObjectId, richModeRef.current, s.layers);
         const selectedObj = s.placedObjects.find((o) => o.id === s.selectedObjectId);
-        // Locked/hidden entities stay selectable/inspectable but never get a gizmo
-        // (spec §4: "detach gizmos when selection clears, entity unloads, or entity
-        // becomes hidden/locked").
-        const node = selectedObj && !selectedObj.locked && !selectedObj.hidden ? (adapter.getObjectRoot(selectedObj.id) ?? null) : null;
+        // Locked/hidden entities (own flag OR their layer's, CAD Gap 4) stay
+        // selectable/inspectable but never get a gizmo (spec §4: "detach gizmos when
+        // selection clears, entity unloads, or entity becomes hidden/locked").
+        const node =
+          selectedObj && !isEffectivelyLocked(selectedObj, s.layers) && isEffectivelyVisible(selectedObj, s.layers)
+            ? (adapter.getObjectRoot(selectedObj.id) ?? null)
+            : null;
         transformBridge.attachTo(node);
       }
 

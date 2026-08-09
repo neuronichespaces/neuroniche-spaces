@@ -16,8 +16,9 @@ import {
   Vector3,
   type Scene,
 } from '@babylonjs/core';
-import type { DoorPlacement, FloorDims, PlacedObject, WallSegment } from '@/lib/spatial/types.ts';
+import type { DoorPlacement, FloorDims, Layer, PlacedObject, WallSegment } from '@/lib/spatial/types.ts';
 import { wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
+import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
 import { BabylonDisposalManager } from './BabylonDisposalManager.ts';
 import { BabylonEntityMapper } from './BabylonEntityMapper.ts';
 import { loadEquipmentModel } from './BabylonAssetRegistry.ts';
@@ -115,16 +116,16 @@ export class BabylonRendererAdapter {
    *  transform/colour on existing meshes in place (so an attached gizmo isn't
    *  destroyed), creates new ones, disposes removed ones. Async because a real GLB
    *  load is async; the placeholder box path is synchronous and shows immediately. */
-  syncObjects(placedObjects: PlacedObject[], clearanceViolations: Set<string>, selectedObjectId: string | null, highDetail: boolean): void {
+  syncObjects(placedObjects: PlacedObject[], clearanceViolations: Set<string>, selectedObjectId: string | null, highDetail: boolean, layers: Layer[]): void {
     const seen = new Set<string>();
     for (const obj of placedObjects) {
       seen.add(obj.id);
       const existing = this.objectRoots.get(obj.id);
       if (existing) {
-        this.updateObjectTransform(existing, obj);
+        this.updateObjectTransform(existing, obj, layers);
         this.updateObjectColour(obj, clearanceViolations.has(obj.id), obj.id === selectedObjectId);
       } else {
-        this.createObject(obj, clearanceViolations.has(obj.id), obj.id === selectedObjectId, highDetail);
+        this.createObject(obj, clearanceViolations.has(obj.id), obj.id === selectedObjectId, highDetail, layers);
       }
     }
     for (const [id, root] of this.objectRoots) {
@@ -141,14 +142,15 @@ export class BabylonRendererAdapter {
     return this.objectRoots.get(entityId);
   }
 
-  private updateObjectTransform(root: TransformNode, obj: PlacedObject): void {
+  private updateObjectTransform(root: TransformNode, obj: PlacedObject, layers: Layer[]): void {
     const heightM = obj.customProperties.heightM ?? DEFAULT_OBJECT_HEIGHT_M;
     root.position.set(obj.x, heightM / 2, obj.y);
     root.rotation.y = -((obj.rotationDeg * Math.PI) / 180);
-    // Hidden entities are neither rendered nor pickable — setEnabled(false) on the
-    // root excludes every descendant (visual, pick proxy, label) from both at once,
-    // rather than toggling isVisible/isPickable on each child individually.
-    root.setEnabled(!obj.hidden);
+    // Hidden entities (or entities on a hidden layer, CAD Gap 4) are neither rendered
+    // nor pickable — setEnabled(false) on the root excludes every descendant (visual,
+    // pick proxy, label) from both at once, rather than toggling isVisible/isPickable
+    // on each child individually.
+    root.setEnabled(isEffectivelyVisible(obj, layers));
   }
 
   private updateObjectColour(obj: PlacedObject, violated: boolean, selected: boolean): void {
@@ -158,12 +160,12 @@ export class BabylonRendererAdapter {
     if (material) material.diffuseColor = violated ? VIOLATED_COLOR : selected ? SELECTED_COLOR : colourFor(obj.id);
   }
 
-  private createObject(obj: PlacedObject, violated: boolean, selected: boolean, highDetail: boolean): void {
+  private createObject(obj: PlacedObject, violated: boolean, selected: boolean, highDetail: boolean, layers: Layer[]): void {
     const key = `object-${obj.id}`;
     const heightM = obj.customProperties.heightM ?? DEFAULT_OBJECT_HEIGHT_M;
     const root = new TransformNode(`${key}-root`, this.scene);
     setRenderRole(root, 'EQUIPMENT_ROOT');
-    this.updateObjectTransform(root, obj);
+    this.updateObjectTransform(root, obj, layers);
     this.objectRoots.set(obj.id, root);
     this.entityMapper.register(obj.id, root);
     this.disposal.track(key, root);
