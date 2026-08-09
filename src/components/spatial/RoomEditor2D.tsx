@@ -59,7 +59,7 @@ const HEATMAP_CATEGORY_LABELS: Record<SensoryCategory | 'crowding', string> = {
   crowding: 'Crowding',
 };
 
-type Tool = 'select' | 'wall' | 'door' | 'zone' | 'dimension' | 'leader';
+type Tool = 'select' | 'wall' | 'door' | 'zone' | 'dimension' | 'leader' | 'comment';
 const DEFAULT_DIMENSION_OFFSET_M = 0.4;
 
 type Props = {
@@ -97,6 +97,7 @@ export default function RoomEditor2D({
   const removeDimension = useRoomLayoutStore((s) => s.removeDimension);
   const selectDimension = useRoomLayoutStore((s) => s.selectDimension);
   const addLeader = useRoomLayoutStore((s) => s.addLeader);
+  const addComment = useRoomLayoutStore((s) => s.addComment);
   const removeLeader = useRoomLayoutStore((s) => s.removeLeader);
   const selectLeader = useRoomLayoutStore((s) => s.selectLeader);
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
@@ -311,6 +312,14 @@ export default function RoomEditor2D({
       setDraftDimensionStart(null);
       return;
     }
+    if (tool === 'comment') {
+      const p = pointerMetres();
+      if (!p) return;
+      const snapped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
+      const text = window.prompt('Comment text?');
+      if (text && text.trim()) addComment(snapped.x, snapped.y, text.trim());
+      return;
+    }
     if (tool === 'leader') {
       const p = pointerMetres();
       if (!p) return;
@@ -485,7 +494,7 @@ export default function RoomEditor2D({
   return (
     <div ref={editorRootRef} tabIndex={0} className="flex flex-col gap-2 focus:outline-none">
       <div className="flex flex-wrap items-center gap-2">
-        {(['select', 'wall', 'door', 'zone', 'dimension', 'leader'] as Tool[]).map((t) => (
+        {(['select', 'wall', 'door', 'zone', 'dimension', 'leader', 'comment'] as Tool[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -582,6 +591,7 @@ export default function RoomEditor2D({
             (draftLeaderAnchor
               ? "Click where the callout text should sit, then type its text."
               : 'Click the point on the plan to call out. Select a leader and press Delete to remove it.')}
+          {tool === 'comment' && 'Click a point on the plan, then type the comment text.'}
         </span>
         {tool === 'wall' && wallCoordError && (
           <span role="alert" className="text-xs text-red-700">
