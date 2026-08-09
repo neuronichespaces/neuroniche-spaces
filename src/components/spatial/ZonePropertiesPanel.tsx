@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { parseLengthToMetres, formatMetres } from '@/lib/spatial/units.ts';
 import { ZONE_KIND_LABELS } from './ZoneLayer.tsx';
+import { DEFAULT_LAYER_ID } from '@/lib/spatial/layers.ts';
 import type { ZoneKind } from '@/lib/spatial/types.ts';
 
 const MIN_ZONE_DIM_M = 0.2;
@@ -89,6 +90,7 @@ function formatAngle(deg: number): string {
 export function ZonePropertiesPanel() {
   const selectedZoneId = useRoomLayoutStore((s) => s.selectedZoneId);
   const zones = useRoomLayoutStore((s) => s.zones);
+  const layers = useRoomLayoutStore((s) => s.layers);
   const updateZoneGeometry = useRoomLayoutStore((s) => s.updateZoneGeometry);
   const removeZone = useRoomLayoutStore((s) => s.removeZone);
   const zone = selectedZoneId ? zones.find((z) => z.id === selectedZoneId) : null;
@@ -129,6 +131,20 @@ export function ZonePropertiesPanel() {
           placeholder={ZONE_KIND_LABELS[zone.kind]}
           className="min-h-11 rounded border border-gray-300 px-2"
         />
+      </label>
+      <label className="flex flex-col gap-1 text-sm text-gray-700">
+        Layer
+        <select
+          value={zone.layerId ?? DEFAULT_LAYER_ID}
+          onChange={(e) => updateZoneGeometry(zone.id, { layerId: e.target.value })}
+          className="min-h-11 rounded border border-gray-300 px-2"
+        >
+          {layers.map((layer) => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name}
+            </option>
+          ))}
+        </select>
       </label>
       <div className="flex flex-wrap items-start gap-4">
         <NumericField

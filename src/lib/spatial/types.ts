@@ -111,6 +111,9 @@ export type Zone = {
   widthM: number;
   lengthM: number;
   rotationDeg: number;
+  /** CAD-upgrade Gap 4: assigns this zone to a Layer (absent = default layer),
+   *  same convention as PlacedObject.layerId — see layers.ts's isEffectivelyVisible. */
+  layerId?: string;
 };
 
 // CAD-upgrade Gap 6 (Annotation, sections, elevations): a manual dimension is a real

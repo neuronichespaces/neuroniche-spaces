@@ -65,7 +65,7 @@ type RoomLayoutState = RoomLayout & {
   /** Numeric zone inspector's mutator — same shape as updateWallGeometry, kept as a
    *  separate named action so its call sites read as "the zone inspector changed
    *  this," distinct from any future programmatic zone edits. */
-  updateZoneGeometry: (id: string, patch: Partial<Pick<Zone, 'x' | 'y' | 'widthM' | 'lengthM' | 'rotationDeg' | 'kind' | 'label'>>) => void;
+  updateZoneGeometry: (id: string, patch: Partial<Pick<Zone, 'x' | 'y' | 'widthM' | 'lengthM' | 'rotationDeg' | 'kind' | 'label' | 'layerId'>>) => void;
   removeZone: (id: string) => void;
   selectZone: (id: string | null) => void;
 

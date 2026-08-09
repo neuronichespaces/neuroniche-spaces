@@ -620,6 +620,7 @@ export default function RoomEditor2D({
             personaScores={personaScores}
             selectedZoneId={selectedZoneId ?? undefined}
             onZoneClick={tool === 'select' ? (zone) => selectZone(zone.id) : undefined}
+            layers={layers}
           />
           {draftZone && (
             <Rect

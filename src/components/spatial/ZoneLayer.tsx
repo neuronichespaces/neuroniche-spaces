@@ -5,7 +5,8 @@
 // draft-zone-while-drawing is handled by RoomEditor2D itself (same split as draftWall).
 
 import { Group, Rect, Text } from 'react-konva';
-import type { Zone, ZoneKind } from '@/lib/spatial/types.ts';
+import type { Zone, ZoneKind, Layer as LayerEntity } from '@/lib/spatial/types.ts';
+import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
 
 // One fill colour per kind — calm/muted, not saturated (calm-UX rule applies to the
 // editor's own chrome, not just end-user-facing copy).
@@ -42,12 +43,17 @@ type Props = {
   onZoneClick?: (zone: Zone) => void;
   /** Persona suitability score (0-100) per zone id, from persona.ts's evaluatePersonaForRoom — shown as a badge when a persona is selected. */
   personaScores?: Record<string, number>;
+  /** CAD-upgrade Gap 4: layer visibility applies to zones too — a hidden layer's
+   *  zones don't render. Optional so callers that don't care about layers (none of
+   *  today's, but keeps this component usable standalone) can omit it. */
+  layers?: LayerEntity[];
 };
 
-export default function ZoneLayer({ zones, pxPerM, selectedZoneId, onZoneClick, personaScores }: Props) {
+export default function ZoneLayer({ zones, pxPerM, selectedZoneId, onZoneClick, personaScores, layers }: Props) {
+  const visibleZones = layers ? zones.filter((zone) => isEffectivelyVisible(zone, layers)) : zones;
   return (
     <>
-      {zones.map((zone) => {
+      {visibleZones.map((zone) => {
         const wPx = zone.widthM * pxPerM;
         const lPx = zone.lengthM * pxPerM;
         const selected = selectedZoneId === zone.id;
