@@ -61,7 +61,22 @@ export class BabylonRendererAdapter {
 
   constructor(private readonly scene: Scene) {}
 
-  syncRoomShell(floorDims: FloorDims, walls: WallSegment[], doors: DoorPlacement[], highDetail: boolean, wallHeightM = DEFAULT_WALL_HEIGHT_M): void {
+  // CAD-upgrade Gap 4: `layers` is optional so this stays callable without layer data.
+  // Design decision made explicit here, since the gap-audit doc flagged this as
+  // needing one rather than a copy-paste of the object/zone pattern: a hidden wall's
+  // layer means visual+pick exclusion only, same as every other entity type's 3D
+  // behavior this session — it does NOT punch a structural gap in the floor/ceiling
+  // shell (those stay driven by floorDims alone, never by which walls currently
+  // exist), and it does NOT affect 2D clearance/constraint calculations either (same
+  // "hidden ≠ deleted" rule objects already use).
+  syncRoomShell(
+    floorDims: FloorDims,
+    walls: WallSegment[],
+    doors: DoorPlacement[],
+    highDetail: boolean,
+    wallHeightM = DEFAULT_WALL_HEIGHT_M,
+    layers?: Layer[],
+  ): void {
     this.disposal.disposeGroup(ROOM_GROUP_KEY);
 
     const floor = CreateGround('floor', { width: floorDims.widthM, height: floorDims.lengthM }, this.scene);
@@ -94,6 +109,7 @@ export class BabylonRendererAdapter {
 
     let wallIndex = 0;
     for (const wall of walls) {
+      if (layers && !isEffectivelyVisible(wall, layers)) continue;
       const door = doors.find((d) => d.wallId === wall.id);
       for (const seg of wallSegmentsWithDoorGap(wall, door)) {
         const length = Math.hypot(seg.end.x - seg.start.x, seg.end.y - seg.start.y);
