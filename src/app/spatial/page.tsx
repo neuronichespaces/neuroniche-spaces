@@ -21,6 +21,7 @@ import { DimensionPropertiesPanel } from '@/components/spatial/DimensionProperti
 import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
 import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
 import { OutlinerPanel } from '@/components/spatial/OutlinerPanel.tsx';
+import { BlocksPanel } from '@/components/spatial/BlocksPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
 import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
@@ -161,6 +162,7 @@ function SpatialDesignEngineInner() {
           <CommandHistoryPanel />
           <LayersPanel />
           <OutlinerPanel />
+          <BlocksPanel />
         </div>
         <ExportPanel roomName={roomName} catalogue={CATALOGUE} />
       </header>

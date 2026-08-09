@@ -140,3 +140,25 @@ export type Dimension = {
   /** CAD-upgrade Gap 4: same layerId convention as PlacedObject/Zone/WallSegment. */
   layerId?: string;
 };
+
+// CAD-upgrade Gap 3 (Blocks, components, and template library): a real
+// BlockDefinition, distinct from ScenarioTemplate (templates.ts) — a template is a
+// fixed whole-room preset applied once at room creation; a block is a reusable group
+// of objects the user builds from their own selection and can insert repeatedly.
+// Items are stored relative to the block's own origin (the centroid of the objects it
+// was captured from) so inserting a block is "add this offset to a target point," not
+// a fragile absolute-coordinate copy. Detached-instance only for this pass — no
+// linked-instance/versioning/nesting concept (see cad-gap-audit.md's Gap 3 for the
+// full scope this doesn't cover yet).
+export type BlockDefinition = {
+  id: string;
+  name: string;
+  items: Array<{
+    productId: string;
+    relX: number;
+    relY: number;
+    rotationDeg: number;
+    footprintM: { w: number; l: number };
+    customProperties: PlacedObjectProps;
+  }>;
+};

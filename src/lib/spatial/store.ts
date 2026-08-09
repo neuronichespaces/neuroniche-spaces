@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
 import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -51,6 +51,12 @@ type RoomLayoutState = RoomLayout & {
    *  separate transient concept from Layer.visible, not a second copy of it: isolation
    *  is a temporary view filter the user toggles off, not a persisted per-object flag. */
   isolatedObjectIds: string[] | null;
+  /** CAD-upgrade Gap 3 (blocks): a reusable block library, deliberately NOT part of
+   *  RoomLayout's undo-tracked snapshot — it's a library the user builds up, not
+   *  current-layout content, so undo/redo doesn't touch it. Also NOT yet persisted to
+   *  localStorage/Supabase (in-memory for the session only) — stated scope cut, not an
+   *  oversight; see BlocksPanel.tsx. */
+  blocks: BlockDefinition[];
   clearanceViolations: Set<string>;
   hasLoadedInitialData: boolean; // false only before any template/localStorage/user edit has applied — see B3 fix in page.tsx
   past: HistoryEntry[];
@@ -79,6 +85,14 @@ type RoomLayoutState = RoomLayout & {
   selectZone: (id: string | null) => void;
 
   addObject: (obj: PlacedObject) => void;
+  /** CAD-upgrade Gap 3: captures the given placed-object ids as a new named block,
+   *  positions stored relative to their centroid. Not undo-tracked (see `blocks`'s
+   *  comment) — capturing a block doesn't change the room layout itself. */
+  saveSelectionAsBlock: (name: string, objectIds: string[]) => void;
+  /** Places a new, detached instance of the block at (x, y) — its centroid lands
+   *  there. IS undo-tracked: it adds real placed objects to the layout. */
+  insertBlock: (blockId: string, x: number, y: number) => void;
+  removeBlock: (blockId: string) => void;
   removeObject: (id: string) => void;
   moveObject: (id: string, x: number, y: number) => void;
   rotateObject: (id: string, rotationDeg: number) => void;
@@ -229,6 +243,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     selectedDimensionId: null,
     multiSelectedObjectIds: [],
     isolatedObjectIds: null,
+    blocks: [],
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -264,6 +279,40 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     },
 
     addObject: (obj) => mutate('Add object', (s) => ({ placedObjects: [...s.placedObjects, obj] })),
+    saveSelectionAsBlock: (name, objectIds) => {
+      const objects = get().placedObjects.filter((o) => objectIds.includes(o.id));
+      if (objects.length === 0) return;
+      const centroidX = objects.reduce((sum, o) => sum + o.x, 0) / objects.length;
+      const centroidY = objects.reduce((sum, o) => sum + o.y, 0) / objects.length;
+      const block: BlockDefinition = {
+        id: `block-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+        name,
+        items: objects.map((o) => ({
+          productId: o.productId,
+          relX: o.x - centroidX,
+          relY: o.y - centroidY,
+          rotationDeg: o.rotationDeg,
+          footprintM: o.footprintM,
+          customProperties: o.customProperties,
+        })),
+      };
+      set((s) => ({ blocks: [...s.blocks, block] }));
+    },
+    insertBlock: (blockId, x, y) => {
+      const block = get().blocks.find((b) => b.id === blockId);
+      if (!block) return;
+      const newObjects: PlacedObject[] = block.items.map((item, i) => ({
+        id: `obj-${Date.now()}-${i}-${Math.round(Math.random() * 1000)}`,
+        productId: item.productId,
+        x: x + item.relX,
+        y: y + item.relY,
+        rotationDeg: item.rotationDeg,
+        footprintM: item.footprintM,
+        customProperties: item.customProperties,
+      }));
+      mutate('Insert block', (s) => ({ placedObjects: [...s.placedObjects, ...newObjects] }));
+    },
+    removeBlock: (blockId) => set((s) => ({ blocks: s.blocks.filter((b) => b.id !== blockId) })),
     removeObject: (id) => {
       mutate('Delete object', (s) => ({ placedObjects: s.placedObjects.filter((o) => o.id !== id) }));
       set((s) => (s.selectedObjectId === id ? { selectedObjectId: null } : {}));

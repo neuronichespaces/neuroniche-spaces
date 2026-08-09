@@ -41,6 +41,7 @@ export function OutlinerPanel() {
   const batchSetObjectsHidden = useRoomLayoutStore((s) => s.batchSetObjectsHidden);
   const isolateObjects = useRoomLayoutStore((s) => s.isolateObjects);
   const unisolate = useRoomLayoutStore((s) => s.unisolate);
+  const saveSelectionAsBlock = useRoomLayoutStore((s) => s.saveSelectionAsBlock);
   const [batchLayerId, setBatchLayerId] = useState('');
 
   const rows: Row[] = [
@@ -90,6 +91,16 @@ export function OutlinerPanel() {
       {multiSelectedObjectIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded bg-blue-50 p-2 text-sm">
           <span className="text-blue-700">{multiSelectedObjectIds.length} selected</span>
+          <button
+            type="button"
+            onClick={() => {
+              const name = window.prompt('Block name?');
+              if (name && name.trim()) saveSelectionAsBlock(name.trim(), multiSelectedObjectIds);
+            }}
+            className="min-h-11 rounded border border-blue-300 px-2 text-blue-700 hover:bg-blue-100"
+          >
+            Save as block
+          </button>
           <button
             type="button"
             onClick={() => isolateObjects(multiSelectedObjectIds)}

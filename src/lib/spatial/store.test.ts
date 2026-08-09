@@ -21,6 +21,7 @@ function reset() {
     selectedDimensionId: null,
     multiSelectedObjectIds: [],
     isolatedObjectIds: null,
+    blocks: [],
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
     past: [],
@@ -164,6 +165,52 @@ test('isolateObjects/unisolate toggle the transient view filter (CAD Gap 5)', ()
 
   unisolate();
   assert.equal(useRoomLayoutStore.getState().isolatedObjectIds, null);
+});
+
+test('saveSelectionAsBlock captures items relative to the selection centroid (CAD Gap 3)', () => {
+  reset();
+  const { addObject, saveSelectionAsBlock } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o2', productId: 'p2', x: 2, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  saveSelectionAsBlock('Reading Corner', ['o1', 'o2']);
+  const blocks = useRoomLayoutStore.getState().blocks;
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].name, 'Reading Corner');
+  assert.equal(blocks[0].items.length, 2);
+  // Centroid of (0,0) and (2,0) is (1,0) — items stored relative to it.
+  const relXs = blocks[0].items.map((i) => i.relX).sort();
+  assert.deepEqual(relXs, [-1, 1]);
+});
+
+test('insertBlock places a new detached instance offset from the target point, undoably (CAD Gap 3)', () => {
+  reset();
+  const { addObject, saveSelectionAsBlock, insertBlock, undo } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addObject({ id: 'o2', productId: 'p2', x: 2, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  saveSelectionAsBlock('Pair', ['o1', 'o2']);
+  const blockId = useRoomLayoutStore.getState().blocks[0].id;
+
+  insertBlock(blockId, 5, 5);
+  const objects = useRoomLayoutStore.getState().placedObjects;
+  assert.equal(objects.length, 4); // original 2 + 2 new
+  const newXs = objects.slice(2).map((o) => o.x).sort((a, b) => a - b);
+  assert.deepEqual(newXs, [4, 6]); // 5 + (-1) and 5 + 1
+
+  undo();
+  assert.equal(useRoomLayoutStore.getState().placedObjects.length, 2); // insert is undoable
+});
+
+test('removeBlock deletes from the library without touching placed objects (CAD Gap 3)', () => {
+  reset();
+  const { addObject, saveSelectionAsBlock, removeBlock } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  saveSelectionAsBlock('Solo', ['o1']);
+  const blockId = useRoomLayoutStore.getState().blocks[0].id;
+
+  removeBlock(blockId);
+  assert.equal(useRoomLayoutStore.getState().blocks.length, 0);
+  assert.equal(useRoomLayoutStore.getState().placedObjects.length, 1);
 });
 
 test('selectZone is mutually exclusive with object/wall/dimension selection', () => {
