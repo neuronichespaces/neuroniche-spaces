@@ -681,6 +681,7 @@ export default function RoomEditor2D({
             pxPerM={pxPerM}
             selectedDimensionId={selectedDimensionId ?? undefined}
             onSelect={tool === 'select' ? selectDimension : undefined}
+            layers={layers}
           />
         </Layer>
       </Stage>

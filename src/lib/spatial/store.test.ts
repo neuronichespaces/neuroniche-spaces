@@ -267,6 +267,16 @@ test('addDimension/removeDimension add and remove a real model entity (Gap 6)', 
   assert.equal(useRoomLayoutStore.getState().dimensions.length, 0);
 });
 
+test('updateDimension can assign a dimension to a layer (CAD Gap 4)', () => {
+  reset();
+  const { addDimension, updateDimension } = useRoomLayoutStore.getState();
+  addDimension({ id: 'dim1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3 });
+
+  updateDimension('dim1', { layerId: 'layer-arch' });
+  const dim = useRoomLayoutStore.getState().dimensions.find((d) => d.id === 'dim1')!;
+  assert.equal(dim.layerId, 'layer-arch');
+});
+
 test('selectDimension is mutually exclusive with object/wall selection', () => {
   reset();
   const { addDimension, addWall, addObject, selectDimension, selectWall, selectObject } = useRoomLayoutStore.getState();

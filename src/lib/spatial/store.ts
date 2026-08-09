@@ -82,6 +82,9 @@ type RoomLayoutState = RoomLayout & {
   addDimension: (dimension: Dimension) => void;
   removeDimension: (id: string) => void;
   selectDimension: (id: string | null) => void;
+  /** CAD-upgrade Gap 4: dimension layer assignment — same shape/naming convention as
+   *  updateZoneGeometry/updateWallGeometry's layerId-only patch. */
+  updateDimension: (id: string, patch: Partial<Pick<Dimension, 'layerId' | 'label'>>) => void;
 
   addLayer: (layer: Layer) => void;
   updateLayer: (id: string, patch: Partial<Omit<Layer, 'id'>>) => void;
@@ -305,6 +308,8 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedWallId: id ? null : get().selectedWallId,
         selectedZoneId: id ? null : get().selectedZoneId,
       }),
+    updateDimension: (id, patch) =>
+      mutate('Edit dimension', (s) => ({ dimensions: s.dimensions.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
 
     addLayer: (layer) => mutate('Add layer', (s) => ({ layers: [...s.layers, layer] })),
     updateLayer: (id, patch) =>

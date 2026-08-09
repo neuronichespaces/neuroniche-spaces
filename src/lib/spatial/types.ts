@@ -137,4 +137,6 @@ export type Dimension = {
   offsetM: number;
   /** Optional override — absent means "show the computed length" (the common case). */
   label?: string;
+  /** CAD-upgrade Gap 4: same layerId convention as PlacedObject/Zone/WallSegment. */
+  layerId?: string;
 };

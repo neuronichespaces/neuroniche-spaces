@@ -7,21 +7,26 @@
 
 import { Fragment } from 'react';
 import { Line, Text } from 'react-konva';
-import type { Dimension } from '@/lib/spatial/types.ts';
+import type { Dimension, Layer as LayerEntity } from '@/lib/spatial/types.ts';
 import { offsetLine } from '@/lib/spatial/geometry.ts';
 import { formatMetres } from '@/lib/spatial/units.ts';
+import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
 
 type Props = {
   dimensions: Dimension[];
   pxPerM: number;
   selectedDimensionId?: string;
   onSelect?: (id: string) => void;
+  /** CAD-upgrade Gap 4: layer visibility applies to dimensions too. Optional so
+   *  callers that don't care about layers can omit it. */
+  layers?: LayerEntity[];
 };
 
-export default function DimensionLayer({ dimensions, pxPerM, selectedDimensionId, onSelect }: Props) {
+export default function DimensionLayer({ dimensions, pxPerM, selectedDimensionId, onSelect, layers }: Props) {
+  const visibleDimensions = layers ? dimensions.filter((dim) => isEffectivelyVisible(dim, layers)) : dimensions;
   return (
     <>
-      {dimensions.map((dim) => {
+      {visibleDimensions.map((dim) => {
         const lengthM = Math.hypot(dim.end.x - dim.start.x, dim.end.y - dim.start.y);
         const line = offsetLine(dim.start, dim.end, dim.offsetM);
         const selected = dim.id === selectedDimensionId;

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultLayers, isEffectivelyVisible, isEffectivelyLocked, DEFAULT_LAYER_ID } from './layers.ts';
-import type { PlacedObject, Zone, WallSegment } from './types.ts';
+import type { PlacedObject, Zone, WallSegment, Dimension } from './types.ts';
 
 function obj(patch: Partial<PlacedObject> = {}): PlacedObject {
   return { id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {}, ...patch };
@@ -13,6 +13,10 @@ function zone(patch: Partial<Zone> = {}): Zone {
 
 function wall(patch: Partial<WallSegment> = {}): WallSegment {
   return { id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1, ...patch };
+}
+
+function dimension(patch: Partial<Dimension> = {}): Dimension {
+  return { id: 'dim1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3, ...patch };
 }
 
 test('defaultLayers seeds one visible, unlocked layer', () => {
@@ -86,4 +90,15 @@ test('a WallSegment (no own hidden/locked fields) is filtered by its layer too â
   const archWall = wall({ layerId: 'layer-arch' });
   assert.equal(isEffectivelyVisible(archWall, layers), false);
   assert.equal(isEffectivelyLocked(archWall, layers), true);
+});
+
+test('a Dimension (no own hidden/locked fields) is filtered by its layer too â€” CAD Gap 4', () => {
+  const layers = [
+    { id: DEFAULT_LAYER_ID, name: 'Default', visible: true, locked: false },
+    { id: 'layer-arch', name: 'Architecture', visible: false, locked: true },
+  ];
+  assert.equal(isEffectivelyVisible(dimension(), layers), true);
+  const archDim = dimension({ layerId: 'layer-arch' });
+  assert.equal(isEffectivelyVisible(archDim, layers), false);
+  assert.equal(isEffectivelyLocked(archDim, layers), true);
 });
