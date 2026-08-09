@@ -211,20 +211,42 @@ and export metadata beyond project/date remain missing.**
 
 ## Gap 7 — Collaboration, versioning, review, audit
 
-**Status: DB-level primitives exist; no application-level workflow.**
+**Status: substantively complete as of 2026-08-09 — scenarios, review status,
+persisted audit log, comments, and diffing all exist. Not actor-tagged (no auth
+identity flows through yet) and ScenariosPanel is unverified against a live DB.**
 
 - Real, already-shipped: `organisation_memberships` (owner/member roles) + RLS scoping
-  (`0004_memberships_and_rls.sql`), `room_layouts` Supabase persistence (this session's
-  earlier-milestone work, load/save by room UUID).
-- **Missing entirely**: scenarios (multiple named layouts per room), draft/in-review/
-  approved/superseded states, audit log (command history exists only as an in-memory
-  undo/redo stack — `past`/`future` arrays in `store.ts`, not persisted, not
-  actor/timestamp-tagged, lost on reload), comments/markups, scenario diffing.
-- The undo/redo stack's snapshot shape (`{walls, doors, floorDims, placedObjects,
-  zones}`) is a reasonable *starting point* for a persisted audit log — same shape a
-  command's "before/after" record could reuse — but it's not currently a
-  command-object model (no command IDs, no actor, no description, no validation
-  result attached to each entry).
+  (`0004_memberships_and_rls.sql`), `room_layouts` Supabase persistence (load/save by
+  room UUID, from an earlier session).
+- **Closed (scenario versioning)**: `0011_scenario_versioning.sql` adds `name`/
+  `status` (draft/in_review/approved/superseded) to `room_layouts`, which already
+  technically permitted multiple rows per room but was never used that way — every
+  prior save/load upserted the single earliest row. `persistence.ts` gains
+  `listScenarios`/`saveScenarioAs`/`loadScenarioById`/`setScenarioStatus`, additive —
+  existing load/save-the-default functions unchanged. `ScenariosPanel.tsx` wires it
+  into the UI: save-as-new, list with status dropdown, load, diff. **Not verified
+  against a live Supabase project** — no live project in this dev environment; same
+  disclosed limitation `persistence.ts`'s own header comment already carries for its
+  pre-existing code.
+- **Closed (persisted audit log)**: `store.ts`'s `mutate()` now appends every command
+  to `auditLog`, written immediately to its own `localStorage` key — deliberately
+  separate from `past`/`future` (undo/redo mechanics: capped, rewound by undo). The
+  audit trail records what happened and never shrinks on undo. Live-verified: survives
+  a full page reload, unlike command history. `AuditLogPanel.tsx` is the read-only
+  view. **Not yet actor-tagged** — there's no auth-identity concept flowing into the
+  spatial editor yet, so entries carry a command id/description/timestamp but no
+  "who."
+- **Closed (comments/markups)**: `Comment` (`types.ts`) — `{id, x, y, text, resolved,
+  createdAt}` — distinct from `Leader` (a permanent drawing annotation) in that a
+  comment is a review artifact meant to be resolved and go away. In-memory only this
+  pass (not yet in Supabase). `CommentsPanel.tsx`: form-based add (typed/fixed
+  coordinates — no click-to-place canvas tool, same stated gap as block insertion),
+  resolve/reopen, delete. Not rendered as a canvas pin, panel-only.
+- **Closed (scenario diffing)**: `scenarioDiff.ts`'s pure `diffScenarios(before,
+  after)` — added/removed/changed/unchanged counts per entity type (objects/walls/
+  zones), by id. Whether an object moved matters more than which specific field
+  changed, so this isn't a full deep-diff. Wired into `ScenariosPanel.tsx`'s "Compare"
+  control.
 
 ## Cross-cutting observations
 
