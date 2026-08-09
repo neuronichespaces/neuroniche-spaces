@@ -151,6 +151,16 @@ test('removeZone clears selection when the removed zone was selected', () => {
   assert.equal(useRoomLayoutStore.getState().zones.length, 0);
 });
 
+test('updateWallGeometry can assign a wall to a layer (CAD Gap 4)', () => {
+  reset();
+  const { addWall, updateWallGeometry } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+
+  updateWallGeometry('w1', { layerId: 'layer-arch' });
+  const wall = useRoomLayoutStore.getState().walls.find((w) => w.id === 'w1')!;
+  assert.equal(wall.layerId, 'layer-arch');
+});
+
 test('updateWallGeometry updates canonical wall fields and is undoable', () => {
   reset();
   const { addWall, updateWallGeometry, undo } = useRoomLayoutStore.getState();

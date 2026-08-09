@@ -13,7 +13,14 @@ import type { SensoryNeed } from '../planner/plan.ts';
 
 export type Point = { x: number; y: number };
 
-export type WallSegment = { id: string; start: Point; end: Point; thicknessM: number };
+export type WallSegment = {
+  id: string;
+  start: Point;
+  end: Point;
+  thicknessM: number;
+  /** CAD-upgrade Gap 4: same layerId convention as PlacedObject/Zone. */
+  layerId?: string;
+};
 
 export type DoorPlacement = { wallId: string; offsetM: number; widthM: number };
 

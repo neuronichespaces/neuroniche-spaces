@@ -644,6 +644,7 @@ export default function RoomEditor2D({
             onWallClick={handleWallClick}
             selectedWallId={selectedWallId ?? undefined}
             onWallSelect={tool === 'select' ? selectWall : undefined}
+            layers={layers}
           />
           {draftWall && (
             <>

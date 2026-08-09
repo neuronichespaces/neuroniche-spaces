@@ -55,7 +55,7 @@ type RoomLayoutState = RoomLayout & {
   /** Numeric wall inspector's mutator (CAD-upgrade Milestone 1) — same shape as
    *  updateWall, kept as a separate named action so its call sites read as "the wall
    *  inspector changed this," distinct from any future programmatic wall edits. */
-  updateWallGeometry: (id: string, patch: Partial<Pick<WallSegment, 'start' | 'end' | 'thicknessM'>>) => void;
+  updateWallGeometry: (id: string, patch: Partial<Pick<WallSegment, 'start' | 'end' | 'thicknessM' | 'layerId'>>) => void;
   removeWall: (id: string) => void;
   addDoor: (door: DoorPlacement) => void;
   removeDoor: (wallId: string) => void;

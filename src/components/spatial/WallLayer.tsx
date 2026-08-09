@@ -1,8 +1,9 @@
 'use client';
 
 import { Line, Text } from 'react-konva';
-import type { WallSegment, DoorPlacement } from '@/lib/spatial/types.ts';
+import type { WallSegment, DoorPlacement, Layer as LayerEntity } from '@/lib/spatial/types.ts';
 import { wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
+import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
 
 type Props = {
   walls: WallSegment[];
@@ -19,12 +20,16 @@ type Props = {
    *  so the two click intents can never be confused. Omit to disable selection clicks
    *  (used for the draft-wall preview instance). */
   onWallSelect?: (wallId: string) => void;
+  /** CAD-upgrade Gap 4: layer visibility applies to walls too — optional so the
+   *  draft-wall preview instance (which passes no layers) renders unconditionally. */
+  layers?: LayerEntity[];
 };
 
-export default function WallLayer({ walls, doors, pxPerM, doorTool, onWallClick, selectedWallId, onWallSelect }: Props) {
+export default function WallLayer({ walls, doors, pxPerM, doorTool, onWallClick, selectedWallId, onWallSelect, layers }: Props) {
+  const visibleWalls = layers ? walls.filter((wall) => isEffectivelyVisible(wall, layers)) : walls;
   return (
     <>
-      {walls.map((wall) => {
+      {visibleWalls.map((wall) => {
         const door = doors.find((d) => d.wallId === wall.id);
         const segments = wallSegmentsWithDoorGap(wall, door);
         const selected = wall.id === selectedWallId;

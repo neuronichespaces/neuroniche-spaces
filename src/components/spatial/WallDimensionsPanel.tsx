@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import { parseLengthToMetres, formatMetres } from '@/lib/spatial/units.ts';
 import { wallLengthM, wallAngleDeg, pointAtAngleAndLength } from '@/lib/spatial/geometry.ts';
+import { DEFAULT_LAYER_ID } from '@/lib/spatial/layers.ts';
 
 const MIN_WALL_LENGTH_M = 0.1;
 const MAX_WALL_LENGTH_M = 30;
@@ -89,6 +90,7 @@ function formatAngle(deg: number): string {
 export function WallDimensionsPanel() {
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
   const walls = useRoomLayoutStore((s) => s.walls);
+  const layers = useRoomLayoutStore((s) => s.layers);
   const updateWallGeometry = useRoomLayoutStore((s) => s.updateWallGeometry);
   const wall = selectedWallId ? walls.find((w) => w.id === selectedWallId) : null;
 
@@ -100,6 +102,20 @@ export function WallDimensionsPanel() {
   return (
     <div className="flex flex-wrap items-start gap-4 rounded border border-gray-200 bg-white p-3">
       <span className="w-full text-xs font-medium text-gray-500">Selected wall</span>
+      <label className="flex flex-col gap-1 text-sm text-gray-700">
+        Layer
+        <select
+          value={wall.layerId ?? DEFAULT_LAYER_ID}
+          onChange={(e) => updateWallGeometry(wall.id, { layerId: e.target.value })}
+          className="min-h-11 w-28 rounded border border-gray-300 px-2"
+        >
+          {layers.map((layer) => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <NumericField
         label="Length"
         format={formatMetres}
