@@ -172,25 +172,42 @@ selection sets, and Quick-Select-style filtering still missing.**
 
 ## Gap 6 — Annotation, sections, elevations, documentation
 
-**Status: manual dimensions now a real model entity (2026-08-09); everything else
-still minimal precedent / missing.**
+**Status: dimensions and leaders/callouts are real model entities; north arrow, scale
+bar, title block, and per-wall elevations exist in the printable export (all as of
+2026-08-09). Section-cut views (as opposed to per-wall elevations), revision clouds,
+and export metadata beyond project/date remain missing.**
 
-- **Closed**: manual dimension tool. `Dimension` (`types.ts`) is a canonical model
-  entity — `{id, start, end, offsetM, label?}` — persisted through the store's normal
-  `mutate()`/undo-redo/validate path, not rendering-only pixels. `DimensionLayer.tsx`
-  is a pure view over it (extension lines, offset dimension line, length label).
-  Click-click tool in `RoomEditor2D.tsx` (first click = measure-from point, second =
-  measure-to + commit); select a dimension line and press Delete to remove it. This
-  closes the specific violation the prompt flagged: "annotations must not exist only
-  as SVG pixels or Babylon render objects" no longer applies to dimensions.
+- **Closed (dimensions)**: manual dimension tool. `Dimension` (`types.ts`) is a
+  canonical model entity — `{id, start, end, offsetM, label?}` — persisted through the
+  store's normal `mutate()`/undo-redo/validate path, not rendering-only pixels.
+  `DimensionLayer.tsx` is a pure view over it. Click-click tool in `RoomEditor2D.tsx`;
+  select + Delete to remove.
+- **Closed (leaders/callouts, 2026-08-09, later session)**: `Leader` (`types.ts`) —
+  `{id, anchor, labelPoint, text, layerId?}` — same canonical-entity treatment as
+  Dimension. `LeaderLayer.tsx` renders it; `LeaderPropertiesPanel.tsx` edits text/
+  layer; a `leader` tool in `RoomEditor2D.tsx` (click anchor, click label point, type
+  the callout text). Listed in `OutlinerPanel.tsx` and layer-filterable like every
+  other entity.
+- **Closed (north arrow, scale bar, title block, wall elevations, same session)**:
+  `PrintableExport.tsx`'s floor-plan SVG now draws a north arrow (fixed up-is-north
+  convention — no compass/orientation field exists to make this configurable yet) and
+  a labelled scale bar. A title block (project name, print date, and a pointer to the
+  scale bar rather than a fabricated "1:N" ratio, since that needs a physical page DPI
+  this app doesn't control) sits below the header. A new "Wall elevations" section
+  renders one SVG per wall (length x `DEFAULT_WALL_HEIGHT_M`, with the wall's door
+  shown as a cutout) — a real second projection derived from the same
+  `WallSegment`/`DoorPlacement` data as the floor plan and 3D view, not a decorative
+  addition. This is per-wall elevation, not a true section-cut (an arbitrary vertical
+  slice through the room) — see "Still missing" below.
 - 2D view still renders room-name/area/wall-length text and a clearance readout as
-  **rendering-only** Konva `<Text>` nodes, unrelated to the new Dimension entity — same
-  gap as before for those specific labels.
-- Still missing: leaders/callouts/revision-clouds, section-line or elevation-marker
-  entities, generated section/elevation views, north arrow, scale bar, title-block/
-  export-metadata system.
-- PDF export exists (`PrintableExport.tsx`/`ExportPanel.tsx`) but produces a snapshot
-  of the current view, not a canonical-model-driven technical drawing sheet.
+  **rendering-only** Konva `<Text>` nodes, unrelated to Dimension/Leader — same gap as
+  before for those specific labels.
+- **Still missing**: revision clouds, a distinct section-line/cut-plane entity and
+  generated section views (today's "elevations" are always the full wall face, not an
+  arbitrary cut through the room), leaders aren't drawn on the printable export yet,
+  export metadata beyond project/date (no drawn-by/checked-by/revision fields), and no
+  named/versioned drawing-sheet system (`PrintableExport.tsx` always renders "the
+  current state," not a saved sheet).
 
 ## Gap 7 — Collaboration, versioning, review, audit
 
