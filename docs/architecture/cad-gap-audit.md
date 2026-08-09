@@ -85,12 +85,12 @@ unchanged all session).
   gained a layer-assignment dropdown; `ObjectLayer.tsx`'s render filter, drag-ability,
   and Transformer-attach all route through the effective-state helpers now, not the
   raw per-object flags directly.
+- **Closed (2026-08-09, later same day)**: 3D-side layer filtering. `BabylonRendererAdapter.syncObjects`/`updateObjectTransform` now take `layers: Layer[]` and gate `root.setEnabled()` on `isEffectivelyVisible()` instead of raw `obj.hidden` — a hidden layer excludes its objects from both render and picking in 3D (Babylon disables picking automatically on a disabled node), same as 2D. `RoomViewer3D.tsx`'s gizmo-attach condition now checks `isEffectivelyLocked`/`isEffectivelyVisible` (own flag OR layer's) instead of the object's own flags only. Verified: `npx tsc --noEmit` clean (same 4 pre-existing unrelated errors), 171/171 `node --test` pass, `npm run build` clean, 3D view loads with no console errors with a layer hidden. **Not** click-verified that the specific hidden object is absent from the 3D scene graph — no debug hook exposes the Babylon scene the way `window.Konva.stages` does for 2D, so this is code-review + the same already-unit-tested `isEffectivelyVisible` helper, not a live pixel-level check.
 - **Not done**: walls/zones/dimensions have no `layerId` field yet (scoped to objects
   only this pass, documented deferral not an oversight) — a layer toggle only affects
-  placed objects. No 3D-side layer filtering (Babylon adapter doesn't read `layerId`
-  yet). No per-layer print/order/colour/lineweight fields. No named view-state
-  save/restore. No default-layer *set* (still just one seeded "Default", not
-  Architecture/Doors/Furniture/etc. presets).
+  placed objects. No per-layer print/order/colour/lineweight fields. No named
+  view-state save/restore. No default-layer *set* (still just one seeded "Default",
+  not Architecture/Doors/Furniture/etc. presets).
 
 ## Gap 5 — Advanced selection, filtering, outliner, batch editing
 

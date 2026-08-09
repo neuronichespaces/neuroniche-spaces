@@ -374,3 +374,39 @@ existing single coordinate-corner field) — zones don't have a natural
 "length/angle from a pivot" shape the way walls do, so this was deliberately not
 extended to zones without a design decision on what a zone's equivalent dynamic fields
 would even be (width/height? diagonal/angle?).
+
+## 2026-08-09 (later session) — Layers UI live verification + 3D-side layer filtering
+
+Picked up exactly where the prior session's handoff left off: `LayersPanel.tsx`'s
+checkboxes/rename/add and `PropertiesPanel.tsx`'s layer-assignment dropdown had only
+been unit-tested, never clicked in a real browser.
+
+- **Live-verified in Chrome** (`stage.setPointersPositions()`/`fire()` on the target
+  node's *parent* Group, not the stage — firing on the stage only bubbles up the parent
+  chain, it doesn't reach a child's own `onClick`; that was the wrong technique used
+  first and it silently did nothing): selected a placed object, added a new "Quiet
+  Zone" layer, reassigned the object to it via the Properties panel dropdown, then
+  unchecked the layer's visibility checkbox. Confirmed via the Konva stage's `Text`
+  nodes that the object's label actually disappeared from the render (a naive
+  `Group`-count check gave a false negative here — it was counting wall/zone/dimension
+  Konva groups too, not just `ObjectLayer`'s; checking the specific object's text label
+  was the reliable signal). Also confirmed the change persisted correctly to
+  localStorage across a page reload.
+- **New work**: 3D-side layer filtering (previously flagged missing in Gap 4).
+  `BabylonRendererAdapter.syncObjects`/`updateObjectTransform` now take a `layers`
+  param and gate `root.setEnabled()` on `isEffectivelyVisible()` instead of raw
+  `obj.hidden` — Babylon disables picking automatically on a disabled node, so this
+  covers both render and pick exclusion in one change, same as the 2D side already did.
+  `RoomViewer3D.tsx`'s gizmo-attach condition now checks `isEffectivelyLocked`/
+  `isEffectivelyVisible` instead of the object's own flags only.
+- 171/171 `node --test` pass, `npx tsc --noEmit` clean (same 4 pre-existing unrelated
+  `report.test.ts` errors, untouched), `npm run build` clean. 3D view loaded with the
+  hidden-layer object with zero console errors — **not** pixel/scene-graph verified
+  that the specific object is absent in 3D, since there's no Babylon-side debug hook
+  equivalent to `window.Konva.stages` for 2D; this rests on code review plus the
+  already-unit-tested `isEffectivelyVisible` helper.
+
+**Next natural step**: extend `layerId` to zones (walls are more structurally involved
+— no wall multi-select/outliner exists yet to make a wall-layer toggle meaningful).
+Zones already have geometry but no selection concept at all today (no
+`selectedZoneId`) — that's the actual blocker, not the layer field itself.
