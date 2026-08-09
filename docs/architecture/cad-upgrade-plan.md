@@ -410,3 +410,52 @@ been unit-tested, never clicked in a real browser.
 — no wall multi-select/outliner exists yet to make a wall-layer toggle meaningful).
 Zones already have geometry but no selection concept at all today (no
 `selectedZoneId`) — that's the actual blocker, not the layer field itself.
+
+## 2026-08-09 (third session pass) — Zone selection + zone/wall layer extension
+
+Picked up the exact "next natural step" above.
+
+- **Zone selection**: zones previously had geometry and rendering but no selection
+  concept at all — couldn't be clicked, inspected, or numerically edited.
+  `selectedZoneId`/`selectZone` added to the store, mutually exclusive with
+  object/wall/dimension selection (same pattern `selectWall` already used).
+  `ZonePropertiesPanel.tsx` (new) mirrors `WallDimensionsPanel.tsx`'s pattern exactly:
+  kind dropdown, label, centre X/Y/width/length/rotation as validated numeric fields
+  (never silently clamped), Delete button. `ZoneLayer.tsx` already had
+  `selectedZoneId`/`onZoneClick` props from an earlier pass — just needed wiring, not
+  building.
+- **Layers extended to zones and walls**: `Zone.layerId?` and `WallSegment.layerId?`
+  added, same convention as `PlacedObject.layerId?`. `layers.ts`'s
+  `isEffectivelyVisible`/`isEffectivelyLocked` were generalized from a
+  `PlacedObject`-typed signature to a structural `LayeredEntity` type — Zone and
+  WallSegment have no own `hidden`/`locked` fields, but structurally satisfy the new
+  shape, so they reuse the exact same tested logic rather than a copy. `ZoneLayer.tsx`/
+  `WallLayer.tsx` both filter render through `isEffectivelyVisible` when given a
+  `layers` prop (omitted on the draft-wall preview instance, which always renders).
+  `ZonePropertiesPanel.tsx`/`WallDimensionsPanel.tsx` both gained a Layer-assignment
+  dropdown, same UI as `PropertiesPanel.tsx`'s.
+- **Deliberately not done**: 3D room-shell wall-layer filtering.
+  `BabylonRendererAdapter.syncRoomShell` rebuilds walls unconditionally — walls are
+  structurally load-bearing for the 3D room shell in a way objects/zones aren't
+  (hiding a wall from the shell geometry is a different question than hiding an
+  object), so this needs its own design decision rather than copy-pasting the
+  object/zone pattern. Same for zone layer filtering in 3D — only objects have it.
+- **Verified**: live-clicked a zone and a wall in Chrome via the same
+  `stage.setPointersPositions()`/`fire()`-on-parent-Group technique from the earlier
+  Layers-UI verification pass. Assigned each to the already-hidden "Quiet Zone" layer
+  via its new dropdown and confirmed the specific shape disappeared from the Konva
+  canvas (dashed zone-rect count 2→1; wall Line count 5→4). 177/177 `node --test` pass
+  (6 new: zone selection mutual-exclusivity, `updateZoneGeometry`+undo,
+  `removeZone`-clears-selection, `isEffectivelyVisible`/`Locked` over a Zone shape and
+  a WallSegment shape, `updateWallGeometry` layer assignment). `tsc`/`build` clean
+  throughout (same 4 pre-existing unrelated `report.test.ts` errors).
+- Also corrected two stale claims in `cad-gap-audit.md` found while working in this
+  area: its Gap 2 section said "walls have no selection concept at all today" and
+  listed absolute/relative/polar coordinate entry as "missing entirely" — both were
+  already done in an earlier session (this doc's own dated entries prove it) and the
+  gap-audit doc just hadn't been cross-checked against it. Fixed in place rather than
+  silently left wrong for the next reader.
+
+**Next natural step**: dimensions still have no `layerId`. 3D room-shell integration
+for wall/zone layers is the other open piece, but needs a design decision first (see
+above) rather than being a quick follow-on.
