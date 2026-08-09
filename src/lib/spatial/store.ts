@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
 import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -19,6 +19,7 @@ type RoomLayout = {
   zones: Zone[];
   dimensions: Dimension[];
   layers: Layer[];
+  leaders: Leader[];
 };
 
 // CAD-upgrade Milestone 1/2: each undo/redo entry carries a stable id and a
@@ -42,6 +43,7 @@ type RoomLayoutState = RoomLayout & {
   selectedWallId: string | null;
   selectedZoneId: string | null;
   selectedDimensionId: string | null;
+  selectedLeaderId: string | null;
   /** CAD-upgrade Gap 5: multi-select is object-only for this pass (see
    *  OutlinerPanel.tsx's comment for why) — Shift-click in the outliner toggles
    *  membership. Transient, like the single-selection ids, not pushed to history. */
@@ -121,6 +123,12 @@ type RoomLayoutState = RoomLayout & {
    *  updateZoneGeometry/updateWallGeometry's layerId-only patch. */
   updateDimension: (id: string, patch: Partial<Pick<Dimension, 'layerId' | 'label'>>) => void;
 
+  /** CAD-upgrade Gap 6: leader/callout CRUD — same shape as Dimension's. */
+  addLeader: (leader: Leader) => void;
+  removeLeader: (id: string) => void;
+  selectLeader: (id: string | null) => void;
+  updateLeader: (id: string, patch: Partial<Pick<Leader, 'text' | 'labelPoint' | 'layerId'>>) => void;
+
   addLayer: (layer: Layer) => void;
   updateLayer: (id: string, patch: Partial<Omit<Layer, 'id'>>) => void;
   /** Deletes the layer and reassigns any objects on it back to the default layer —
@@ -158,6 +166,7 @@ function snapshot(s: RoomLayout): RoomLayout {
     zones: s.zones,
     dimensions: s.dimensions,
     layers: s.layers,
+    leaders: s.leaders,
   };
 }
 
@@ -206,6 +215,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const zones = patch.zones ?? s.zones;
       const dimensions = patch.dimensions ?? s.dimensions;
       const layers = patch.layers ?? s.layers;
+      const leaders = patch.leaders ?? s.leaders;
       const next = {
         ...historyPatch,
         ...patch,
@@ -223,6 +233,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
           zones,
           dimensions,
           layers,
+          leaders,
         }),
       );
       return next;
@@ -236,11 +247,13 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     placedObjects: [],
     zones: [],
     dimensions: [],
+    leaders: [],
     layers: defaultLayers(),
     selectedObjectId: null,
     selectedWallId: null,
     selectedZoneId: null,
     selectedDimensionId: null,
+    selectedLeaderId: null,
     multiSelectedObjectIds: [],
     isolatedObjectIds: null,
     blocks: [],
@@ -352,6 +365,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedWallId: id ? null : get().selectedWallId,
         selectedZoneId: id ? null : get().selectedZoneId,
         selectedDimensionId: id ? null : get().selectedDimensionId,
+        selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: [],
       }),
     toggleObjectMultiSelect: (id) =>
@@ -391,6 +405,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedObjectId: id ? null : get().selectedObjectId,
         selectedZoneId: id ? null : get().selectedZoneId,
         selectedDimensionId: id ? null : get().selectedDimensionId,
+        selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
       }),
     selectZone: (id) =>
@@ -399,6 +414,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedObjectId: id ? null : get().selectedObjectId,
         selectedWallId: id ? null : get().selectedWallId,
         selectedDimensionId: id ? null : get().selectedDimensionId,
+        selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
       }),
 
@@ -413,10 +429,28 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedObjectId: id ? null : get().selectedObjectId,
         selectedWallId: id ? null : get().selectedWallId,
         selectedZoneId: id ? null : get().selectedZoneId,
+        selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
       }),
     updateDimension: (id, patch) =>
       mutate('Edit dimension', (s) => ({ dimensions: s.dimensions.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
+
+    addLeader: (leader) => mutate('Add leader', (s) => ({ leaders: [...s.leaders, leader] })),
+    removeLeader: (id) => {
+      mutate('Delete leader', (s) => ({ leaders: s.leaders.filter((l) => l.id !== id) }));
+      set((s) => (s.selectedLeaderId === id ? { selectedLeaderId: null } : {}));
+    },
+    selectLeader: (id) =>
+      set({
+        selectedLeaderId: id,
+        selectedObjectId: id ? null : get().selectedObjectId,
+        selectedWallId: id ? null : get().selectedWallId,
+        selectedZoneId: id ? null : get().selectedZoneId,
+        selectedDimensionId: id ? null : get().selectedDimensionId,
+        multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
+      }),
+    updateLeader: (id, patch) =>
+      mutate('Edit leader', (s) => ({ leaders: s.leaders.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
 
     addLayer: (layer) => mutate('Add layer', (s) => ({ layers: [...s.layers, layer] })),
     updateLayer: (id, patch) =>

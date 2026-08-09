@@ -14,11 +14,13 @@ function reset() {
     placedObjects: [],
     zones: [],
     dimensions: [],
+    leaders: [],
     layers: [{ id: 'layer-default', name: 'Default', visible: true, locked: false }],
     selectedObjectId: null,
     selectedWallId: null,
     selectedZoneId: null,
     selectedDimensionId: null,
+    selectedLeaderId: null,
     multiSelectedObjectIds: [],
     isolatedObjectIds: null,
     blocks: [],
@@ -383,6 +385,41 @@ test('updateDimension can assign a dimension to a layer (CAD Gap 4)', () => {
   updateDimension('dim1', { layerId: 'layer-arch' });
   const dim = useRoomLayoutStore.getState().dimensions.find((d) => d.id === 'dim1')!;
   assert.equal(dim.layerId, 'layer-arch');
+});
+
+test('addLeader/removeLeader add and remove a real model entity (CAD Gap 6)', () => {
+  reset();
+  const { addLeader, removeLeader, undo } = useRoomLayoutStore.getState();
+  addLeader({ id: 'l1', anchor: { x: 1, y: 1 }, labelPoint: { x: 2, y: 0.5 }, text: 'Mount switch here' });
+  assert.equal(useRoomLayoutStore.getState().leaders.length, 1);
+  assert.equal(useRoomLayoutStore.getState().leaders[0].text, 'Mount switch here');
+
+  removeLeader('l1');
+  assert.equal(useRoomLayoutStore.getState().leaders.length, 0);
+
+  undo(); // undoes the remove
+  assert.equal(useRoomLayoutStore.getState().leaders.length, 1);
+  undo(); // undoes the add
+  assert.equal(useRoomLayoutStore.getState().leaders.length, 0);
+});
+
+test('updateLeader edits text/layer, and selectLeader is mutually exclusive (CAD Gap 6)', () => {
+  reset();
+  const { addLeader, updateLeader, selectLeader, selectObject, addObject } = useRoomLayoutStore.getState();
+  addLeader({ id: 'l1', anchor: { x: 1, y: 1 }, labelPoint: { x: 2, y: 0.5 }, text: 'Original' });
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+
+  updateLeader('l1', { text: 'Updated', layerId: 'layer-arch' });
+  const leader = useRoomLayoutStore.getState().leaders.find((l) => l.id === 'l1')!;
+  assert.equal(leader.text, 'Updated');
+  assert.equal(leader.layerId, 'layer-arch');
+
+  selectLeader('l1');
+  assert.equal(useRoomLayoutStore.getState().selectedLeaderId, 'l1');
+
+  selectObject('o1');
+  assert.equal(useRoomLayoutStore.getState().selectedObjectId, 'o1');
+  assert.equal(useRoomLayoutStore.getState().selectedLeaderId, null);
 });
 
 test('selectDimension is mutually exclusive with object/wall selection', () => {

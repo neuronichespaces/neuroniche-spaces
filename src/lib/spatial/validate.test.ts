@@ -12,6 +12,7 @@ const validLayout = {
   zones: [{ id: 'z1', kind: 'calm', x: 1, y: 1, widthM: 2, lengthM: 2, rotationDeg: 0 }],
   dimensions: [{ id: 'd1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3 }],
   layers: [{ id: 'layer-default', name: 'Default', visible: true, locked: false }],
+  leaders: [{ id: 'l1', anchor: { x: 1, y: 1 }, labelPoint: { x: 2, y: 0.5 }, text: 'Note' }],
 };
 
 test('accepts a well-formed layout', () => {
@@ -28,6 +29,17 @@ test('defaults missing dimensions to empty array (pre-dimensions payloads)', () 
   const { dimensions, ...withoutDimensions } = validLayout;
   const result = validateRoomLayout(withoutDimensions);
   assert.deepEqual(result?.dimensions, []);
+});
+
+test('defaults missing leaders to empty array (pre-leaders payloads)', () => {
+  const { leaders, ...withoutLeaders } = validLayout;
+  const result = validateRoomLayout(withoutLeaders);
+  assert.deepEqual(result?.leaders, []);
+});
+
+test('rejects malformed leaders array', () => {
+  const broken = { ...validLayout, leaders: [{ id: 'l1' }] };
+  assert.equal(validateRoomLayout(broken), null);
 });
 
 test('accepts a dimension with an optional label', () => {

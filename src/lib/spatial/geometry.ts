@@ -4,6 +4,10 @@
 
 import type { Point, WallSegment, DoorPlacement, PlacedObject } from './types.ts';
 
+// Shared with BabylonRendererAdapter.ts's 3D wall boxes and PrintableExport.tsx's
+// wall elevations (CAD Gap 6) — one constant, not two copies that could drift.
+export const DEFAULT_WALL_HEIGHT_M = 2.4;
+
 export function snapToGrid(value: number, gridM: number): number {
   return Math.round(value / gridM) * gridM;
 }

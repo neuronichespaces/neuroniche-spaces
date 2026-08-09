@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect } from 'react-konva';
 import type Konva from 'konva';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
-import type { WallSegment, Zone, ZoneKind, Dimension } from '@/lib/spatial/types.ts';
+import type { WallSegment, Zone, ZoneKind, Dimension, Leader } from '@/lib/spatial/types.ts';
 import {
   snapPointToGrid,
   projectPointToSegment,
@@ -30,6 +30,7 @@ import WallLayer, { WallDimensionLabel } from './WallLayer.tsx';
 import ObjectLayer from './ObjectLayer.tsx';
 import ZoneLayer, { ZONE_KIND_LABELS } from './ZoneLayer.tsx';
 import DimensionLayer from './DimensionLayer.tsx';
+import LeaderLayer from './LeaderLayer.tsx';
 import HeatmapOverlay from './HeatmapOverlay.tsx';
 import ViolationsList from './ViolationsList.tsx';
 
@@ -57,7 +58,7 @@ const HEATMAP_CATEGORY_LABELS: Record<SensoryCategory | 'crowding', string> = {
   crowding: 'Crowding',
 };
 
-type Tool = 'select' | 'wall' | 'door' | 'zone' | 'dimension';
+type Tool = 'select' | 'wall' | 'door' | 'zone' | 'dimension' | 'leader';
 const DEFAULT_DIMENSION_OFFSET_M = 0.4;
 
 type Props = {
@@ -84,6 +85,8 @@ export default function RoomEditor2D({
   const multiSelectedObjectIds = useRoomLayoutStore((s) => s.multiSelectedObjectIds);
   const isolatedObjectIds = useRoomLayoutStore((s) => s.isolatedObjectIds);
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
+  const leaders = useRoomLayoutStore((s) => s.leaders);
+  const selectedLeaderId = useRoomLayoutStore((s) => s.selectedLeaderId);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const addWall = useRoomLayoutStore((s) => s.addWall);
   const addDoor = useRoomLayoutStore((s) => s.addDoor);
@@ -91,6 +94,9 @@ export default function RoomEditor2D({
   const addDimension = useRoomLayoutStore((s) => s.addDimension);
   const removeDimension = useRoomLayoutStore((s) => s.removeDimension);
   const selectDimension = useRoomLayoutStore((s) => s.selectDimension);
+  const addLeader = useRoomLayoutStore((s) => s.addLeader);
+  const removeLeader = useRoomLayoutStore((s) => s.removeLeader);
+  const selectLeader = useRoomLayoutStore((s) => s.selectLeader);
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
   const selectWall = useRoomLayoutStore((s) => s.selectWall);
@@ -111,6 +117,7 @@ export default function RoomEditor2D({
   // Dimension (unlike walls/zones, a dimension has no useful "in-progress drag" preview
   // shape, so there's no draft rectangle/line to render mid-operation).
   const [draftDimensionStart, setDraftDimensionStart] = useState<{ x: number; y: number } | null>(null);
+  const [draftLeaderAnchor, setDraftLeaderAnchor] = useState<{ x: number; y: number } | null>(null);
   // Gap 2 (CAD-upgrade plan): typed coordinate entry for wall points, alongside the
   // existing click/drag flow — not a replacement for it. First Enter (no draft in
   // progress) sets the wall's start point; second Enter finishes it, same lifecycle as
@@ -197,6 +204,11 @@ export default function RoomEditor2D({
         removeDimension(selectedDimensionId);
         return;
       }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedLeaderId) {
+        e.preventDefault();
+        removeLeader(selectedLeaderId);
+        return;
+      }
 
       if (placedObjects.length === 0) return;
 
@@ -259,12 +271,14 @@ export default function RoomEditor2D({
     placedObjects,
     selectedObjectId,
     selectedDimensionId,
+    selectedLeaderId,
     gridSnapM,
     moveObject,
     selectObject,
     rotateObject,
     updateObjectProps,
     removeDimension,
+    removeLeader,
     layers,
   ]);
 
@@ -293,6 +307,27 @@ export default function RoomEditor2D({
       };
       addDimension(dimension);
       setDraftDimensionStart(null);
+      return;
+    }
+    if (tool === 'leader') {
+      const p = pointerMetres();
+      if (!p) return;
+      const snapped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
+      if (!draftLeaderAnchor) {
+        setDraftLeaderAnchor(snapped);
+        return;
+      }
+      const text = window.prompt('Callout text?');
+      if (text && text.trim()) {
+        const leader: Leader = {
+          id: `leader-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+          anchor: draftLeaderAnchor,
+          labelPoint: snapped,
+          text: text.trim(),
+        };
+        addLeader(leader);
+      }
+      setDraftLeaderAnchor(null);
       return;
     }
     if (tool !== 'wall' && tool !== 'zone') return;
@@ -448,7 +483,7 @@ export default function RoomEditor2D({
   return (
     <div ref={editorRootRef} tabIndex={0} className="flex flex-col gap-2 focus:outline-none">
       <div className="flex flex-wrap items-center gap-2">
-        {(['select', 'wall', 'door', 'zone', 'dimension'] as Tool[]).map((t) => (
+        {(['select', 'wall', 'door', 'zone', 'dimension', 'leader'] as Tool[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -541,6 +576,10 @@ export default function RoomEditor2D({
             (draftDimensionStart
               ? 'Click the second point to finish the dimension.'
               : 'Click the first point to measure from. Select a dimension line and press Delete to remove it.')}
+          {tool === 'leader' &&
+            (draftLeaderAnchor
+              ? "Click where the callout text should sit, then type its text."
+              : 'Click the point on the plan to call out. Select a leader and press Delete to remove it.')}
         </span>
         {tool === 'wall' && wallCoordError && (
           <span role="alert" className="text-xs text-red-700">
@@ -685,6 +724,13 @@ export default function RoomEditor2D({
             pxPerM={pxPerM}
             selectedDimensionId={selectedDimensionId ?? undefined}
             onSelect={tool === 'select' ? selectDimension : undefined}
+            layers={layers}
+          />
+          <LeaderLayer
+            leaders={leaders}
+            pxPerM={pxPerM}
+            selectedLeaderId={selectedLeaderId ?? undefined}
+            onSelect={tool === 'select' ? selectLeader : undefined}
             layers={layers}
           />
         </Layer>

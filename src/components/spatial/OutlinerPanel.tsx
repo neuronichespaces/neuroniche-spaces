@@ -15,24 +15,27 @@ import { ZONE_KIND_LABELS } from './ZoneLayer.tsx';
 import { wallLengthM } from '@/lib/spatial/geometry.ts';
 import { formatMetres } from '@/lib/spatial/units.ts';
 
-type Row = { id: string; label: string; kind: 'object' | 'zone' | 'wall' | 'dimension'; layerId?: string };
+type Row = { id: string; label: string; kind: 'object' | 'zone' | 'wall' | 'dimension' | 'leader'; layerId?: string };
 
 export function OutlinerPanel() {
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const zones = useRoomLayoutStore((s) => s.zones);
   const walls = useRoomLayoutStore((s) => s.walls);
   const dimensions = useRoomLayoutStore((s) => s.dimensions);
+  const leaders = useRoomLayoutStore((s) => s.leaders);
   const layers = useRoomLayoutStore((s) => s.layers);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedZoneId = useRoomLayoutStore((s) => s.selectedZoneId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
+  const selectedLeaderId = useRoomLayoutStore((s) => s.selectedLeaderId);
   const multiSelectedObjectIds = useRoomLayoutStore((s) => s.multiSelectedObjectIds);
   const isolatedObjectIds = useRoomLayoutStore((s) => s.isolatedObjectIds);
   const selectObject = useRoomLayoutStore((s) => s.selectObject);
   const selectZone = useRoomLayoutStore((s) => s.selectZone);
   const selectWall = useRoomLayoutStore((s) => s.selectWall);
   const selectDimension = useRoomLayoutStore((s) => s.selectDimension);
+  const selectLeader = useRoomLayoutStore((s) => s.selectLeader);
   const toggleObjectMultiSelect = useRoomLayoutStore((s) => s.toggleObjectMultiSelect);
   const clearObjectMultiSelect = useRoomLayoutStore((s) => s.clearObjectMultiSelect);
   const batchSetObjectLayer = useRoomLayoutStore((s) => s.batchSetObjectLayer);
@@ -49,6 +52,7 @@ export function OutlinerPanel() {
     ...zones.map((z): Row => ({ id: z.id, label: z.label || ZONE_KIND_LABELS[z.kind], kind: 'zone', layerId: z.layerId })),
     ...walls.map((w): Row => ({ id: w.id, label: `Wall (${formatMetres(wallLengthM(w))})`, kind: 'wall', layerId: w.layerId })),
     ...dimensions.map((d): Row => ({ id: d.id, label: d.label || 'Dimension', kind: 'dimension', layerId: d.layerId })),
+    ...leaders.map((l): Row => ({ id: l.id, label: l.text || 'Leader', kind: 'leader', layerId: l.layerId })),
   ];
 
   const selectedIdFor: Record<Row['kind'], string | null> = {
@@ -56,12 +60,14 @@ export function OutlinerPanel() {
     zone: selectedZoneId,
     wall: selectedWallId,
     dimension: selectedDimensionId,
+    leader: selectedLeaderId,
   };
   const selectFor: Record<Row['kind'], (id: string) => void> = {
     object: selectObject,
     zone: selectZone,
     wall: selectWall,
     dimension: selectDimension,
+    leader: selectLeader,
   };
 
   function handleRowClick(row: Row, e: React.MouseEvent) {

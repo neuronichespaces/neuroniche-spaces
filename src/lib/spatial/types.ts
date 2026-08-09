@@ -141,6 +141,18 @@ export type Dimension = {
   layerId?: string;
 };
 
+// CAD-upgrade Gap 6 (Annotation, sections, elevations): a leader/callout — free text
+// pointing at a location on the plan (e.g. "mount switch at 1.1m", "acoustic panel,
+// see spec sheet"), distinct from Dimension (which always measures a length between
+// two points). Same "real model entity, not render-only pixels" rule applies.
+export type Leader = {
+  id: string;
+  anchor: Point; // the point on the plan being called out
+  labelPoint: Point; // where the text sits — leader line drawn anchor -> labelPoint
+  text: string;
+  layerId?: string;
+};
+
 // CAD-upgrade Gap 3 (Blocks, components, and template library): a real
 // BlockDefinition, distinct from ScenarioTemplate (templates.ts) — a template is a
 // fixed whole-room preset applied once at room creation; a block is a reusable group

@@ -18,6 +18,7 @@ import { RoomDimensionsPanel } from '@/components/spatial/RoomDimensionsPanel.ts
 import { WallDimensionsPanel } from '@/components/spatial/WallDimensionsPanel.tsx';
 import { ZonePropertiesPanel } from '@/components/spatial/ZonePropertiesPanel.tsx';
 import { DimensionPropertiesPanel } from '@/components/spatial/DimensionPropertiesPanel.tsx';
+import { LeaderPropertiesPanel } from '@/components/spatial/LeaderPropertiesPanel.tsx';
 import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
 import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
 import { OutlinerPanel } from '@/components/spatial/OutlinerPanel.tsx';
@@ -65,12 +66,14 @@ function SpatialDesignEngineInner() {
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const zones = useRoomLayoutStore((s) => s.zones);
   const dimensions = useRoomLayoutStore((s) => s.dimensions);
+  const leaders = useRoomLayoutStore((s) => s.leaders);
   const layers = useRoomLayoutStore((s) => s.layers);
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
   const selectedWallId = useRoomLayoutStore((s) => s.selectedWallId);
   const selectedZoneId = useRoomLayoutStore((s) => s.selectedZoneId);
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
+  const selectedLeaderId = useRoomLayoutStore((s) => s.selectedLeaderId);
   const loadLayout = useRoomLayoutStore((s) => s.loadLayout);
   const hydrateFromLocalStorage = useRoomLayoutStore((s) => s.hydrateFromLocalStorage);
   const saveToLocalStorage = useRoomLayoutStore((s) => s.saveToLocalStorage);
@@ -124,6 +127,7 @@ function SpatialDesignEngineInner() {
       placedObjects: template.defaultObjects,
       zones: hasLoadedInitialData ? zones : [],
       dimensions: hasLoadedInitialData ? dimensions : [],
+      leaders: hasLoadedInitialData ? leaders : [],
       layers: hasLoadedInitialData ? layers : defaultLayers(),
     });
   }
@@ -258,6 +262,11 @@ function SpatialDesignEngineInner() {
           {selectedDimensionId && (
             <div className="w-full lg:w-72">
               <DimensionPropertiesPanel />
+            </div>
+          )}
+          {selectedLeaderId && (
+            <div className="w-full lg:w-72">
+              <LeaderPropertiesPanel />
             </div>
           )}
         </div>

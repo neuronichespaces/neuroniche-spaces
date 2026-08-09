@@ -10,7 +10,7 @@
 // and manual exercise against a live Supabase project.
 
 import { supabase } from '@/lib/supabase/client';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension, Layer } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension, Layer, Leader } from './types.ts';
 import { sensoryProfileFor } from './sensoryLibrary.ts';
 import { defaultLayers } from './layers.ts';
 
@@ -20,11 +20,13 @@ type RoomLayout = {
   floorDims: FloorDims;
   placedObjects: PlacedObject[];
   zones: Zone[];
-  // Dimensions (CAD-upgrade Gap 6) and layers (Gap 4) aren't persisted to Supabase yet
-  // — no migration for either table/column exists. Loading always defaults; saving
-  // doesn't need either field (see saveRoomToSupabase's narrower parameter type below).
+  // Dimensions (CAD-upgrade Gap 6), layers (Gap 4), and leaders (Gap 6) aren't
+  // persisted to Supabase yet — no migration for any of these tables/columns exists.
+  // Loading always defaults; saving doesn't need any of them (see
+  // saveRoomToSupabase's narrower parameter type below).
   dimensions: Dimension[];
   layers: Layer[];
+  leaders: Leader[];
 };
 
 export async function loadRoomFromSupabase(roomId: string): Promise<RoomLayout | null> {
@@ -69,13 +71,14 @@ export async function loadRoomFromSupabase(roomId: string): Promise<RoomLayout |
     doors: (layoutRow.door_positions_json ?? []) as DoorPlacement[],
     zones: (layoutRow.zones_json ?? []) as Zone[],
     dimensions: [],
+    leaders: [],
     layers: defaultLayers(),
     floorDims: { widthM: Number(layoutRow.floor_width_m), lengthM: Number(layoutRow.floor_length_m) },
     placedObjects,
   };
 }
 
-export async function saveRoomToSupabase(roomId: string, layout: Omit<RoomLayout, 'dimensions' | 'layers'>): Promise<void> {
+export async function saveRoomToSupabase(roomId: string, layout: Omit<RoomLayout, 'dimensions' | 'layers' | 'leaders'>): Promise<void> {
   const { data: existing, error: findError } = await supabase
     .from('room_layouts')
     .select('id')
