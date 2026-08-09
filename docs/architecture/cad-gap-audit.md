@@ -41,7 +41,9 @@ unchanged all session).
 
 ## Gap 2 — Precision numeric and keyboard-driven input
 
-**Status: partial.**
+**Status: mostly closed as of 2026-08-09 — this section badly predates several
+sessions of Milestone 1/2 work and was corrected in place below rather than rewritten,
+so the "Missing entirely"/"Stale" labels are literal, not decorative.**
 
 - Numeric inspector exists for objects (`PropertiesPanel.tsx`: width/depth/height/
   rotation/brightness/colour-temp/noise sliders + new Lock/Hide) and for room dimensions
@@ -50,12 +52,23 @@ unchanged all session).
 - Keyboard alternative exists for objects: Tab-select, arrow-key move, `R`/`Shift+R`
   rotate, `[`/`]` resize (this session's Milestone 4 work) — all locked-aware as of
   this session.
-- **Missing entirely**: wall numeric inspector (start/end/length/angle — walls have no
-  selection concept at all today), absolute (`#x,y`), relative (`@x,y`), and polar
-  (`1500<90`) coordinate entry, dynamic command-line input during an operation, Tab-
-  between-fields during a draw/move operation, axis locking, fine/normal/coarse keyboard
-  increment tiers (today it's one grid-snap step + one ×10 Shift step, not a documented
-  3-tier system), typed-length-during-drag.
+- **Stale as of 2026-08-09 — now closed**: wall numeric inspector
+  (`WallDimensionsPanel.tsx`: length/angle/thickness/layer) and zone numeric inspector
+  (`ZonePropertiesPanel.tsx`: kind/label/centre-X-Y/width/length/rotation/layer) both
+  exist now — walls and zones both have a real selection concept
+  (`selectedWallId`/`selectedZoneId`). This paragraph originally predated that work;
+  left the "Missing entirely" framing below for the items that are still actually
+  missing rather than rewriting history.
+- **Also stale — also now closed** (per `cad-upgrade-plan.md`'s dated entries, the
+  authoritative done/remaining record this file should have been cross-checked
+  against): absolute/relative/polar coordinate entry, axis lock, 3-tier keyboard
+  increments, and Tab-between-fields dynamic input are all implemented and
+  live-verified (`parseAbsolute`/`parseRelative`/`parsePolar`/`axisLock` in
+  `geometry.ts`, wired into `RoomEditor2D.tsx`). Genuinely still missing: typed
+  coordinate entry literally *while the mouse button is held down* mid-drag (works
+  between clicks and via the dynamic overlay, not mid-`mousedown`), and the zone tool
+  has no length/angle-style dynamic overlay (only a single coordinate-corner field) —
+  zones don't have a natural "length/angle from a pivot" shape the way walls do.
 - Validation is real where it exists (`RoomDimensionsPanel.tsx` never silently clamps,
   shows plain-language errors) — the *pattern* is correct, just not yet applied to
   walls/coordinates/polar input.
@@ -72,25 +85,51 @@ unchanged all session).
 
 ## Gap 4 — Layers, visibility, locking, and view states
 
-**Status: real layer entity now exists for placed objects (2026-08-09); walls/zones,
-3D/picking/export integration, and view-state save/restore still missing.**
+**Status: real layer entity now covers objects, zones, and walls in 2D, and objects in
+3D (2026-08-09). Dimensions, 3D room-shell integration, and view-state save/restore
+still missing.**
 
-- **Closed (objects only)**: `Layer` (`types.ts`) — `{id, name, visible, locked}` —
-  seeded with one "Default" layer (`layers.ts`'s `DEFAULT_LAYER_ID`), full CRUD through
-  the store's normal undo/redo path. `PlacedObject.layerId?` assigns an object to a
-  layer (absent = default). Effective state is computed, not stored twice:
+- **Closed (objects, 2026-08-09)**: `Layer` (`types.ts`) — `{id, name, visible, locked}`
+  — seeded with one "Default" layer (`layers.ts`'s `DEFAULT_LAYER_ID`), full CRUD
+  through the store's normal undo/redo path. `PlacedObject.layerId?` assigns an object
+  to a layer (absent = default). Effective state is computed, not stored twice:
   `isEffectivelyVisible`/`isEffectivelyLocked` OR the object's own locked/hidden flags
   with its layer's — an object can be individually locked AND on a locked layer.
-  `LayersPanel.tsx` (new) does CRUD + visibility/lock toggles; `PropertiesPanel.tsx`
-  gained a layer-assignment dropdown; `ObjectLayer.tsx`'s render filter, drag-ability,
-  and Transformer-attach all route through the effective-state helpers now, not the
-  raw per-object flags directly.
-- **Closed (2026-08-09, later same day)**: 3D-side layer filtering. `BabylonRendererAdapter.syncObjects`/`updateObjectTransform` now take `layers: Layer[]` and gate `root.setEnabled()` on `isEffectivelyVisible()` instead of raw `obj.hidden` — a hidden layer excludes its objects from both render and picking in 3D (Babylon disables picking automatically on a disabled node), same as 2D. `RoomViewer3D.tsx`'s gizmo-attach condition now checks `isEffectivelyLocked`/`isEffectivelyVisible` (own flag OR layer's) instead of the object's own flags only. Verified: `npx tsc --noEmit` clean (same 4 pre-existing unrelated errors), 171/171 `node --test` pass, `npm run build` clean, 3D view loads with no console errors with a layer hidden. **Not** click-verified that the specific hidden object is absent from the 3D scene graph — no debug hook exposes the Babylon scene the way `window.Konva.stages` does for 2D, so this is code-review + the same already-unit-tested `isEffectivelyVisible` helper, not a live pixel-level check.
-- **Not done**: walls/zones/dimensions have no `layerId` field yet (scoped to objects
-  only this pass, documented deferral not an oversight) — a layer toggle only affects
-  placed objects. No per-layer print/order/colour/lineweight fields. No named
-  view-state save/restore. No default-layer *set* (still just one seeded "Default",
-  not Architecture/Doors/Furniture/etc. presets).
+  `LayersPanel.tsx` does CRUD + visibility/lock toggles; `PropertiesPanel.tsx` has a
+  layer-assignment dropdown; `ObjectLayer.tsx`'s render filter, drag-ability, and
+  Transformer-attach all route through the effective-state helpers, not raw
+  per-object flags.
+- **Closed (3D objects, 2026-08-09, later same day)**: `BabylonRendererAdapter.syncObjects`/
+  `updateObjectTransform` take `layers: Layer[]` and gate `root.setEnabled()` on
+  `isEffectivelyVisible()` — a hidden layer excludes its objects from both render and
+  picking in 3D (Babylon disables picking automatically on a disabled node), same as
+  2D. `RoomViewer3D.tsx`'s gizmo-attach condition checks `isEffectivelyLocked`/
+  `isEffectivelyVisible` (own flag OR layer's). **Not** scene-graph-verified — no
+  Babylon-side debug hook equivalent to `window.Konva.stages`, so this rests on code
+  review + the already-unit-tested helper, not a live pixel check.
+- **Closed (zone selection + zone/wall layers, 2026-08-09, later session)**: zones had
+  no selection concept at all before this — `selectedZoneId`/`selectZone` added to the
+  store (mutually exclusive with object/wall/dimension selection, same pattern as
+  `selectWall`), `ZonePropertiesPanel.tsx` (new) is the numeric zone inspector (kind,
+  label, centre X/Y, width, length, rotation, delete). `Zone.layerId?` and
+  `WallSegment.layerId?` both now exist; `layers.ts`'s `isEffectivelyVisible`/
+  `isEffectivelyLocked` were generalized from a `PlacedObject`-specific signature to a
+  structural `LayeredEntity` type so `Zone`/`WallSegment` (neither has its own
+  `hidden`/`locked` fields) reuse the same logic instead of a duplicated copy.
+  `ZoneLayer.tsx`/`WallLayer.tsx` filter render through `isEffectivelyVisible` when
+  given a `layers` prop; `ZonePropertiesPanel.tsx`/`WallDimensionsPanel.tsx` both gained
+  a Layer-assignment dropdown. Live-verified in Chrome for both: assigning a zone/wall
+  to a hidden layer removed it from the Konva canvas (dashed zone-rect count and Line
+  count both dropped by exactly one).
+- **Not done**: dimensions have no `layerId` field yet. No 3D room-shell integration
+  for wall layers — `BabylonRendererAdapter.syncRoomShell` rebuilds walls
+  unconditionally; walls are structurally load-bearing for the 3D room-shell geometry
+  in a way objects/zones aren't, so hiding one via layer needs its own design decision
+  rather than a copy-paste of the object/zone pattern (deliberately scoped out, not an
+  oversight). No zone/wall layer filtering in 3D at all yet (only objects). No
+  per-layer print/order/colour/lineweight fields. No named view-state save/restore. No
+  default-layer *set* (still just one seeded "Default", not
+  Architecture/Doors/Furniture/etc. presets).
 
 ## Gap 5 — Advanced selection, filtering, outliner, batch editing
 
