@@ -96,9 +96,9 @@ nesting, and click-to-place still missing.**
 
 ## Gap 4 — Layers, visibility, locking, and view states
 
-**Status: real layer entity now covers all four canonical entity types (objects,
-zones, walls, dimensions) in 2D as of 2026-08-09, and objects in 3D. 3D room-shell
-integration for the other three and view-state save/restore still missing.**
+**Status: real layer entity covers all four canonical entity types (objects, zones,
+walls, dimensions) in 2D, and objects + walls in 3D (as of 2026-08-10). 3D zone/
+dimension filtering and view-state save/restore still missing.**
 
 - **Closed (objects, 2026-08-09)**: `Layer` (`types.ts`) — `{id, name, visible, locked}`
   — seeded with one "Default" layer (`layers.ts`'s `DEFAULT_LAYER_ID`), full CRUD
@@ -141,13 +141,17 @@ integration for the other three and view-state save/restore still missing.**
   Delete-key shortcut). Live-verified in Chrome: drew a dimension, assigned it to a
   hidden layer via the dropdown, confirmed it disappeared from the Konva canvas.
   **All four canonical entity types now have layer support in 2D.**
-- **Not done**: no 3D room-shell integration for wall layers —
-  `BabylonRendererAdapter.syncRoomShell` rebuilds walls unconditionally; walls are
-  structurally load-bearing for the 3D room-shell geometry in a way objects/zones
-  aren't, so hiding one via layer needs its own design decision rather than a
-  copy-paste of the object/zone pattern (deliberately scoped out, not an oversight).
-  No zone/wall/dimension layer filtering in 3D at all yet (only objects). No
-  per-layer print/order/colour/lineweight fields. No named view-state save/restore. No
+- **Closed (3D wall-shell layer filtering, 2026-08-10)**: the design question above is
+  resolved — a hidden wall's layer means visual+pick exclusion only (same rule as
+  every other entity type's 3D behavior), never a structural change to the
+  floor/ceiling shell. `syncRoomShell()` takes an optional `layers` param and skips a
+  wall's box mesh when `!isEffectivelyVisible(wall, layers)`. Live-verified in Chrome:
+  assigned a wall to a hidden layer, switched to 3D, saw a visible gap in the room
+  shell where that wall would be, zero console errors. Not scene-graph-verified (same
+  disclosed limitation as the 3D-objects entry above — no Babylon debug hook).
+- **Not done**: no zone/dimension layer filtering in 3D at all yet (only objects and
+  now walls do). No per-layer print/order/colour/lineweight fields. No named
+  view-state save/restore. No
   default-layer *set* (still just one seeded "Default", not
   Architecture/Doors/Furniture/etc. presets).
 
