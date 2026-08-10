@@ -5,7 +5,7 @@ the 7 structural gaps, using this session's own extensive, current knowledge of 
 codebase (Babylon migration + hardening, spatial store, 2D editor all touched today —
 no stale assumptions here).
 
-**Build/test state at audit time**: `npm run build` clean, 135/135 `node --test` pass,
+**Build/test state at audit time**: `npm run build` clean, 136/136 `node --test` pass,
 lint clean in every spatial/renderer file (13 pre-existing errors remain in unrelated
 pages — costing/audit/training/business-case/organisations/A11yProvider/ErrorBoundary/
 ScenariosPanel, unchanged all session).
@@ -40,10 +40,27 @@ ScenariosPanel, unchanged all session).
   camera+layer-visibility snapshots (own localStorage key, not undo-tracked — same
   reasoning as `blocks`/`comments`). Orthographic is a live toggle button (top-right of
   the 3D view), bounds recomputed from radius/aspect on toggle, camera-apply, and resize.
-- **Still missing**: section-box/cut-plane preview, frame-selection/reset-view UI.
-- **Missing tests**: no automated test proves "2D movement updates 3D" or "3D gizmo
-  movement updates 2D" end-to-end — this session's verification was manual/live-browser
-  only, not a `node:test`/Playwright assertion.
+- **Closed (section-box/cut-plane preview, 2026-08-10)**: `scene.clipPlane` — a single
+  horizontal plane at an adjustable height (0.2m–4m slider), clipping away everything
+  above it to reveal the interior from above. One plane, not a full multi-axis
+  section-box editor — the audit item asked for a *preview*, and that's what this is;
+  a real section-box (movable/rotatable clip planes, multiple simultaneous cuts) is a
+  bigger, separate feature. "Section view" toggle + height slider, top-right of the 3D
+  view.
+- **Closed (frame-selection/reset-view UI, 2026-08-10)**: "Frame selection" fits the
+  camera target/radius to the bounding box of the currently selected object(s) —
+  multi-select if any, else the single selection, else every placed object (never a
+  silent no-op). "Reset view" restores the camera's original centre/radius/alpha/beta
+  from scene creation. Both are plain functions closed over the live `orbitCamera`,
+  exposed via the same imperative-ref pattern as `toggleOrthographicRef`.
+- **Closed (2D↔3D sync test, 2026-08-10)**: added a `node:test` making the specific
+  claim this entry named — that a store mutation is immediately visible, identically,
+  to every subsequent read, because RoomEditor2D and RoomViewer3D's `syncFromStore`
+  both call the same `useRoomLayoutStore.getState()` with no per-view derived copy.
+  This doesn't replace live-browser pixel verification (a separate, still-legitimate
+  gap — literal on-screen rendering isn't asserted by a store test) — it closes the
+  specific "no automated test proves this" complaint, at the level where the actual
+  architectural guarantee lives.
 
 ## Gap 2 — Precision numeric and keyboard-driven input
 

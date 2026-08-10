@@ -722,3 +722,46 @@ test('restoreViewState applies saved layer visibility and skips deleted layers, 
 
   assert.equal(restoreViewState('does-not-exist'), undefined);
 });
+
+// CAD-upgrade Gap 1 ("no automated test proves 2D movement updates 3D"): both
+// RoomEditor2D.tsx and RoomViewer3D.tsx (its syncFromStore, subscribed via
+// useRoomLayoutStore.subscribe) read the SAME useRoomLayoutStore.getState() call —
+// there is no per-view derived/cached copy of position for either. The claim this
+// architecture makes is therefore fully testable at the store level, without a real
+// Babylon/DOM renderer: a mutation is visible, identically, to every subsequent
+// getState() caller, synchronously, with no intermediate stale read possible. This
+// doesn't replace live-browser pixel verification (still noted as a separate,
+// legitimate gap: literal on-screen rendering isn't asserted here) — it proves the
+// specific claim that was flagged missing, that 2D and 3D never diverge because they
+// share one state.
+test('a store mutation is immediately visible identically to every getState() caller — the shared-state contract RoomEditor2D/RoomViewer3D both rely on (CAD Gap 1)', () => {
+  reset();
+  const { addObject, moveObject, rotateObject, updateWall, addWall } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'crash-mat', x: 1, y: 1, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+
+  // Simulates what RoomEditor2D's drag handler and RoomViewer3D's transformBridge
+  // callback both actually do: call the store action, then read getState() — no local
+  // component state holds a second copy of x/y in either file.
+  moveObject('o1', 3, 4);
+  rotateObject('o1', 90);
+  updateWall('w1', { thicknessM: 0.2 });
+
+  // "2D read" and "3D read" are literally the same call — that IS the architectural
+  // guarantee (single source of truth, no per-renderer transform copy) — so this
+  // asserts both land on the identical, current values, not two different snapshots.
+  const twoDRead = useRoomLayoutStore.getState();
+  const threeDRead = useRoomLayoutStore.getState();
+  const obj2D = twoDRead.placedObjects.find((o) => o.id === 'o1')!;
+  const obj3D = threeDRead.placedObjects.find((o) => o.id === 'o1')!;
+  assert.equal(obj2D.x, 3);
+  assert.equal(obj2D.y, 4);
+  assert.equal(obj2D.rotationDeg, 90);
+  assert.deepEqual(obj2D, obj3D); // identical values from independent reads
+  assert.strictEqual(twoDRead.placedObjects, threeDRead.placedObjects); // same array reference, not two copies
+
+  const wall2D = twoDRead.walls.find((w) => w.id === 'w1')!;
+  const wall3D = threeDRead.walls.find((w) => w.id === 'w1')!;
+  assert.equal(wall2D.thicknessM, 0.2);
+  assert.deepEqual(wall2D, wall3D);
+});

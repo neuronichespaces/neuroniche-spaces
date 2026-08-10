@@ -7,7 +7,7 @@
 // edits made in either view still show up in the other through the one shared store.
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Vector3 } from '@babylonjs/core';
+import { Camera, Plane, Vector3 } from '@babylonjs/core';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import type { ViewState } from '@/lib/spatial/types.ts';
 import { createBabylonEngine, type RendererBackend } from '@/renderer/babylon/BabylonEngineFactory.ts';
@@ -78,6 +78,13 @@ export default function RoomViewer3D({
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate');
   const [perf, setPerf] = useState<PerformanceSnapshot | null>(null);
   const [orthographic, setOrthographic] = useState(false);
+  // CAD-upgrade Gap 1 (section-box/cut-plane, 2026-08-10): a single horizontal clip
+  // plane at an adjustable height — everything above it is clipped away, revealing the
+  // room's interior from above. One plane, not a true multi-axis section box (a
+  // deliberately scoped-down "preview," matching what the audit doc actually asked
+  // for: a preview, not a full arbitrary-cut-plane editor).
+  const [sectionEnabled, setSectionEnabled] = useState(false);
+  const [sectionHeightM, setSectionHeightM] = useState(1.5);
   const [osReducedMotion, setOsReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -91,6 +98,12 @@ export default function RoomViewer3D({
   const enterOrExitWalkModeRef = useRef<{ enterWalkMode: () => void; exitWalkMode: () => void } | null>(null);
   const richModeUpdaterRef = useRef<((value: boolean) => void) | null>(null);
   const toggleOrthographicRef = useRef<(() => void) | null>(null);
+  const applySectionClipRef = useRef<((enabled: boolean, heightM: number) => void) | null>(null);
+  // CAD-upgrade Gap 1 (frame-selection/reset-view, 2026-08-10): same imperative-ref
+  // pattern as toggleOrthographicRef — these need live access to the camera/store
+  // inside the mount effect's closure, which a plain prop/state can't reach.
+  const frameSelectionRef = useRef<(() => void) | null>(null);
+  const resetViewRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -189,6 +202,44 @@ export default function RoomViewer3D({
       };
       onCameraApiReady?.(cameraApi);
       toggleOrthographicRef.current = cameraApi.toggleOrthographic;
+
+      // CAD-upgrade Gap 1 (section-box/cut-plane preview): scene.clipPlane clips away
+      // everything above the given world-Y height — a single horizontal plane, not a
+      // full section-box editor (see sectionEnabled's comment for why that's the right
+      // scope here).
+      applySectionClipRef.current = (enabled, heightM) => {
+        scene.clipPlane = enabled ? Plane.FromPositionAndNormal(new Vector3(0, heightM, 0), new Vector3(0, -1, 0)) : null;
+      };
+
+      // CAD-upgrade Gap 1 (frame-selection/reset-view): frame fits the camera target/
+      // radius to the bounding box of the selected object(s) — falls back to every
+      // placed object if nothing's selected, so the button always does something
+      // useful rather than silently no-op-ing. Reset restores the same centre/radius/
+      // alpha/beta this camera was created with above.
+      const DEFAULT_ALPHA = -Math.PI / 2;
+      const DEFAULT_BETA = Math.PI / 3;
+      frameSelectionRef.current = () => {
+        const s = useRoomLayoutStore.getState();
+        const ids = s.multiSelectedObjectIds.length > 0 ? s.multiSelectedObjectIds : s.selectedObjectId ? [s.selectedObjectId] : [];
+        const objects = (ids.length > 0 ? s.placedObjects.filter((o) => ids.includes(o.id)) : s.placedObjects);
+        if (objects.length === 0) return;
+        const minX = Math.min(...objects.map((o) => o.x - o.footprintM.w / 2));
+        const maxX = Math.max(...objects.map((o) => o.x + o.footprintM.w / 2));
+        const minY = Math.min(...objects.map((o) => o.y - o.footprintM.l / 2));
+        const maxY = Math.max(...objects.map((o) => o.y + o.footprintM.l / 2));
+        const target = new Vector3((minX + maxX) / 2, 0, (minY + maxY) / 2);
+        const diagonal = Math.hypot(maxX - minX, maxY - minY);
+        orbitCamera.target = target;
+        orbitCamera.radius = Math.max(diagonal * 1.5, 1);
+        updateOrthoBounds();
+      };
+      resetViewRef.current = () => {
+        orbitCamera.target = centre;
+        orbitCamera.radius = orbitRadius;
+        orbitCamera.alpha = DEFAULT_ALPHA;
+        orbitCamera.beta = DEFAULT_BETA;
+        updateOrthoBounds();
+      };
 
       const isDraggingRef = { current: false };
       const transformBridge = new BabylonTransformBridge(
@@ -370,6 +421,10 @@ export default function RoomViewer3D({
     else enterOrExitWalkModeRef.current?.exitWalkMode();
   }, [walking]);
 
+  useEffect(() => {
+    applySectionClipRef.current?.(sectionEnabled, sectionHeightM);
+  }, [sectionEnabled, sectionHeightM]);
+
   return (
     <div className="relative h-full w-full">
       {!hideControls && (
@@ -402,6 +457,45 @@ export default function RoomViewer3D({
             >
               {orthographic ? 'Perspective view' : 'Orthographic view'}
             </button>
+          )}
+          {!walking && (
+            <div className="flex items-center gap-1 rounded-md bg-white/90 p-1 shadow">
+              <button
+                type="button"
+                onClick={() => setSectionEnabled((e) => !e)}
+                aria-pressed={sectionEnabled}
+                className={`min-h-11 rounded px-2 text-sm ${sectionEnabled ? 'bg-blue-50 text-blue-700' : 'text-slate-700'}`}
+              >
+                Section view
+              </button>
+              {sectionEnabled && (
+                <input
+                  type="range"
+                  min={0.2}
+                  max={4}
+                  step={0.1}
+                  value={sectionHeightM}
+                  onChange={(e) => setSectionHeightM(Number(e.target.value))}
+                  className="min-h-11 w-24"
+                  aria-label="Section cut height, metres"
+                />
+              )}
+            </div>
+          )}
+          {!walking && (
+            <div className="flex gap-1 rounded-md bg-white/90 p-1 shadow">
+              <button
+                type="button"
+                onClick={() => frameSelectionRef.current?.()}
+                className="min-h-11 rounded px-2 text-sm text-slate-700"
+                title="Fit the camera to the current selection (or everything, if nothing is selected)"
+              >
+                Frame selection
+              </button>
+              <button type="button" onClick={() => resetViewRef.current?.()} className="min-h-11 rounded px-2 text-sm text-slate-700">
+                Reset view
+              </button>
+            </div>
           )}
           <button
             type="button"
