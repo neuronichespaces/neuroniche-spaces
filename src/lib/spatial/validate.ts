@@ -1,6 +1,6 @@
 // Runtime guard for RoomLayout data crossing an untrusted boundary (localStorage,
 // BroadcastChannel, future project-file import). Domain-only — no React/Babylon imports.
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension, Layer, Leader } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension, Layer, Leader, RevisionCloud, SectionLine } from './types.ts';
 import { defaultLayers } from './layers.ts';
 
 export type RoomLayout = {
@@ -12,6 +12,8 @@ export type RoomLayout = {
   dimensions: Dimension[];
   layers: Layer[];
   leaders: Leader[];
+  revisionClouds: RevisionCloud[];
+  sectionLines: SectionLine[];
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -89,6 +91,24 @@ function isLeader(v: unknown): v is Leader {
   return l !== null && typeof l.id === 'string' && isPoint(l.anchor) && isPoint(l.labelPoint) && typeof l.text === 'string';
 }
 
+function isRevisionCloud(v: unknown): v is RevisionCloud {
+  const r = asRecord(v);
+  return (
+    r !== null &&
+    typeof r.id === 'string' &&
+    typeof r.x === 'number' &&
+    typeof r.y === 'number' &&
+    typeof r.widthM === 'number' &&
+    typeof r.lengthM === 'number' &&
+    (r.note === undefined || typeof r.note === 'string')
+  );
+}
+
+function isSectionLine(v: unknown): v is SectionLine {
+  const s = asRecord(v);
+  return s !== null && typeof s.id === 'string' && isPoint(s.start) && isPoint(s.end) && (s.label === undefined || typeof s.label === 'string');
+}
+
 function isLayer(v: unknown): v is Layer {
   const l = asRecord(v);
   return l !== null && typeof l.id === 'string' && typeof l.name === 'string' && typeof l.visible === 'boolean' && typeof l.locked === 'boolean';
@@ -112,6 +132,10 @@ export function validateRoomLayout(raw: unknown): RoomLayout | null {
   if (!Array.isArray(layers) || !layers.every(isLayer)) return null;
   const leaders = r.leaders === undefined ? [] : r.leaders;
   if (!Array.isArray(leaders) || !leaders.every(isLeader)) return null;
+  const revisionClouds = r.revisionClouds === undefined ? [] : r.revisionClouds;
+  if (!Array.isArray(revisionClouds) || !revisionClouds.every(isRevisionCloud)) return null;
+  const sectionLines = r.sectionLines === undefined ? [] : r.sectionLines;
+  if (!Array.isArray(sectionLines) || !sectionLines.every(isSectionLine)) return null;
   return {
     walls: r.walls as WallSegment[],
     doors: r.doors as DoorPlacement[],
@@ -121,5 +145,7 @@ export function validateRoomLayout(raw: unknown): RoomLayout | null {
     dimensions,
     layers,
     leaders,
+    revisionClouds,
+    sectionLines,
   };
 }

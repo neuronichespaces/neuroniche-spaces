@@ -10,7 +10,7 @@
 // and manual exercise against a live Supabase project.
 
 import { supabase } from '@/lib/supabase/client';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension, Layer, Leader } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, Zone, Dimension, Layer, Leader, RevisionCloud, SectionLine } from './types.ts';
 import { sensoryProfileFor } from './sensoryLibrary.ts';
 import { defaultLayers } from './layers.ts';
 
@@ -20,13 +20,15 @@ type RoomLayout = {
   floorDims: FloorDims;
   placedObjects: PlacedObject[];
   zones: Zone[];
-  // Dimensions (CAD-upgrade Gap 6), layers (Gap 4), and leaders (Gap 6) aren't
-  // persisted to Supabase yet — no migration for any of these tables/columns exists.
-  // Loading always defaults; saving doesn't need any of them (see
-  // saveRoomToSupabase's narrower parameter type below).
+  // Dimensions (CAD-upgrade Gap 6), layers (Gap 4), leaders/revisionClouds/
+  // sectionLines (Gap 6) aren't persisted to Supabase yet — no migration for any of
+  // these tables/columns exists. Loading always defaults; saving doesn't need any of
+  // them (see saveRoomToSupabase's narrower parameter type below).
   dimensions: Dimension[];
   layers: Layer[];
   leaders: Leader[];
+  revisionClouds: RevisionCloud[];
+  sectionLines: SectionLine[];
 };
 
 export async function loadRoomFromSupabase(roomId: string): Promise<RoomLayout | null> {
@@ -72,13 +74,15 @@ export async function loadRoomFromSupabase(roomId: string): Promise<RoomLayout |
     zones: (layoutRow.zones_json ?? []) as Zone[],
     dimensions: [],
     leaders: [],
+    revisionClouds: [],
+    sectionLines: [],
     layers: defaultLayers(),
     floorDims: { widthM: Number(layoutRow.floor_width_m), lengthM: Number(layoutRow.floor_length_m) },
     placedObjects,
   };
 }
 
-export async function saveRoomToSupabase(roomId: string, layout: Omit<RoomLayout, 'dimensions' | 'layers' | 'leaders'>): Promise<void> {
+export async function saveRoomToSupabase(roomId: string, layout: Omit<RoomLayout, 'dimensions' | 'layers' | 'leaders' | 'revisionClouds' | 'sectionLines'>): Promise<void> {
   const { data: existing, error: findError } = await supabase
     .from('room_layouts')
     .select('id')
@@ -180,7 +184,7 @@ export async function listScenarios(roomId: string): Promise<ScenarioSummary[]> 
 export async function saveScenarioAs(
   roomId: string,
   name: string,
-  layout: Omit<RoomLayout, 'dimensions' | 'layers' | 'leaders'>,
+  layout: Omit<RoomLayout, 'dimensions' | 'layers' | 'leaders' | 'revisionClouds' | 'sectionLines'>,
 ): Promise<string> {
   const { data, error } = await supabase
     .from('room_layouts')
@@ -265,6 +269,8 @@ export async function loadScenarioById(layoutId: string): Promise<RoomLayout | n
     zones: (layoutRow.zones_json ?? []) as Zone[],
     dimensions: [],
     leaders: [],
+    revisionClouds: [],
+    sectionLines: [],
     layers: defaultLayers(),
     floorDims: { widthM: layoutRow.floor_width_m, lengthM: layoutRow.floor_length_m },
     placedObjects,

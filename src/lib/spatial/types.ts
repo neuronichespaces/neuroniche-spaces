@@ -239,6 +239,50 @@ export type BlockDefinition = {
   nestedBlocks?: Array<{ blockId: string; relX: number; relY: number }>;
 };
 
+// CAD-upgrade Gap 6 (revision clouds, 2026-08-10): a real model entity marking an area
+// of the plan as changed since a prior issue — a rectangular region (same shape
+// convention as Zone) rendered as a scalloped cloud outline rather than a plain
+// rectangle. Bounding-box only, not an arbitrary polygon — matches every other
+// rectangular region concept already in this codebase (Zone), simplest shape that
+// covers the real use case ("this area changed").
+export type RevisionCloud = {
+  id: string;
+  x: number; // centre, metres
+  y: number;
+  widthM: number;
+  lengthM: number;
+  note?: string;
+  layerId?: string;
+};
+
+// CAD-upgrade Gap 6 (section-line entity + generated section view, 2026-08-10): the
+// line a section-cut view is generated FROM — distinct from Dimension (which measures
+// a length, not marks a cut plane) despite the same {start,end} shape. `sectionGeometry.ts`
+// projects walls/objects onto this line's axis to build the generated view; this type
+// is just the persisted, canonical marker of where that cut is.
+export type SectionLine = {
+  id: string;
+  start: Point;
+  end: Point;
+  label?: string;
+  layerId?: string;
+};
+
+// CAD-upgrade Gap 6 (named/versioned drawing sheets, 2026-08-10): a saved export
+// title-block configuration — same "not layout content, but worth surviving reload"
+// treatment as ViewState/SelectionSet. `PrintableExport.tsx`'s title block always
+// renders "the current state" of a room; this is what makes that state nameable and
+// re-selectable (e.g. "Issued for review", "Issued for construction"), each carrying
+// its own drawn-by/checked-by/revision — real drawing-register fields, not just a
+// project name + date.
+export type DrawingSheet = {
+  id: string;
+  name: string;
+  drawnBy: string;
+  checkedBy: string;
+  revision: string;
+};
+
 // CAD-upgrade Gap 7 (Collaboration, versioning, review, audit): a review comment/
 // markup pinned to a point on the plan — distinct from Leader (a permanent drawing
 // annotation meant to stay on the plan, e.g. "mount switch here") in that a Comment

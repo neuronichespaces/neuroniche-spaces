@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
 import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment, ViewState, SelectionSet } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment, ViewState, SelectionSet, RevisionCloud, SectionLine, DrawingSheet } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -20,6 +20,8 @@ type RoomLayout = {
   dimensions: Dimension[];
   layers: Layer[];
   leaders: Leader[];
+  revisionClouds: RevisionCloud[];
+  sectionLines: SectionLine[];
 };
 
 // CAD-upgrade Milestone 1/2: each undo/redo entry carries a stable id and a
@@ -40,6 +42,7 @@ const LOCAL_STORAGE_KEY = 'noniche-spatial-room-default';
 // session-transient like isolate/multi-select), so it gets its own persisted key.
 const VIEW_STATES_KEY = 'noniche-spatial-room-default-view-states';
 const SELECTION_SETS_KEY = 'noniche-spatial-room-default-selection-sets';
+const DRAWING_SHEETS_KEY = 'noniche-spatial-room-default-drawing-sheets';
 const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
 const MAX_HISTORY = 50;
 const AUTOSAVE_DEBOUNCE_MS = 500;
@@ -122,12 +125,35 @@ function writeSelectionSetsToLocalStorage(sets: SelectionSet[]) {
   }
 }
 
+function readDrawingSheetsFromLocalStorage(): DrawingSheet[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(DRAWING_SHEETS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as DrawingSheet[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDrawingSheetsToLocalStorage(sheets: DrawingSheet[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(DRAWING_SHEETS_KEY, JSON.stringify(sheets));
+  } catch {
+    // ponytail: same best-effort as writeToLocalStorage — quota/private mode, no user-facing error surface yet.
+  }
+}
+
 type RoomLayoutState = RoomLayout & {
   selectedObjectId: string | null;
   selectedWallId: string | null;
   selectedZoneId: string | null;
   selectedDimensionId: string | null;
   selectedLeaderId: string | null;
+  selectedRevisionCloudId: string | null;
+  selectedSectionLineId: string | null;
   /** CAD-upgrade Gap 5: Shift-click in the outliner toggles membership. Transient, like
    *  the single-selection ids, not pushed to history. */
   multiSelectedObjectIds: string[];
@@ -266,6 +292,28 @@ type RoomLayoutState = RoomLayout & {
   selectLeader: (id: string | null) => void;
   updateLeader: (id: string, patch: Partial<Pick<Leader, 'text' | 'labelPoint' | 'layerId'>>) => void;
 
+  /** CAD-upgrade Gap 6 (2026-08-10): revision cloud CRUD — same shape as Zone's (both
+   *  are rectangular regions), plus a free-text `note`. */
+  addRevisionCloud: (cloud: RevisionCloud) => void;
+  removeRevisionCloud: (id: string) => void;
+  selectRevisionCloud: (id: string | null) => void;
+  updateRevisionCloud: (id: string, patch: Partial<Omit<RevisionCloud, 'id'>>) => void;
+
+  /** CAD-upgrade Gap 6 (2026-08-10): section-line CRUD — same shape as Dimension's
+   *  (both are {start,end} lines), different semantic meaning (a cut plane, not a
+   *  measurement). */
+  addSectionLine: (line: SectionLine) => void;
+  removeSectionLine: (id: string) => void;
+  selectSectionLine: (id: string | null) => void;
+  updateSectionLine: (id: string, patch: Partial<Omit<SectionLine, 'id'>>) => void;
+
+  /** CAD-upgrade Gap 6 (2026-08-10): named drawing-sheet export presets — not undo-
+   *  tracked, persisted to their own localStorage key, same pattern as ViewState. */
+  drawingSheets: DrawingSheet[];
+  saveDrawingSheet: (sheet: Omit<DrawingSheet, 'id'>) => DrawingSheet;
+  updateDrawingSheet: (id: string, patch: Partial<Omit<DrawingSheet, 'id'>>) => void;
+  deleteDrawingSheet: (id: string) => void;
+
   addLayer: (layer: Layer) => void;
   updateLayer: (id: string, patch: Partial<Omit<Layer, 'id'>>) => void;
   /** Deletes the layer and reassigns any objects on it back to the default layer —
@@ -329,6 +377,8 @@ function snapshot(s: RoomLayout): RoomLayout {
     dimensions: s.dimensions,
     layers: s.layers,
     leaders: s.leaders,
+    revisionClouds: s.revisionClouds,
+    sectionLines: s.sectionLines,
   };
 }
 
@@ -383,6 +433,8 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const dimensions = patch.dimensions ?? s.dimensions;
       const layers = patch.layers ?? s.layers;
       const leaders = patch.leaders ?? s.leaders;
+      const revisionClouds = patch.revisionClouds ?? s.revisionClouds;
+      const sectionLines = patch.sectionLines ?? s.sectionLines;
       const next = {
         ...historyPatch,
         ...patch,
@@ -402,6 +454,8 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
           dimensions,
           layers,
           leaders,
+          revisionClouds,
+          sectionLines,
         }),
       );
       return next;
@@ -416,12 +470,16 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     zones: [],
     dimensions: [],
     leaders: [],
+    revisionClouds: [],
+    sectionLines: [],
     layers: defaultLayers(),
     selectedObjectId: null,
     selectedWallId: null,
     selectedZoneId: null,
     selectedDimensionId: null,
     selectedLeaderId: null,
+    selectedRevisionCloudId: null,
+    selectedSectionLineId: null,
     multiSelectedObjectIds: [],
     multiSelectedZoneIds: [],
     multiSelectedWallIds: [],
@@ -433,6 +491,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     // Same SSR-safety rule as auditLog below — real data loaded in hydrateFromLocalStorage().
     viewStates: [],
     selectionSets: [],
+    drawingSheets: [],
     // Not readAuditLogFromLocalStorage() here — this initial state feeds SSR too,
     // where window/localStorage don't exist, so reading real data here (vs. an
     // always-[] default) produces a client/server mismatch and a hydration failure
@@ -809,6 +868,47 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     updateLeader: (id, patch) =>
       mutate('Edit leader', (s) => ({ leaders: s.leaders.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
 
+    // CAD-upgrade Gap 6 (2026-08-10): revision clouds/section lines are created and
+    // deleted via their panels (RevisionCloudsPanel.tsx/SectionLinesPanel.tsx), not a
+    // canvas click-to-draw tool — so, unlike every other entity's select* action,
+    // these two don't participate in the big cross-entity mutual-exclusivity dance
+    // above (no 2D canvas selection flow exists for them to conflict with).
+    addRevisionCloud: (cloud) => mutate('Add revision cloud', (s) => ({ revisionClouds: [...s.revisionClouds, cloud] })),
+    removeRevisionCloud: (id) => {
+      mutate('Delete revision cloud', (s) => ({ revisionClouds: s.revisionClouds.filter((c) => c.id !== id) }));
+      set((s) => (s.selectedRevisionCloudId === id ? { selectedRevisionCloudId: null } : {}));
+    },
+    selectRevisionCloud: (id) => set({ selectedRevisionCloudId: id }),
+    updateRevisionCloud: (id, patch) =>
+      mutate('Edit revision cloud', (s) => ({ revisionClouds: s.revisionClouds.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
+
+    addSectionLine: (line) => mutate('Add section line', (s) => ({ sectionLines: [...s.sectionLines, line] })),
+    removeSectionLine: (id) => {
+      mutate('Delete section line', (s) => ({ sectionLines: s.sectionLines.filter((l) => l.id !== id) }));
+      set((s) => (s.selectedSectionLineId === id ? { selectedSectionLineId: null } : {}));
+    },
+    selectSectionLine: (id) => set({ selectedSectionLineId: id }),
+    updateSectionLine: (id, patch) =>
+      mutate('Edit section line', (s) => ({ sectionLines: s.sectionLines.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
+
+    saveDrawingSheet: (sheet) => {
+      const newSheet: DrawingSheet = { id: `sheet-${Date.now()}-${Math.round(Math.random() * 1000)}`, ...sheet };
+      const drawingSheets = [...get().drawingSheets, newSheet];
+      set({ drawingSheets });
+      writeDrawingSheetsToLocalStorage(drawingSheets);
+      return newSheet;
+    },
+    updateDrawingSheet: (id, patch) => {
+      const drawingSheets = get().drawingSheets.map((sh) => (sh.id === id ? { ...sh, ...patch } : sh));
+      set({ drawingSheets });
+      writeDrawingSheetsToLocalStorage(drawingSheets);
+    },
+    deleteDrawingSheet: (id) => {
+      const drawingSheets = get().drawingSheets.filter((sh) => sh.id !== id);
+      set({ drawingSheets });
+      writeDrawingSheetsToLocalStorage(drawingSheets);
+    },
+
     addLayer: (layer) => mutate('Add layer', (s) => ({ layers: [...s.layers, layer] })),
     updateLayer: (id, patch) =>
       mutate('Edit layer', (s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
@@ -966,6 +1066,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         auditLog: readAuditLogFromLocalStorage(),
         viewStates: readViewStatesFromLocalStorage(),
         selectionSets: readSelectionSetsFromLocalStorage(),
+        drawingSheets: readDrawingSheetsFromLocalStorage(),
       });
       try {
         const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);

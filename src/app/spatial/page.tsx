@@ -72,6 +72,8 @@ function SpatialDesignEngineInner() {
   const zones = useRoomLayoutStore((s) => s.zones);
   const dimensions = useRoomLayoutStore((s) => s.dimensions);
   const leaders = useRoomLayoutStore((s) => s.leaders);
+  const revisionClouds = useRoomLayoutStore((s) => s.revisionClouds);
+  const sectionLines = useRoomLayoutStore((s) => s.sectionLines);
   const layers = useRoomLayoutStore((s) => s.layers);
   const hasLoadedInitialData = useRoomLayoutStore((s) => s.hasLoadedInitialData);
   const selectedObjectId = useRoomLayoutStore((s) => s.selectedObjectId);
@@ -136,6 +138,8 @@ function SpatialDesignEngineInner() {
       zones: hasLoadedInitialData ? zones : [],
       dimensions: hasLoadedInitialData ? dimensions : [],
       leaders: hasLoadedInitialData ? leaders : [],
+      revisionClouds: hasLoadedInitialData ? revisionClouds : [],
+      sectionLines: hasLoadedInitialData ? sectionLines : [],
       layers: hasLoadedInitialData ? layers : defaultLayers(),
     });
   }

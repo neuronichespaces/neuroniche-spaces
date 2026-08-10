@@ -13,6 +13,8 @@ const validLayout = {
   dimensions: [{ id: 'd1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3 }],
   layers: [{ id: 'layer-default', name: 'Default', visible: true, locked: false }],
   leaders: [{ id: 'l1', anchor: { x: 1, y: 1 }, labelPoint: { x: 2, y: 0.5 }, text: 'Note' }],
+  revisionClouds: [{ id: 'r1', x: 1, y: 1, widthM: 2, lengthM: 2 }],
+  sectionLines: [{ id: 's1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 } }],
 };
 
 test('accepts a well-formed layout', () => {
@@ -82,5 +84,27 @@ test('defaults missing layers to the seeded default-layer preset set (pre-layers
 
 test('rejects malformed layers array', () => {
   const broken = { ...validLayout, layers: [{ id: 'l1' }] };
+  assert.equal(validateRoomLayout(broken), null);
+});
+
+test('defaults missing revisionClouds to empty array (pre-revisionClouds payloads)', () => {
+  const { revisionClouds, ...withoutClouds } = validLayout;
+  const result = validateRoomLayout(withoutClouds);
+  assert.deepEqual(result?.revisionClouds, []);
+});
+
+test('rejects malformed revisionClouds array', () => {
+  const broken = { ...validLayout, revisionClouds: [{ id: 'r1' }] };
+  assert.equal(validateRoomLayout(broken), null);
+});
+
+test('defaults missing sectionLines to empty array (pre-sectionLines payloads)', () => {
+  const { sectionLines, ...withoutLines } = validLayout;
+  const result = validateRoomLayout(withoutLines);
+  assert.deepEqual(result?.sectionLines, []);
+});
+
+test('rejects malformed sectionLines array', () => {
+  const broken = { ...validLayout, sectionLines: [{ id: 's1' }] };
   assert.equal(validateRoomLayout(broken), null);
 });

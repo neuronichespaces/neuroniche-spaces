@@ -15,12 +15,16 @@ function reset() {
     zones: [],
     dimensions: [],
     leaders: [],
+    revisionClouds: [],
+    sectionLines: [],
     layers: [{ id: 'layer-default', name: 'Default', visible: true, locked: false }],
     selectedObjectId: null,
     selectedWallId: null,
     selectedZoneId: null,
     selectedDimensionId: null,
     selectedLeaderId: null,
+    selectedRevisionCloudId: null,
+    selectedSectionLineId: null,
     multiSelectedObjectIds: [],
     multiSelectedZoneIds: [],
     multiSelectedWallIds: [],
@@ -29,6 +33,7 @@ function reset() {
     blocks: [],
     viewStates: [],
     selectionSets: [],
+    drawingSheets: [],
     auditLog: [],
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
@@ -764,4 +769,57 @@ test('a store mutation is immediately visible identically to every getState() ca
   const wall3D = threeDRead.walls.find((w) => w.id === 'w1')!;
   assert.equal(wall2D.thicknessM, 0.2);
   assert.deepEqual(wall2D, wall3D);
+});
+
+test('addRevisionCloud/removeRevisionCloud/updateRevisionCloud add, edit, and remove a real model entity (CAD Gap 6)', () => {
+  reset();
+  const { addRevisionCloud, updateRevisionCloud, removeRevisionCloud, selectRevisionCloud, undo } = useRoomLayoutStore.getState();
+  addRevisionCloud({ id: 'r1', x: 1, y: 1, widthM: 2, lengthM: 2, note: 'Wall moved' });
+  assert.equal(useRoomLayoutStore.getState().revisionClouds.length, 1);
+
+  updateRevisionCloud('r1', { note: 'Wall moved 0.5m' });
+  assert.equal(useRoomLayoutStore.getState().revisionClouds[0].note, 'Wall moved 0.5m');
+
+  selectRevisionCloud('r1');
+  assert.equal(useRoomLayoutStore.getState().selectedRevisionCloudId, 'r1');
+
+  removeRevisionCloud('r1');
+  assert.equal(useRoomLayoutStore.getState().revisionClouds.length, 0);
+  assert.equal(useRoomLayoutStore.getState().selectedRevisionCloudId, null); // clears selection of the removed entity
+
+  undo(); // add/update/remove are all undo-tracked
+  assert.equal(useRoomLayoutStore.getState().revisionClouds.length, 1);
+});
+
+test('addSectionLine/removeSectionLine/updateSectionLine add, edit, and remove a real model entity (CAD Gap 6)', () => {
+  reset();
+  const { addSectionLine, updateSectionLine, removeSectionLine, selectSectionLine } = useRoomLayoutStore.getState();
+  addSectionLine({ id: 's1', start: { x: 0, y: 3 }, end: { x: 6, y: 3 } });
+  assert.equal(useRoomLayoutStore.getState().sectionLines.length, 1);
+
+  updateSectionLine('s1', { label: 'Section A-A' });
+  assert.equal(useRoomLayoutStore.getState().sectionLines[0].label, 'Section A-A');
+
+  selectSectionLine('s1');
+  assert.equal(useRoomLayoutStore.getState().selectedSectionLineId, 's1');
+
+  removeSectionLine('s1');
+  assert.equal(useRoomLayoutStore.getState().sectionLines.length, 0);
+  assert.equal(useRoomLayoutStore.getState().selectedSectionLineId, null);
+});
+
+test('saveDrawingSheet/updateDrawingSheet/deleteDrawingSheet manage named export presets (CAD Gap 6)', () => {
+  reset();
+  const { saveDrawingSheet, updateDrawingSheet, deleteDrawingSheet } = useRoomLayoutStore.getState();
+  const sheet = saveDrawingSheet({ name: 'Issued for review', drawnBy: 'A. Smith', checkedBy: '', revision: 'A' });
+  assert.equal(useRoomLayoutStore.getState().drawingSheets.length, 1);
+  assert.equal(sheet.name, 'Issued for review');
+
+  updateDrawingSheet(sheet.id, { checkedBy: 'B. Jones', revision: 'B' });
+  const updated = useRoomLayoutStore.getState().drawingSheets.find((s) => s.id === sheet.id)!;
+  assert.equal(updated.checkedBy, 'B. Jones');
+  assert.equal(updated.revision, 'B');
+
+  deleteDrawingSheet(sheet.id);
+  assert.equal(useRoomLayoutStore.getState().drawingSheets.length, 0);
 });
