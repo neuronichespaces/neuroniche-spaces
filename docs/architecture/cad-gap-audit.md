@@ -5,7 +5,7 @@ the 7 structural gaps, using this session's own extensive, current knowledge of 
 codebase (Babylon migration + hardening, spatial store, 2D editor all touched today —
 no stale assumptions here).
 
-**Build/test state at audit time**: `npm run build` clean, 131/131 `node --test` pass,
+**Build/test state at audit time**: `npm run build` clean, 135/135 `node --test` pass,
 lint clean in every spatial/renderer file (13 pre-existing errors remain in unrelated
 pages — costing/audit/training/business-case/organisations/A11yProvider/ErrorBoundary/
 ScenariosPanel, unchanged all session).
@@ -81,8 +81,9 @@ so the "Missing entirely"/"Stale" labels are literal, not decorative.**
 
 ## Gap 3 — Blocks, components, and template library
 
-**Status: core save/insert loop closed (2026-08-09); linked-instance edit-propagation
-closed (2026-08-10); versioning, nesting, and click-to-place still missing.**
+**Status: core save/insert loop, linked-instance edit-propagation, versioning,
+nesting, and click-to-place all closed (2026-08-09/10). Only persistence remains
+scoped out.**
 
 - `templates.ts` (`Calm Corner`, `Movement Zone`, etc.) remains a separate, fixed,
   hard-coded set of starting-room presets applied once at room creation — distinct by
@@ -102,11 +103,20 @@ closed (2026-08-10); versioning, nesting, and click-to-place still missing.**
   siblings. Not a live/reactive binding (editing the block definition directly, if that
   existed, wouldn't auto-push) — a deliberate one-shot sync, matching the scope of what
   was asked; a fully reactive binding is a bigger data-model change than this pass.
-- **Not done**: no versioning, no nesting (a block can't contain another block), no
-  click-to-place — `insertBlock` always lands at the room's centre point, repositioning
-  after insert relies on existing drag. Blocks are in-memory only, not yet persisted to
-  localStorage/Supabase (stated scope cut, matches how the rest of this session's newer
-  entities work before their own persistence pass).
+- **Closed (versioning, nesting, click-to-place, 2026-08-10)**: `BlockDefinition`
+  gained `version` (bumped by `pushInstanceToBlock`; a change counter, not a full
+  revision history — that's a bigger, separate feature) and `nestedBlocks?: Array<{
+  blockId, relX, relY }>` — one block placed inside another at an offset,
+  translation-only (no rotation composition, since blocks carry no whole-block
+  rotation to compose against). `insertBlock` recursively flattens a block's own items
+  plus every nested block's items (cycle-guarded); `nestBlock`/`unnestBlock`
+  (`store.ts`) manage the relationship and refuse self-nesting or creating a cycle.
+  Click-to-place: `pendingBlockPlacement` (transient, not undo-tracked) armed from
+  `BlocksPanel.tsx`'s "Click to place" button; `RoomEditor2D.tsx`'s stage-click handler
+  checks it before any tool branch and calls `insertBlock` at the clicked point.
+- **Not done**: blocks are in-memory only, not yet persisted to localStorage/Supabase
+  (stated scope cut, matches how the rest of this session's newer entities work before
+  their own persistence pass).
 
 ## Gap 4 — Layers, visibility, locking, and view states
 
@@ -216,9 +226,8 @@ fields, a default-layer preset set, and named view-state save/restore (as of
 
 ## Gap 5 — Advanced selection, filtering, outliner, batch editing
 
-**Status: core loop closed for objects (2026-08-09); per-kind multi-select + batch
-layer/delete extended to zones/walls/dimensions (2026-08-10). Saved selection sets and
-Quick-Select-style filtering still missing.**
+**Status: core loop, per-kind batch mutators, true cross-type multi-select, Quick-
+Select-style filtering, and saved selection sets all closed (2026-08-09/10).**
 
 - **Closed (objects only)**: `OutlinerPanel.tsx` — a flat tree of every
   object/zone/wall/dimension, grouped by layer, click-to-select. `multiSelectedObjectIds`
@@ -231,17 +240,27 @@ Quick-Select-style filtering still missing.**
   `multiSelected<Kind>Ids` array per type (`store.ts`) — not a single mixed set, since
   only objects have their own `locked`/`hidden` flags to batch-toggle; zones/walls/
   dimensions get a narrower action set (`batchSet<Kind>Layer`/`batchRemove<Kind>s`
-  only). Mutually exclusive with every other kind's multi-select and with single-
-  selection, same rule the object multi-select already followed.
-  `OutlinerPanel.tsx`'s shift-click now routes to whichever kind the row is; the
+  only). `OutlinerPanel.tsx`'s shift-click routes to whichever kind the row is; the
   batch-action bar renders per active kind (full bar for objects, unchanged; layer+
   delete for the other three). Leaders remain excluded — no batch mutators exist for
   them, same "not every entity type needs this" scoping the rest of this doc uses.
-- **Not done**: true *cross-type* multi-select (select one object + one zone together)
-  still doesn't exist — each kind's array is independent, not merged; that's a bigger
-  data-model change than this pass, per this file's own prior note. Canvas click still
-  does single-select only; the outliner is the only multi-select entry point. No
-  Quick-Select-style filter system, no saved selection sets.
+- **Closed (true cross-type multi-select, 2026-08-10, same day)**: the four
+  `multiSelected<Kind>Ids` arrays were mutually exclusive when first added earlier the
+  same day — shift-clicking a wall cleared any zone selection. That's now removed:
+  shift-click ADDS to its own kind's array without touching the others, so an object +
+  a zone (+ a wall, + a dimension) can be selected together. A normal single-select
+  still clears every array — clicking one thing means "just this one." Only leaders
+  stay outside multi-select (no batch mutators for them).
+- **Closed (Quick-Select-style filtering, 2026-08-10)**: `OutlinerPanel.tsx` gained a
+  text filter narrowing the tree by label, plus "Select all filtered" — adds every
+  currently-filtered, non-leader row into its kind's multi-select array (additive, so
+  refining the filter and clicking again grows rather than resets the selection).
+- **Closed (saved selection sets, 2026-08-10)**: `SelectionSet` (`types.ts`) — one id
+  array per kind, named, persisted to its own localStorage key (not undo-tracked, same
+  reasoning as `blocks`/`viewStates`). `saveSelectionSet`/`restoreSelectionSet`/
+  `deleteSelectionSet` (`store.ts`) + a small list UI in `OutlinerPanel.tsx`.
+- **Not done**: canvas click still does single-select only; the outliner is the only
+  multi-select entry point (a rubber-band drag-select on the 2D canvas doesn't exist).
 
 ## Gap 6 — Annotation, sections, elevations, documentation
 

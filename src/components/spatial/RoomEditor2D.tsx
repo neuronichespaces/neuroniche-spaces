@@ -98,6 +98,9 @@ export default function RoomEditor2D({
   const selectDimension = useRoomLayoutStore((s) => s.selectDimension);
   const addLeader = useRoomLayoutStore((s) => s.addLeader);
   const addComment = useRoomLayoutStore((s) => s.addComment);
+  const pendingBlockPlacement = useRoomLayoutStore((s) => s.pendingBlockPlacement);
+  const insertBlock = useRoomLayoutStore((s) => s.insertBlock);
+  const cancelBlockPlacement = useRoomLayoutStore((s) => s.cancelBlockPlacement);
   const removeLeader = useRoomLayoutStore((s) => s.removeLeader);
   const selectLeader = useRoomLayoutStore((s) => s.selectLeader);
   const moveObject = useRoomLayoutStore((s) => s.moveObject);
@@ -293,6 +296,17 @@ export default function RoomEditor2D({
   }
 
   function handleStageDown() {
+    // CAD-upgrade Gap 3 (click-to-place, 2026-08-10): takes priority over the active
+    // tool — arming placement from BlocksPanel is a modal action, same as how the
+    // comment/leader tools already take over the click regardless of what's selected.
+    if (pendingBlockPlacement) {
+      const p = pointerMetres();
+      if (!p) return;
+      const snapped = clampPointToBounds(snapPointToGrid(p, gridSnapM), floorDims.widthM, floorDims.lengthM);
+      insertBlock(pendingBlockPlacement, snapped.x, snapped.y);
+      cancelBlockPlacement();
+      return;
+    }
     if (tool === 'dimension') {
       const p = pointerMetres();
       if (!p) return;

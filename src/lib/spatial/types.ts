@@ -133,6 +133,19 @@ export type ViewState = {
   layerVisibility: Record<string, boolean>;
 };
 
+// CAD-upgrade Gap 5 (2026-08-10): a named, restorable cross-type multi-selection —
+// same "not layout content, but worth surviving reload" reasoning as ViewState. Stores
+// one id array per kind rather than a mixed list, matching the store's
+// multiSelected<Kind>Ids convention.
+export type SelectionSet = {
+  id: string;
+  name: string;
+  objectIds: string[];
+  zoneIds: string[];
+  wallIds: string[];
+  dimensionIds: string[];
+};
+
 export type FloorDims = { widthM: number; lengthM: number };
 
 // Zone-first planning (milestone brief §4): a rectangular area of the room with a
@@ -201,12 +214,15 @@ export type Leader = {
 // of objects the user builds from their own selection and can insert repeatedly.
 // Items are stored relative to the block's own origin (the centroid of the objects it
 // was captured from) so inserting a block is "add this offset to a target point," not
-// a fragile absolute-coordinate copy. Detached-instance only for this pass — no
-// linked-instance/versioning/nesting concept (see cad-gap-audit.md's Gap 3 for the
-// full scope this doesn't cover yet).
+// a fragile absolute-coordinate copy.
 export type BlockDefinition = {
   id: string;
   name: string;
+  /** CAD-upgrade Gap 3 (versioning, 2026-08-10): bumped whenever pushInstanceToBlock
+   *  (store.ts) syncs an edited instance's fields back in. No history is kept — this
+   *  is "has this changed since insert," not a real revision log; a full version
+   *  history is a bigger, separate feature. Starts at 1. */
+  version: number;
   items: Array<{
     productId: string;
     relX: number;
@@ -215,6 +231,12 @@ export type BlockDefinition = {
     footprintM: { w: number; l: number };
     customProperties: PlacedObjectProps;
   }>;
+  /** CAD-upgrade Gap 3 (nesting, 2026-08-10): other blocks placed inside this one, each
+   *  at an offset from this block's own origin. Translation-only — no rotation
+   *  composition, since blocks don't carry a whole-block rotation to compose against
+   *  (an honest ceiling, not an oversight: see insertBlock's comment in store.ts).
+   *  Absent/empty = no nesting (the common case, unchanged behaviour). */
+  nestedBlocks?: Array<{ blockId: string; relX: number; relY: number }>;
 };
 
 // CAD-upgrade Gap 7 (Collaboration, versioning, review, audit): a review comment/

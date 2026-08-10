@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
 import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment, ViewState } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment, ViewState, SelectionSet } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -39,6 +39,7 @@ const LOCAL_STORAGE_KEY = 'noniche-spatial-room-default';
 // this one IS worth surviving reload (a saved view is a deliberate user artifact, not
 // session-transient like isolate/multi-select), so it gets its own persisted key.
 const VIEW_STATES_KEY = 'noniche-spatial-room-default-view-states';
+const SELECTION_SETS_KEY = 'noniche-spatial-room-default-selection-sets';
 const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
 const MAX_HISTORY = 50;
 const AUTOSAVE_DEBOUNCE_MS = 500;
@@ -100,22 +101,42 @@ function writeViewStatesToLocalStorage(states: ViewState[]) {
   }
 }
 
+function readSelectionSetsFromLocalStorage(): SelectionSet[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(SELECTION_SETS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as SelectionSet[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSelectionSetsToLocalStorage(sets: SelectionSet[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SELECTION_SETS_KEY, JSON.stringify(sets));
+  } catch {
+    // ponytail: same best-effort as writeToLocalStorage — quota/private mode, no user-facing error surface yet.
+  }
+}
+
 type RoomLayoutState = RoomLayout & {
   selectedObjectId: string | null;
   selectedWallId: string | null;
   selectedZoneId: string | null;
   selectedDimensionId: string | null;
   selectedLeaderId: string | null;
-  /** CAD-upgrade Gap 5: multi-select is object-only for this pass (see
-   *  OutlinerPanel.tsx's comment for why) — Shift-click in the outliner toggles
-   *  membership. Transient, like the single-selection ids, not pushed to history. */
+  /** CAD-upgrade Gap 5: Shift-click in the outliner toggles membership. Transient, like
+   *  the single-selection ids, not pushed to history. */
   multiSelectedObjectIds: string[];
-  /** CAD-upgrade Gap 5 (2026-08-10 extension): same shift-click-in-outliner pattern as
-   *  multiSelectedObjectIds, one array per kind rather than a mixed set — zones/walls/
-   *  dimensions have no own locked/hidden fields (unlike PlacedObject), so their batch
-   *  actions are narrower (layer + delete only, no batch lock/hide/isolate). Mutually
-   *  exclusive with every other kind's multi-select AND single-selection, same rule as
-   *  the rest of this store's selection actions. */
+  /** CAD-upgrade Gap 5 (2026-08-10 extension, cross-type closed same day): one array
+   *  per kind rather than a mixed set — zones/walls/dimensions have no own locked/
+   *  hidden fields (unlike PlacedObject), so their batch actions are narrower (layer +
+   *  delete only, no batch lock/hide/isolate). Shift-click ADDS across kinds (an
+   *  object + a zone can be selected together) — only a normal single-select clears
+   *  every array here, not another kind's multi-select toggle. */
   multiSelectedZoneIds: string[];
   multiSelectedWallIds: string[];
   multiSelectedDimensionIds: string[];
@@ -130,6 +151,10 @@ type RoomLayoutState = RoomLayout & {
    *  localStorage/Supabase (in-memory for the session only) — stated scope cut, not an
    *  oversight; see BlocksPanel.tsx. */
   blocks: BlockDefinition[];
+  /** CAD-upgrade Gap 3 (click-to-place, 2026-08-10): the block id awaiting a click on
+   *  the 2D canvas to place it — transient UI state, not undo-tracked, same treatment
+   *  as isolatedObjectIds. null = no placement pending (the common case). */
+  pendingBlockPlacement: string | null;
   /** CAD-upgrade Gap 7: review comments/markups. Same treatment as `blocks` — not
    *  undo-tracked (a review comment isn't "layout content"), not yet persisted beyond
    *  this session. See CommentsPanel.tsx. */
@@ -174,8 +199,18 @@ type RoomLayoutState = RoomLayout & {
   /** CAD-upgrade Gap 3: syncs one linked instance's shared fields (rotation/footprint/
    *  props/product, never position) back to its block definition and out to every
    *  sibling instance. No-ops if the object isn't a linked instance or its block/item
-   *  no longer exists. */
+   *  no longer exists. Also bumps the block's `version`. */
   pushInstanceToBlock: (objectId: string) => void;
+  /** CAD-upgrade Gap 3 (nesting): places childBlockId inside parentBlockId at the given
+   *  offset. No-ops on self-nesting or on creating a cycle — see the implementation's
+   *  comment for the actual cycle check. */
+  nestBlock: (parentBlockId: string, childBlockId: string, relX: number, relY: number) => void;
+  unnestBlock: (parentBlockId: string, childBlockId: string) => void;
+  /** CAD-upgrade Gap 3 (click-to-place): arms/cancels pendingBlockPlacement. The
+   *  actual insert-on-click happens in RoomEditor2D.tsx's stage click handler, which
+   *  calls insertBlock + cancelBlockPlacement itself — this store only tracks intent. */
+  armBlockPlacement: (blockId: string) => void;
+  cancelBlockPlacement: () => void;
 
   /** CAD-upgrade Gap 7: comment/markup CRUD. Not undo-tracked (see `comments`'s comment). */
   addComment: (x: number, y: number, text: string) => void;
@@ -250,6 +285,18 @@ type RoomLayoutState = RoomLayout & {
    *  ViewState so the caller can apply the camera half itself — the store has no
    *  renderer access, see RoomViewer3D's onCameraApiReady prop. */
   restoreViewState: (id: string) => ViewState | undefined;
+
+  /** CAD-upgrade Gap 5 (2026-08-10): named cross-type selection sets — captures the
+   *  current multiSelected<Kind>Ids arrays under a name, persisted to its own
+   *  localStorage key (not undo-tracked, same reasoning as blocks/viewStates). */
+  selectionSets: SelectionSet[];
+  saveSelectionSet: (name: string) => SelectionSet;
+  /** Sets every multiSelected<Kind>Ids array from the saved set (ids that no longer
+   *  exist are just inert — no crash, they simply match nothing) and clears single-
+   *  selection, same "restoring a selection means restoring a selection" behavior as
+   *  a normal multi-select toggle. No-ops on an unknown id. */
+  restoreSelectionSet: (id: string) => void;
+  deleteSelectionSet: (id: string) => void;
 
   loadLayout: (layout: RoomLayout) => void;
   /** Applies a layout without touching the undo/redo history — used for incoming
@@ -381,9 +428,11 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     multiSelectedDimensionIds: [],
     isolatedObjectIds: null,
     blocks: [],
+    pendingBlockPlacement: null,
     comments: [],
     // Same SSR-safety rule as auditLog below — real data loaded in hydrateFromLocalStorage().
     viewStates: [],
+    selectionSets: [],
     // Not readAuditLogFromLocalStorage() here — this initial state feeds SSR too,
     // where window/localStorage don't exist, so reading real data here (vs. an
     // always-[] default) produces a client/server mismatch and a hydration failure
@@ -434,6 +483,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const block: BlockDefinition = {
         id: `block-${Date.now()}-${Math.round(Math.random() * 1000)}`,
         name,
+        version: 1,
         items: objects.map((o) => ({
           productId: o.productId,
           relX: o.x - centroidX,
@@ -446,25 +496,77 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       set((s) => ({ blocks: [...s.blocks, block] }));
     },
     insertBlock: (blockId, x, y) => {
-      const block = get().blocks.find((b) => b.id === blockId);
+      const allBlocks = get().blocks;
+      // CAD-upgrade Gap 3 (nesting): recursively flattens a block's own items plus
+      // every nestedBlocks entry (translation-only — see BlockDefinition.nestedBlocks's
+      // comment for why no rotation composition) into real placed objects. `visited`
+      // guards against a nesting cycle (a block that, directly or transitively,
+      // contains itself) — a malformed cycle silently stops expanding rather than
+      // recursing forever; this shouldn't happen since nestBlock() below refuses to
+      // create one, but a corrupt import/localStorage payload could still produce one.
+      function expand(block: BlockDefinition, originX: number, originY: number, visited: Set<string>): PlacedObject[] {
+        if (visited.has(block.id)) return [];
+        visited = new Set(visited).add(block.id);
+        const ownItems: PlacedObject[] = block.items.map((item, i) => ({
+          id: `obj-${Date.now()}-${block.id}-${i}-${Math.round(Math.random() * 1000)}`,
+          productId: item.productId,
+          x: originX + item.relX,
+          y: originY + item.relY,
+          rotationDeg: item.rotationDeg,
+          footprintM: item.footprintM,
+          customProperties: item.customProperties,
+          // blockId/blockItemIndex (CAD Gap 3): tags this instance as linked, so
+          // pushInstanceToBlock can find it and its siblings later — even for a nested
+          // block's own items, which stay linked to THEIR block, not the parent.
+          blockId: block.id,
+          blockItemIndex: i,
+        }));
+        const nestedItems = (block.nestedBlocks ?? []).flatMap((n) => {
+          const child = allBlocks.find((b) => b.id === n.blockId);
+          return child ? expand(child, originX + n.relX, originY + n.relY, visited) : [];
+        });
+        return [...ownItems, ...nestedItems];
+      }
+      const block = allBlocks.find((b) => b.id === blockId);
       if (!block) return;
-      // blockId/blockItemIndex (CAD Gap 3): tags this instance as linked, so
-      // pushInstanceToBlock can find it and its siblings later. Every other field is a
-      // normal, independently-editable copy — only linked-ness is tracked, not a live binding.
-      const newObjects: PlacedObject[] = block.items.map((item, i) => ({
-        id: `obj-${Date.now()}-${i}-${Math.round(Math.random() * 1000)}`,
-        productId: item.productId,
-        x: x + item.relX,
-        y: y + item.relY,
-        rotationDeg: item.rotationDeg,
-        footprintM: item.footprintM,
-        customProperties: item.customProperties,
-        blockId: block.id,
-        blockItemIndex: i,
-      }));
+      const newObjects = expand(block, x, y, new Set());
       mutate('Insert block', (s) => ({ placedObjects: [...s.placedObjects, ...newObjects] }));
     },
-    removeBlock: (blockId) => set((s) => ({ blocks: s.blocks.filter((b) => b.id !== blockId) })),
+    removeBlock: (blockId) =>
+      set((s) => ({
+        blocks: s.blocks
+          .filter((b) => b.id !== blockId)
+          // Never leave a nestedBlocks entry pointing at a deleted block — same
+          // "don't silently orphan a reference" rule as removeLayer/removeWall.
+          .map((b) => (b.nestedBlocks?.some((n) => n.blockId === blockId) ? { ...b, nestedBlocks: b.nestedBlocks.filter((n) => n.blockId !== blockId) } : b)),
+      })),
+    // CAD-upgrade Gap 3 (nesting): refuses (no-ops) if childBlockId is parentBlockId,
+    // or if childBlockId already (directly or transitively) contains parentBlockId —
+    // that second check is what actually prevents a cycle, not just the trivial
+    // self-nest case.
+    nestBlock: (parentBlockId, childBlockId, relX, relY) => {
+      const blocks = get().blocks;
+      if (parentBlockId === childBlockId) return;
+      function contains(blockId: string, targetId: string, visited: Set<string>): boolean {
+        if (visited.has(blockId)) return false;
+        visited = new Set(visited).add(blockId);
+        const block = blocks.find((b) => b.id === blockId);
+        if (!block) return false;
+        return (block.nestedBlocks ?? []).some((n) => n.blockId === targetId || contains(n.blockId, targetId, visited));
+      }
+      if (contains(childBlockId, parentBlockId, new Set())) return;
+      set((s) => ({
+        blocks: s.blocks.map((b) =>
+          b.id === parentBlockId ? { ...b, nestedBlocks: [...(b.nestedBlocks ?? []), { blockId: childBlockId, relX, relY }] } : b,
+        ),
+      }));
+    },
+    unnestBlock: (parentBlockId, childBlockId) =>
+      set((s) => ({
+        blocks: s.blocks.map((b) =>
+          b.id === parentBlockId ? { ...b, nestedBlocks: (b.nestedBlocks ?? []).filter((n) => n.blockId !== childBlockId) } : b,
+        ),
+      })),
     // CAD-upgrade Gap 3: "edit propagates" — takes the given instance's current
     // rotation/footprint/props/product (never its x/y, each instance keeps its own
     // placement) and writes them into the block definition's item AND every other
@@ -480,7 +582,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       const shared = { productId: source.productId, rotationDeg: source.rotationDeg, footprintM: source.footprintM, customProperties: source.customProperties };
       set((s) => ({
         blocks: s.blocks.map((b) =>
-          b.id === blockId ? { ...b, items: b.items.map((item, i) => (i === blockItemIndex ? { ...item, ...shared } : item)) } : b,
+          b.id === blockId
+            ? { ...b, version: b.version + 1, items: b.items.map((item, i) => (i === blockItemIndex ? { ...item, ...shared } : item)) }
+            : b,
         ),
       }));
       mutate('Push instance changes to block', (s) => ({
@@ -489,6 +593,8 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         ),
       }));
     },
+    armBlockPlacement: (blockId) => set({ pendingBlockPlacement: blockId }),
+    cancelBlockPlacement: () => set({ pendingBlockPlacement: null }),
 
     addComment: (x, y, text) =>
       set((s) => ({
@@ -542,14 +648,16 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         multiSelectedWallIds: id ? [] : get().multiSelectedWallIds,
         multiSelectedDimensionIds: id ? [] : get().multiSelectedDimensionIds,
       }),
+    // CAD-upgrade Gap 5 (2026-08-10, cross-type multi-select): shift-click on any kind
+    // ADDS to that kind's array without touching the others, so an object + a zone can
+    // be selected together — previously each kind cleared its siblings, which was the
+    // explicitly-scoped-out limitation this closes. Single-select (selectObject etc.)
+    // still clears every multi-select array — clicking one thing means "just this one."
     toggleObjectMultiSelect: (id) =>
       set((s) => ({
         multiSelectedObjectIds: s.multiSelectedObjectIds.includes(id)
           ? s.multiSelectedObjectIds.filter((i) => i !== id)
           : [...s.multiSelectedObjectIds, id],
-        multiSelectedZoneIds: [],
-        multiSelectedWallIds: [],
-        multiSelectedDimensionIds: [],
         selectedObjectId: null,
         selectedWallId: null,
         selectedZoneId: null,
@@ -562,9 +670,6 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         multiSelectedZoneIds: s.multiSelectedZoneIds.includes(id)
           ? s.multiSelectedZoneIds.filter((i) => i !== id)
           : [...s.multiSelectedZoneIds, id],
-        multiSelectedObjectIds: [],
-        multiSelectedWallIds: [],
-        multiSelectedDimensionIds: [],
         selectedObjectId: null,
         selectedWallId: null,
         selectedZoneId: null,
@@ -583,9 +688,6 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         multiSelectedWallIds: s.multiSelectedWallIds.includes(id)
           ? s.multiSelectedWallIds.filter((i) => i !== id)
           : [...s.multiSelectedWallIds, id],
-        multiSelectedObjectIds: [],
-        multiSelectedZoneIds: [],
-        multiSelectedDimensionIds: [],
         selectedObjectId: null,
         selectedWallId: null,
         selectedZoneId: null,
@@ -608,9 +710,6 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         multiSelectedDimensionIds: s.multiSelectedDimensionIds.includes(id)
           ? s.multiSelectedDimensionIds.filter((i) => i !== id)
           : [...s.multiSelectedDimensionIds, id],
-        multiSelectedObjectIds: [],
-        multiSelectedZoneIds: [],
-        multiSelectedWallIds: [],
         selectedObjectId: null,
         selectedWallId: null,
         selectedZoneId: null,
@@ -747,6 +846,41 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       return state;
     },
 
+    saveSelectionSet: (name) => {
+      const s = get();
+      const newSet: SelectionSet = {
+        id: `selset-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+        name,
+        objectIds: s.multiSelectedObjectIds,
+        zoneIds: s.multiSelectedZoneIds,
+        wallIds: s.multiSelectedWallIds,
+        dimensionIds: s.multiSelectedDimensionIds,
+      };
+      const selectionSets = [...s.selectionSets, newSet];
+      set({ selectionSets });
+      writeSelectionSetsToLocalStorage(selectionSets);
+      return newSet;
+    },
+    restoreSelectionSet: (id) => {
+      const found = get().selectionSets.find((v) => v.id === id);
+      if (!found) return;
+      set({
+        multiSelectedObjectIds: found.objectIds,
+        multiSelectedZoneIds: found.zoneIds,
+        multiSelectedWallIds: found.wallIds,
+        multiSelectedDimensionIds: found.dimensionIds,
+        selectedObjectId: null,
+        selectedWallId: null,
+        selectedZoneId: null,
+        selectedDimensionId: null,
+      });
+    },
+    deleteSelectionSet: (id) => {
+      const selectionSets = get().selectionSets.filter((v) => v.id !== id);
+      set({ selectionSets });
+      writeSelectionSetsToLocalStorage(selectionSets);
+    },
+
     loadLayout: (layout) => {
       const valid = validateRoomLayout(layout);
       if (!valid) return; // ponytail: silent reject, add a user-facing import error surface if this becomes a real import feature
@@ -828,7 +962,11 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
 
     hydrateFromLocalStorage: () => {
       if (typeof window === 'undefined') return;
-      set({ auditLog: readAuditLogFromLocalStorage(), viewStates: readViewStatesFromLocalStorage() });
+      set({
+        auditLog: readAuditLogFromLocalStorage(),
+        viewStates: readViewStatesFromLocalStorage(),
+        selectionSets: readSelectionSetsFromLocalStorage(),
+      });
       try {
         const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
         if (!raw) return;

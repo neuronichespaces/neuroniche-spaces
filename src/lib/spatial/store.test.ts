@@ -28,6 +28,7 @@ function reset() {
     isolatedObjectIds: null,
     blocks: [],
     viewStates: [],
+    selectionSets: [],
     auditLog: [],
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
@@ -193,22 +194,57 @@ test('every mutate() call appends a persisted audit log entry, unaffected by und
   assert.equal(useRoomLayoutStore.getState().auditLog.length, 2);
 });
 
-test('zone/wall/dimension multi-select is mutually exclusive with each other and with single-selection (CAD Gap 5)', () => {
+test('cross-type multi-select accumulates across kinds, but single-select clears all of it (CAD Gap 5, 2026-08-10)', () => {
   reset();
-  const { addZone, toggleZoneMultiSelect, toggleWallMultiSelect, selectObject } = useRoomLayoutStore.getState();
+  const { addZone, toggleZoneMultiSelect, toggleWallMultiSelect, toggleObjectMultiSelect, selectObject } = useRoomLayoutStore.getState();
   addZone({ id: 'z1', kind: 'focus', x: 0, y: 0, widthM: 1, lengthM: 1, rotationDeg: 0 });
 
   toggleZoneMultiSelect('z1');
   assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, ['z1']);
 
-  // Starting a wall multi-select clears the zone one — only one kind active at a time.
+  // Starting a wall multi-select no longer clears the zone one — an object + a zone
+  // (+ a wall here) can be selected together, closing the "true cross-type" gap.
   toggleWallMultiSelect('w1');
-  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, []);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, ['z1']);
   assert.deepEqual(useRoomLayoutStore.getState().multiSelectedWallIds, ['w1']);
 
-  // A normal single-select clears whichever multi-select was active.
-  selectObject('o1');
+  toggleObjectMultiSelect('o1');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedObjectIds, ['o1']);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, ['z1']);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedWallIds, ['w1']);
+
+  // A normal single-select still clears every multi-select array at once.
+  selectObject('o2');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedObjectIds, []);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, []);
   assert.deepEqual(useRoomLayoutStore.getState().multiSelectedWallIds, []);
+});
+
+test('saveSelectionSet/restoreSelectionSet/deleteSelectionSet manage cross-type named selections (CAD Gap 5)', () => {
+  reset();
+  const { addZone, toggleZoneMultiSelect, toggleObjectMultiSelect, saveSelectionSet, restoreSelectionSet, deleteSelectionSet } =
+    useRoomLayoutStore.getState();
+  addZone({ id: 'z1', kind: 'focus', x: 0, y: 0, widthM: 1, lengthM: 1, rotationDeg: 0 });
+  toggleZoneMultiSelect('z1');
+  toggleObjectMultiSelect('o1');
+
+  const saved = saveSelectionSet('Reading nook');
+  assert.equal(saved.name, 'Reading nook');
+  assert.deepEqual(saved.zoneIds, ['z1']);
+  assert.deepEqual(saved.objectIds, ['o1']);
+  assert.equal(useRoomLayoutStore.getState().selectionSets.length, 1);
+
+  toggleZoneMultiSelect('z1'); // deselect everything
+  toggleObjectMultiSelect('o1');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, []);
+
+  restoreSelectionSet(saved.id);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, ['z1']);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedObjectIds, ['o1']);
+
+  restoreSelectionSet('does-not-exist'); // no-op, must not throw
+  deleteSelectionSet(saved.id);
+  assert.equal(useRoomLayoutStore.getState().selectionSets.length, 0);
 });
 
 test('batchSetZoneLayer/batchRemoveZones apply to exactly the given ids and clear the selection (CAD Gap 5)', () => {
@@ -299,6 +335,62 @@ test('removeBlock deletes from the library without touching placed objects (CAD 
   removeBlock(blockId);
   assert.equal(useRoomLayoutStore.getState().blocks.length, 0);
   assert.equal(useRoomLayoutStore.getState().placedObjects.length, 1);
+});
+
+test('saveSelectionAsBlock starts version at 1; pushInstanceToBlock bumps it (CAD Gap 3, versioning)', () => {
+  reset();
+  const { addObject, saveSelectionAsBlock, insertBlock, pushInstanceToBlock } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  saveSelectionAsBlock('Solo', ['o1']);
+  const blockId = useRoomLayoutStore.getState().blocks[0].id;
+  assert.equal(useRoomLayoutStore.getState().blocks[0].version, 1);
+
+  insertBlock(blockId, 5, 5);
+  const inserted = useRoomLayoutStore.getState().placedObjects.find((o) => o.blockId === blockId)!;
+  useRoomLayoutStore.getState().rotateObject(inserted.id, 90);
+  pushInstanceToBlock(inserted.id);
+  assert.equal(useRoomLayoutStore.getState().blocks.find((b) => b.id === blockId)?.version, 2);
+});
+
+test('nestBlock places a child block\'s items inside the parent on insert, refuses self-nest and cycles (CAD Gap 3, nesting)', () => {
+  reset();
+  const { addObject, saveSelectionAsBlock, nestBlock, insertBlock } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'chair', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  saveSelectionAsBlock('Chair', ['o1']);
+  const chairBlockId = useRoomLayoutStore.getState().blocks[0].id;
+
+  addObject({ id: 'o2', productId: 'table', x: 10, y: 10, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  saveSelectionAsBlock('Table', ['o2']);
+  const tableBlockId = useRoomLayoutStore.getState().blocks.find((b) => b.id !== chairBlockId)!.id;
+
+  nestBlock(chairBlockId, chairBlockId, 0, 0); // self-nest — must no-op
+  assert.equal(useRoomLayoutStore.getState().blocks.find((b) => b.id === chairBlockId)?.nestedBlocks?.length ?? 0, 0);
+
+  nestBlock(chairBlockId, tableBlockId, 1, 1); // Chair now contains Table at (1,1)
+  assert.deepEqual(useRoomLayoutStore.getState().blocks.find((b) => b.id === chairBlockId)?.nestedBlocks, [
+    { blockId: tableBlockId, relX: 1, relY: 1 },
+  ]);
+
+  nestBlock(tableBlockId, chairBlockId, 0, 0); // would create a cycle — must no-op
+  assert.equal(useRoomLayoutStore.getState().blocks.find((b) => b.id === tableBlockId)?.nestedBlocks?.length ?? 0, 0);
+
+  insertBlock(chairBlockId, 20, 20);
+  const placed = useRoomLayoutStore.getState().placedObjects.filter((o) => o.id !== 'o1' && o.id !== 'o2');
+  assert.equal(placed.length, 2); // chair's own item + the nested table's item
+  const chair = placed.find((o) => o.productId === 'chair')!;
+  const table = placed.find((o) => o.productId === 'table')!;
+  assert.equal(chair.x, 20);
+  assert.equal(table.x, 21); // 20 + nested offset (1,1)
+  assert.equal(table.blockId, tableBlockId); // stays linked to ITS OWN block, not the parent
+});
+
+test('armBlockPlacement/cancelBlockPlacement track click-to-place intent (CAD Gap 3)', () => {
+  reset();
+  const { armBlockPlacement, cancelBlockPlacement } = useRoomLayoutStore.getState();
+  armBlockPlacement('block-123');
+  assert.equal(useRoomLayoutStore.getState().pendingBlockPlacement, 'block-123');
+  cancelBlockPlacement();
+  assert.equal(useRoomLayoutStore.getState().pendingBlockPlacement, null);
 });
 
 test('insertBlock tags new instances with blockId/blockItemIndex (CAD Gap 3, linked instances)', () => {

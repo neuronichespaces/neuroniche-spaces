@@ -1,12 +1,14 @@
 // CAD-upgrade Gap 5 (Advanced selection, filtering, outliner, batch editing).
 // A single tree view of every object/zone/wall/dimension, grouped by layer, with
-// click-to-select. Shift-click toggles multi-select, which shows a batch-action bar.
-// Objects get the full bar (delete/lock/hide/isolate/reassign layer/save-as-block);
-// zones/walls/dimensions get layer+delete only, since they have no own locked/hidden
-// fields to batch-toggle (see store.ts's multiSelectedZoneIds comment). Leaders are
-// deliberately excluded from multi-select — no batch mutators exist for them, same
-// "not every entity type needs this" reasoning as the rest of this codebase's scoped
-// cuts. Self-contained, no props — same pattern as LayersPanel/CommandHistoryPanel.
+// click-to-select. Shift-click ADDS to that kind's multi-select array without
+// clearing the other kinds' (2026-08-10: true cross-type multi-select — an object and
+// a zone can be selected together, see store.ts's toggleObjectMultiSelect comment).
+// Objects get the full batch bar (delete/lock/hide/isolate/reassign layer/save-as-
+// block); zones/walls/dimensions get layer+delete only (no own locked/hidden fields).
+// A text filter narrows the tree and can select every currently-filtered row in one
+// click (Quick-Select-style). The whole cross-type selection can be saved/restored by
+// name (selectionSets, store.ts). Leaders are excluded from multi-select — no batch
+// mutators exist for them. Self-contained, no props — same pattern as LayersPanel.
 'use client';
 
 import { useState } from 'react';
@@ -62,26 +64,38 @@ export function OutlinerPanel() {
   const clearDimensionMultiSelect = useRoomLayoutStore((s) => s.clearDimensionMultiSelect);
   const batchSetDimensionLayer = useRoomLayoutStore((s) => s.batchSetDimensionLayer);
   const batchRemoveDimensions = useRoomLayoutStore((s) => s.batchRemoveDimensions);
+  const selectionSets = useRoomLayoutStore((s) => s.selectionSets);
+  const saveSelectionSet = useRoomLayoutStore((s) => s.saveSelectionSet);
+  const restoreSelectionSet = useRoomLayoutStore((s) => s.restoreSelectionSet);
+  const deleteSelectionSet = useRoomLayoutStore((s) => s.deleteSelectionSet);
   const [batchLayerId, setBatchLayerId] = useState('');
+  const [filter, setFilter] = useState('');
 
-  // Only one kind's multi-select array is ever non-empty at a time (mutual exclusivity
-  // enforced in store.ts), so this is a lookup, not a merge of independent selections.
+  const multiSelectedIdsFor: Record<MultiSelectKind, string[]> = {
+    object: multiSelectedObjectIds,
+    zone: multiSelectedZoneIds,
+    wall: multiSelectedWallIds,
+    dimension: multiSelectedDimensionIds,
+  };
   const toggleMultiSelectFor: Record<MultiSelectKind, (id: string) => void> = {
     object: toggleObjectMultiSelect,
     zone: toggleZoneMultiSelect,
     wall: toggleWallMultiSelect,
     dimension: toggleDimensionMultiSelect,
   };
-  const activeMultiSelect =
-    multiSelectedObjectIds.length > 0
-      ? { kind: 'object' as const, ids: multiSelectedObjectIds }
-      : multiSelectedZoneIds.length > 0
-        ? { kind: 'zone' as const, ids: multiSelectedZoneIds }
-        : multiSelectedWallIds.length > 0
-          ? { kind: 'wall' as const, ids: multiSelectedWallIds }
-          : multiSelectedDimensionIds.length > 0
-            ? { kind: 'dimension' as const, ids: multiSelectedDimensionIds }
-            : null;
+  // Cross-type (2026-08-10): every kind's array can be non-empty at once now, so the
+  // batch bar operates on whichever kinds actually have a selection, not just one.
+  const nonObjectSelected: { kind: 'zone' | 'wall' | 'dimension'; ids: string[] }[] = (
+    [
+      ['zone', multiSelectedZoneIds],
+      ['wall', multiSelectedWallIds],
+      ['dimension', multiSelectedDimensionIds],
+    ] as const
+  )
+    .filter(([, ids]) => ids.length > 0)
+    .map(([kind, ids]) => ({ kind, ids }));
+  const totalMultiSelected =
+    multiSelectedObjectIds.length + multiSelectedZoneIds.length + multiSelectedWallIds.length + multiSelectedDimensionIds.length;
 
   const rows: Row[] = [
     ...placedObjects.map((o): Row => ({ id: o.id, label: o.productId, kind: 'object', layerId: o.layerId })),
@@ -114,6 +128,18 @@ export function OutlinerPanel() {
     selectFor[row.kind](row.id);
   }
 
+  const filteredRows = filter.trim() ? rows.filter((r) => r.label.toLowerCase().includes(filter.trim().toLowerCase())) : rows;
+
+  // Quick-Select-style filtering (CAD Gap 5, 2026-08-10): adds every filtered row not
+  // already selected into its kind's multi-select array — additive, so refining the
+  // filter and clicking again grows the selection rather than resetting it.
+  function selectAllFiltered() {
+    for (const row of filteredRows) {
+      if (row.kind === 'leader') continue;
+      if (!multiSelectedIdsFor[row.kind].includes(row.id)) toggleMultiSelectFor[row.kind](row.id);
+    }
+  }
+
   if (rows.length === 0) {
     return (
       <div className="rounded border border-slate-200 bg-white p-2">
@@ -130,9 +156,69 @@ export function OutlinerPanel() {
         {rows.length > 0 && <span className="text-xs text-slate-400">Shift-click to multi-select</span>}
       </div>
 
+      <div className="flex items-center gap-1">
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by name…"
+          className="min-h-11 flex-1 rounded border border-gray-300 px-2 text-sm"
+          aria-label="Filter outliner rows"
+        />
+        {filter.trim() && (
+          <button
+            type="button"
+            onClick={selectAllFiltered}
+            disabled={filteredRows.every((r) => r.kind === 'leader')}
+            className="min-h-11 rounded border border-slate-300 px-2 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Select all filtered
+          </button>
+        )}
+      </div>
+
+      {totalMultiSelected > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded bg-slate-50 p-1.5 text-xs text-slate-500">
+          <span>{totalMultiSelected} total selected across kinds</span>
+          <button
+            type="button"
+            onClick={() => {
+              const name = window.prompt('Selection set name?');
+              if (name && name.trim()) saveSelectionSet(name.trim());
+            }}
+            className="min-h-11 rounded border border-slate-300 px-2 hover:bg-slate-100"
+          >
+            Save selection set
+          </button>
+        </div>
+      )}
+
+      {selectionSets.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {selectionSets.map((set) => (
+            <li key={set.id} className="flex items-center gap-2 rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">
+              <span className="flex-1 truncate">{set.name}</span>
+              <button
+                type="button"
+                onClick={() => restoreSelectionSet(set.id)}
+                className="min-h-11 rounded px-2 text-blue-700 hover:bg-blue-50"
+              >
+                Restore
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteSelectionSet(set.id)}
+                className="min-h-11 rounded px-2 text-red-700 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {multiSelectedObjectIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded bg-blue-50 p-2 text-sm">
-          <span className="text-blue-700">{multiSelectedObjectIds.length} selected</span>
+          <span className="text-blue-700">{multiSelectedObjectIds.length} object{multiSelectedObjectIds.length === 1 ? '' : 's'} selected</span>
           <button
             type="button"
             onClick={() => {
@@ -196,56 +282,44 @@ export function OutlinerPanel() {
         </div>
       )}
 
-      {activeMultiSelect && activeMultiSelect.kind !== 'object' && (
-        <div className="flex flex-wrap items-center gap-2 rounded bg-blue-50 p-2 text-sm">
-          <span className="text-blue-700 capitalize">
-            {activeMultiSelect.ids.length} {activeMultiSelect.kind}
-            {activeMultiSelect.ids.length === 1 ? '' : 's'} selected
-          </span>
-          <select
-            value={batchLayerId}
-            onChange={(e) => {
-              setBatchLayerId(e.target.value);
-              if (!e.target.value) return;
-              const { kind, ids } = activeMultiSelect;
-              if (kind === 'zone') batchSetZoneLayer(ids, e.target.value);
-              else if (kind === 'wall') batchSetWallLayer(ids, e.target.value);
-              else batchSetDimensionLayer(ids, e.target.value);
-            }}
-            className="min-h-11 rounded border border-blue-300 px-2 text-blue-700"
-          >
-            <option value="">Move to layer…</option>
-            {layers.map((layer) => (
-              <option key={layer.id} value={layer.id}>
-                {layer.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => {
-              const { kind, ids } = activeMultiSelect;
-              if (kind === 'zone') batchRemoveZones(ids);
-              else if (kind === 'wall') batchRemoveWalls(ids);
-              else batchRemoveDimensions(ids);
-            }}
-            className="min-h-11 rounded border border-red-300 px-2 text-red-700 hover:bg-red-50"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (activeMultiSelect.kind === 'zone') clearZoneMultiSelect();
-              else if (activeMultiSelect.kind === 'wall') clearWallMultiSelect();
-              else clearDimensionMultiSelect();
-            }}
-            className="min-h-11 rounded px-2 text-slate-500 hover:bg-slate-100"
-          >
-            Clear
-          </button>
-        </div>
-      )}
+      {nonObjectSelected.map(({ kind, ids }) => {
+        const batchSetLayer = kind === 'zone' ? batchSetZoneLayer : kind === 'wall' ? batchSetWallLayer : batchSetDimensionLayer;
+        const batchRemove = kind === 'zone' ? batchRemoveZones : kind === 'wall' ? batchRemoveWalls : batchRemoveDimensions;
+        const clear = kind === 'zone' ? clearZoneMultiSelect : kind === 'wall' ? clearWallMultiSelect : clearDimensionMultiSelect;
+        return (
+          <div key={kind} className="flex flex-wrap items-center gap-2 rounded bg-blue-50 p-2 text-sm">
+            <span className="text-blue-700 capitalize">
+              {ids.length} {kind}
+              {ids.length === 1 ? '' : 's'} selected
+            </span>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) batchSetLayer(ids, e.target.value);
+                e.target.value = '';
+              }}
+              className="min-h-11 rounded border border-blue-300 px-2 text-blue-700"
+            >
+              <option value="">Move to layer…</option>
+              {layers.map((layer) => (
+                <option key={layer.id} value={layer.id}>
+                  {layer.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => batchRemove(ids)}
+              className="min-h-11 rounded border border-red-300 px-2 text-red-700 hover:bg-red-50"
+            >
+              Delete
+            </button>
+            <button type="button" onClick={clear} className="min-h-11 rounded px-2 text-slate-500 hover:bg-slate-100">
+              Clear
+            </button>
+          </div>
+        );
+      })}
 
       {isolatedObjectIds !== null && (
         <div className="flex items-center justify-between rounded bg-amber-50 p-2 text-sm text-amber-700">
@@ -256,17 +330,18 @@ export function OutlinerPanel() {
         </div>
       )}
 
+      {filter.trim() && filteredRows.length === 0 && <p className="text-sm text-slate-400">No rows match "{filter}".</p>}
+
       <ul className="flex flex-col gap-2">
         {layers.map((layer) => {
-          const layerRows = rows.filter((r) => (r.layerId ?? DEFAULT_LAYER_ID) === layer.id);
+          const layerRows = filteredRows.filter((r) => (r.layerId ?? DEFAULT_LAYER_ID) === layer.id);
           if (layerRows.length === 0) return null;
           return (
             <li key={layer.id}>
               <div className="text-xs font-medium text-slate-400">{layer.name}</div>
               <ul className="mt-1 flex flex-col gap-1">
                 {layerRows.map((row) => {
-                  const selected =
-                    selectedIdFor[row.kind] === row.id || (row.kind !== 'leader' && activeMultiSelect?.kind === row.kind && activeMultiSelect.ids.includes(row.id));
+                  const selected = selectedIdFor[row.kind] === row.id || (row.kind !== 'leader' && multiSelectedIdsFor[row.kind].includes(row.id));
                   return (
                     <li key={`${row.kind}-${row.id}`}>
                       <button
