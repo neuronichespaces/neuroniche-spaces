@@ -6,10 +6,10 @@
 
 import { useState } from 'react';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
-import { DEFAULT_LAYER_ID } from '@/lib/spatial/layers.ts';
+import { DEFAULT_LAYER_ID, sortedByOrder } from '@/lib/spatial/layers.ts';
 
 export function LayersPanel() {
-  const layers = useRoomLayoutStore((s) => s.layers);
+  const layers = sortedByOrder(useRoomLayoutStore((s) => s.layers));
   const addLayer = useRoomLayoutStore((s) => s.addLayer);
   const updateLayer = useRoomLayoutStore((s) => s.updateLayer);
   const removeLayer = useRoomLayoutStore((s) => s.removeLayer);
@@ -89,6 +89,16 @@ export function LayersPanel() {
               />
               🖨
             </label>
+            <input
+              type="number"
+              step={1}
+              value={layer.order ?? ''}
+              onChange={(e) => updateLayer(layer.id, { order: e.target.value ? Number(e.target.value) : undefined })}
+              placeholder="#"
+              className="min-h-11 w-12 rounded border border-slate-300 px-1 text-xs"
+              title="List order (lower first, blank = last)"
+              aria-label={`${layer.name} order`}
+            />
             {layer.id !== DEFAULT_LAYER_ID && (
               <button
                 type="button"

@@ -76,6 +76,14 @@ export type PlacedObject = {
    *  effective layer, this field just distinguishes "never explicitly assigned" from
    *  "explicitly assigned to the default layer" for import/export fidelity. */
   layerId?: string;
+  /** CAD-upgrade Gap 3 (linked block instances): set only on objects created by
+   *  insertBlock — which BlockDefinition and which item index within it this instance
+   *  came from. Absent = a normal, never-linked object (the common case, unchanged
+   *  behaviour). Position (x/y) is always this instance's own — only pushInstanceToBlock
+   *  (store.ts) syncs the *shared* fields (rotation/footprint/props/product) back to the
+   *  block and out to every sibling instance; each instance keeps its own placement. */
+  blockId?: string;
+  blockItemIndex?: number;
 };
 
 // CAD-upgrade Gap 4 (Layers, visibility, locking, view states): a real layer entity,
@@ -99,6 +107,30 @@ export type Layer = {
   /** Whether this layer's entities appear in the printed/PDF export. Absent = true
    *  (matches existing PrintableExport behaviour, which ignores layers entirely). */
   printable?: boolean;
+  /** Draw/list order — lower sorts first. Absent = sorts last, so existing layers with
+   *  no explicit order keep appearing after ordered ones rather than jumping to the
+   *  top. No renderer in this codebase has a z-index/draw-order compositing concept to
+   *  hook into yet (cad-gap-audit.md's Gap 4), so this only drives list order
+   *  (LayersPanel) for now — an honest partial implementation, not a fabricated
+   *  render effect. */
+  order?: number;
+};
+
+// CAD-upgrade Gap 4: a named, restorable snapshot of "what you were looking at" — 3D
+// camera position (ArcRotateCamera's alpha/beta/radius/target, see
+// BabylonSceneController.ts's createOrbitCamera) plus which layers were visible.
+// Deliberately NOT part of RoomLayout's undo-tracked snapshot, same reasoning as
+// `blocks`/`comments` in store.ts: switching your view isn't editing the room.
+export type ViewState = {
+  id: string;
+  name: string;
+  cameraAlpha: number;
+  cameraBeta: number;
+  cameraRadius: number;
+  cameraTarget: Point & { z: number };
+  /** layerId -> visible, captured at save time. Restoring only touches `visible` on
+   *  layers that still exist — a deleted layer's saved entry is silently skipped. */
+  layerVisibility: Record<string, boolean>;
 };
 
 export type FloorDims = { widthM: number; lengthM: number };

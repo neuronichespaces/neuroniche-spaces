@@ -21,6 +21,8 @@ import { DimensionPropertiesPanel } from '@/components/spatial/DimensionProperti
 import { LeaderPropertiesPanel } from '@/components/spatial/LeaderPropertiesPanel.tsx';
 import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
 import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
+import { ViewStatesPanel } from '@/components/spatial/ViewStatesPanel.tsx';
+import type { CameraApi } from '@/components/spatial/RoomViewer3D.tsx';
 import { OutlinerPanel } from '@/components/spatial/OutlinerPanel.tsx';
 import { BlocksPanel } from '@/components/spatial/BlocksPanel.tsx';
 import { AuditLogPanel } from '@/components/spatial/AuditLogPanel.tsx';
@@ -84,6 +86,9 @@ function SpatialDesignEngineInner() {
   const redo = useRoomLayoutStore((s) => s.redo);
   const canUndo = useRoomLayoutStore((s) => s.canUndo);
   const canRedo = useRoomLayoutStore((s) => s.canRedo);
+  // Only live while RoomViewer3D is mounted (view === '3d') — ViewStatesPanel disables
+  // its save/restore controls when this is null.
+  const [cameraApi, setCameraApi] = useState<CameraApi | null>(null);
 
   // With a ?room= id: load that room's real Supabase-saved layout (falls through to the
   // template picker if it has none saved yet — a brand-new room). Without one: unchanged
@@ -168,6 +173,7 @@ function SpatialDesignEngineInner() {
           </button>
           <CommandHistoryPanel />
           <LayersPanel />
+          {view === '3d' && <ViewStatesPanel cameraApi={cameraApi} />}
           <OutlinerPanel />
           <BlocksPanel />
           <CommentsPanel />
@@ -246,7 +252,7 @@ function SpatialDesignEngineInner() {
               <RoomEditor2D onSave={handleSave} />
             ) : (
               <div className="h-[500px] w-full overflow-hidden rounded border border-slate-300">
-                <RoomViewer3D highDetail={presentationView} reducedMotion={reduceMotion} />
+                <RoomViewer3D highDetail={presentationView} reducedMotion={reduceMotion} onCameraApiReady={setCameraApi} />
               </div>
             )}
           </div>

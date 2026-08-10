@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultLayers, isEffectivelyVisible, isEffectivelyLocked, isPrintable, DEFAULT_LAYER_ID } from './layers.ts';
+import { defaultLayers, isEffectivelyVisible, isEffectivelyLocked, isPrintable, sortedByOrder, DEFAULT_LAYER_ID } from './layers.ts';
 import type { PlacedObject, Zone, WallSegment, Dimension } from './types.ts';
 
 function obj(patch: Partial<PlacedObject> = {}): PlacedObject {
@@ -110,4 +110,17 @@ test('a Dimension (no own hidden/locked fields) is filtered by its layer too —
   const archDim = dimension({ layerId: 'layer-arch' });
   assert.equal(isEffectivelyVisible(archDim, layers), false);
   assert.equal(isEffectivelyLocked(archDim, layers), true);
+});
+
+test('sortedByOrder sorts ascending, undefined-order layers sort last', () => {
+  const layers = [
+    { id: 'c', name: 'C', visible: true, locked: false, order: 5 },
+    { id: 'a', name: 'A', visible: true, locked: false, order: 1 },
+    { id: 'unset', name: 'Unset', visible: true, locked: false },
+    { id: 'b', name: 'B', visible: true, locked: false, order: 2 },
+  ];
+  assert.deepEqual(
+    sortedByOrder(layers).map((l) => l.id),
+    ['a', 'b', 'c', 'unset'],
+  );
 });

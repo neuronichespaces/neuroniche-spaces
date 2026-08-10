@@ -5,10 +5,10 @@ the 7 structural gaps, using this session's own extensive, current knowledge of 
 codebase (Babylon migration + hardening, spatial store, 2D editor all touched today —
 no stale assumptions here).
 
-**Build/test state at audit time**: `npm run build` clean, 123/123 `node --test` pass,
-lint clean in every spatial/renderer file (12 pre-existing errors remain in unrelated
-pages — costing/audit/training/business-case/organisations/A11yProvider/ErrorBoundary,
-unchanged all session).
+**Build/test state at audit time**: `npm run build` clean, 131/131 `node --test` pass,
+lint clean in every spatial/renderer file (13 pre-existing errors remain in unrelated
+pages — costing/audit/training/business-case/organisations/A11yProvider/ErrorBoundary/
+ScenariosPanel, unchanged all session).
 
 ## Gap 1 — Synchronized 2D/3D dual-view architecture
 
@@ -33,8 +33,14 @@ unchanged all session).
   gizmo, WebGPU-with-WebGL-fallback, render-role-filtered picking, all store-driven.
 - Selection sync: `selectedObjectId` is shared state; both views read/write it. 2D→3D
   and 3D→2D selection sync already works (browser-verified this session).
-- **Missing**: saved camera views, orthographic 3D option, section-box/cut-plane
-  preview, frame-selection/reset-view UI, independent viewport-state persistence.
+- **Closed (saved camera views + orthographic toggle, 2026-08-10)**: `RoomViewer3D.tsx`
+  exposes an imperative `CameraApi` (`onCameraApiReady` prop — the store has no renderer
+  access) with `getSnapshot`/`applySnapshot`/`toggleOrthographic`. `ViewStatesPanel.tsx`
+  + `store.ts`'s `saveViewState`/`restoreViewState`/`deleteViewState` persist named
+  camera+layer-visibility snapshots (own localStorage key, not undo-tracked — same
+  reasoning as `blocks`/`comments`). Orthographic is a live toggle button (top-right of
+  the 3D view), bounds recomputed from radius/aspect on toggle, camera-apply, and resize.
+- **Still missing**: section-box/cut-plane preview, frame-selection/reset-view UI.
 - **Missing tests**: no automated test proves "2D movement updates 3D" or "3D gizmo
   movement updates 2D" end-to-end — this session's verification was manual/live-browser
   only, not a `node:test`/Playwright assertion.
@@ -75,8 +81,8 @@ so the "Missing entirely"/"Stale" labels are literal, not decorative.**
 
 ## Gap 3 — Blocks, components, and template library
 
-**Status: core save/insert loop closed (2026-08-09); linked instances, versioning,
-nesting, and click-to-place still missing.**
+**Status: core save/insert loop closed (2026-08-09); linked-instance edit-propagation
+closed (2026-08-10); versioning, nesting, and click-to-place still missing.**
 
 - `templates.ts` (`Calm Corner`, `Movement Zone`, etc.) remains a separate, fixed,
   hard-coded set of starting-room presets applied once at room creation — distinct by
@@ -87,19 +93,27 @@ nesting, and click-to-place still missing.**
   (`insertBlock` — undo-tracked, unlike the block library itself). `BlocksPanel.tsx`
   is the library UI; `OutlinerPanel.tsx`'s batch bar gained "Save as block."
   Live-verified in Chrome end-to-end (see `cad-upgrade-plan.md`'s dated entry).
-- **Not done**: every instance is fully detached (no linked-instance/"edit propagates
-  to all copies" concept), no versioning, no nesting (a block can't contain another
-  block), no click-to-place — `insertBlock` always lands at the room's centre point,
-  repositioning after insert relies on existing drag. Blocks are in-memory only, not
-  yet persisted to localStorage/Supabase (stated scope cut, matches how the rest of
-  this session's newer entities work before their own persistence pass).
+- **Closed (linked-instance edit-propagation, 2026-08-10)**: instances created by
+  `insertBlock` are tagged `blockId`/`blockItemIndex` (`types.ts`). `pushInstanceToBlock`
+  (`store.ts`) syncs one instance's shared fields — rotation/footprint/customProperties/
+  productId, deliberately never x/y, each instance keeps its own placement — back into
+  the block definition and out to every sibling instance. `PropertiesPanel.tsx` surfaces
+  this as an "Apply changes to all instances" button when the selected object has
+  siblings. Not a live/reactive binding (editing the block definition directly, if that
+  existed, wouldn't auto-push) — a deliberate one-shot sync, matching the scope of what
+  was asked; a fully reactive binding is a bigger data-model change than this pass.
+- **Not done**: no versioning, no nesting (a block can't contain another block), no
+  click-to-place — `insertBlock` always lands at the room's centre point, repositioning
+  after insert relies on existing drag. Blocks are in-memory only, not yet persisted to
+  localStorage/Supabase (stated scope cut, matches how the rest of this session's newer
+  entities work before their own persistence pass).
 
 ## Gap 4 — Layers, visibility, locking, and view states
 
 **Status: real layer entity covers all four canonical entity types (objects, zones,
-walls, dimensions) in both 2D and 3D, plus per-layer colour/lineweight/printable fields
-and a default-layer preset set (as of 2026-08-10). Named view-state save/restore still
-missing.**
+walls, dimensions) in both 2D and 3D, plus per-layer colour/lineweight/printable/order
+fields, a default-layer preset set, and named view-state save/restore (as of
+2026-08-10).**
 
 - **Closed (objects, 2026-08-09)**: `Layer` (`types.ts`) — `{id, name, visible, locked}`
   — seeded with one "Default" layer (`layers.ts`'s `DEFAULT_LAYER_ID`), full CRUD
@@ -179,10 +193,11 @@ missing.**
   `printable?` (new `isPrintable()` helper in `layers.ts`, defaults to true; wired into
   `PrintableExport.tsx`/`ExportPanel.tsx` so a non-printable layer's walls/objects are
   now excluded from the PDF/print export, which previously ignored layers entirely).
-  `LayersPanel.tsx` exposes all three as UI controls. No "order" field — no renderer in
-  this codebase currently has a z-order/draw-order concept to hook it into; adding an
-  unused field would be speculative, so it's left for when print/plot ordering is
-  actually built.
+  `LayersPanel.tsx` exposes all three as UI controls.
+- **Closed (layer `order` field, 2026-08-10)**: `Layer.order?: number` — no renderer in
+  this codebase has a z-order/draw-order compositing concept to hook into, so this only
+  drives list order (`sortedByOrder()` in `layers.ts`, consumed by `LayersPanel.tsx`),
+  an honest partial implementation rather than a fabricated render-order effect.
 - **Closed (default-layer presets, 2026-08-10)**: `defaultLayers()` now seeds four
   layers on a new project — Default, Walls, Zones, Dimensions — instead of just one
   undifferentiated "Default". `DEFAULT_LAYER_ID`/its position are unchanged, so every
@@ -190,12 +205,20 @@ missing.**
   starting point, not an auto-assignment (existing entities aren't retroactively moved
   onto the type-matched layer — that would require touching every entity-creation call
   site across the store, out of scope for this pass).
-- **Not done**: named view-state save/restore. No z-order/print-order field (see above).
+- **Closed (named view-state save/restore, 2026-08-10)**: `ViewState` (`types.ts`) —
+  camera alpha/beta/radius/target + a layer-visibility snapshot, named and persisted to
+  its own localStorage key (not undo-tracked, same reasoning as `blocks`/`comments`).
+  `store.ts`'s `saveViewState`/`restoreViewState`/`deleteViewState` + `RoomViewer3D.tsx`'s
+  `CameraApi` bridge (the store has no renderer access) + `ViewStatesPanel.tsx` (new)
+  close this out. See Gap 1's "Closed (saved camera views...)" entry — same underlying
+  mechanism, cross-referenced rather than duplicated.
+- **Not done**: nothing outstanding in this gap beyond what's listed above.
 
 ## Gap 5 — Advanced selection, filtering, outliner, batch editing
 
-**Status: core loop closed for objects (2026-08-09); cross-type multi-select, saved
-selection sets, and Quick-Select-style filtering still missing.**
+**Status: core loop closed for objects (2026-08-09); per-kind multi-select + batch
+layer/delete extended to zones/walls/dimensions (2026-08-10). Saved selection sets and
+Quick-Select-style filtering still missing.**
 
 - **Closed (objects only)**: `OutlinerPanel.tsx` — a flat tree of every
   object/zone/wall/dimension, grouped by layer, click-to-select. `multiSelectedObjectIds`
@@ -204,12 +227,21 @@ selection sets, and Quick-Select-style filtering still missing.**
   `batchRemoveObjects`, `batchSetObjectsLocked`, `batchSetObjectsHidden`. All
   live-verified in Chrome (isolate correctly filtered the Konva render, batch delete
   removed exactly the selected objects).
-- **Not done**: zones/walls/dimensions have no batch mutators or multi-select — scoped
-  to objects deliberately (see `OutlinerPanel.tsx`'s own comment for why: true
-  cross-type multi-select needs every entity's actions to accept an id array, a bigger
-  change than this pass). Canvas click still does single-select only; the outliner is
-  the only multi-select entry point. No Quick-Select-style filter system, no saved
-  selection sets.
+- **Closed (zone/wall/dimension multi-select + batch layer/delete, 2026-08-10)**: one
+  `multiSelected<Kind>Ids` array per type (`store.ts`) — not a single mixed set, since
+  only objects have their own `locked`/`hidden` flags to batch-toggle; zones/walls/
+  dimensions get a narrower action set (`batchSet<Kind>Layer`/`batchRemove<Kind>s`
+  only). Mutually exclusive with every other kind's multi-select and with single-
+  selection, same rule the object multi-select already followed.
+  `OutlinerPanel.tsx`'s shift-click now routes to whichever kind the row is; the
+  batch-action bar renders per active kind (full bar for objects, unchanged; layer+
+  delete for the other three). Leaders remain excluded — no batch mutators exist for
+  them, same "not every entity type needs this" scoping the rest of this doc uses.
+- **Not done**: true *cross-type* multi-select (select one object + one zone together)
+  still doesn't exist — each kind's array is independent, not merged; that's a bigger
+  data-model change than this pass, per this file's own prior note. Canvas click still
+  does single-select only; the outliner is the only multi-select entry point. No
+  Quick-Select-style filter system, no saved selection sets.
 
 ## Gap 6 — Annotation, sections, elevations, documentation
 

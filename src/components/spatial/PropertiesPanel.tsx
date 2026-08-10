@@ -55,9 +55,17 @@ export function PropertiesPanel() {
   const toggleObjectHidden = useRoomLayoutStore((s) => s.toggleObjectHidden);
   const layers = useRoomLayoutStore((s) => s.layers);
   const setObjectLayer = useRoomLayoutStore((s) => s.setObjectLayer);
+  const pushInstanceToBlock = useRoomLayoutStore((s) => s.pushInstanceToBlock);
 
   const obj = placedObjects.find((o) => o.id === selectedObjectId);
   if (!obj) return null;
+
+  // CAD-upgrade Gap 3: how many OTHER placed objects share this instance's block+item —
+  // the button only appears when there's actually something to propagate to.
+  const siblingCount =
+    obj.blockId !== undefined
+      ? placedObjects.filter((o) => o.id !== obj.id && o.blockId === obj.blockId && o.blockItemIndex === obj.blockItemIndex).length
+      : 0;
 
   const props = obj.customProperties;
   const clearance = clearanceToNearestWall({ x: obj.x, y: obj.y }, walls);
@@ -106,6 +114,21 @@ export function PropertiesPanel() {
           ))}
         </select>
       </label>
+
+      {siblingCount > 0 && (
+        <div className="rounded border border-blue-100 bg-blue-50 p-2 text-xs text-blue-900">
+          <p>
+            Linked block instance ({siblingCount} other placement{siblingCount === 1 ? '' : 's'} of the same item).
+          </p>
+          <button
+            type="button"
+            onClick={() => pushInstanceToBlock(obj.id)}
+            className="mt-1 min-h-11 rounded border border-blue-300 bg-white px-2 py-1 text-xs font-medium text-blue-800 hover:bg-blue-50"
+          >
+            Apply changes to all instances
+          </button>
+        </div>
+      )}
 
       {clearance && (
         <p className="text-sm text-gray-600">

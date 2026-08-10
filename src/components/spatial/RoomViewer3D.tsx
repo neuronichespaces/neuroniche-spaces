@@ -7,8 +7,9 @@
 // edits made in either view still show up in the other through the one shared store.
 
 import { useEffect, useRef, useState } from 'react';
-import { Vector3 } from '@babylonjs/core';
+import { Camera, Vector3 } from '@babylonjs/core';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
+import type { ViewState } from '@/lib/spatial/types.ts';
 import { createBabylonEngine, type RendererBackend } from '@/renderer/babylon/BabylonEngineFactory.ts';
 import { createLights, createOrbitCamera, createScene, createWalkCamera } from '@/renderer/babylon/BabylonSceneController.ts';
 import { BabylonRendererAdapter } from '@/renderer/babylon/BabylonRendererAdapter.ts';
@@ -37,11 +38,22 @@ const KEY_TO_AXIS: Record<string, [number, number]> = {
   ArrowRight: [1, 0],
 };
 
+// CAD-upgrade Gap 4: the store has no renderer access (see ViewState's comment in
+// types.ts), so named view-state save/restore and the orthographic toggle both need an
+// imperative escape hatch out of this component — same pattern as onCanvasReady below.
+export type CameraApi = {
+  getSnapshot: () => Pick<ViewState, 'cameraAlpha' | 'cameraBeta' | 'cameraRadius' | 'cameraTarget'>;
+  applySnapshot: (snapshot: Pick<ViewState, 'cameraAlpha' | 'cameraBeta' | 'cameraRadius' | 'cameraTarget'>) => void;
+  toggleOrthographic: () => void;
+  isOrthographic: () => boolean;
+};
+
 export default function RoomViewer3D({
   highDetail = false,
   hideControls = false,
   reducedMotion,
   onCanvasReady,
+  onCameraApiReady,
 }: {
   /** Opt-in richer render mode (shadows + tuned materials) for presentation view / PDF
    *  snapshot. Silently no-ops to standard mode if WebGPU wasn't detected — that IS the
@@ -54,6 +66,9 @@ export default function RoomViewer3D({
   reducedMotion?: boolean;
   /** Fires once with the underlying canvas DOM element, for PDF snapshot capture (toDataURL). */
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
+  /** Fires once with an imperative camera bridge — lets sibling panels (view-state
+   *  save/restore UI) read/apply camera state without this component owning that UI. */
+  onCameraApiReady?: (api: CameraApi) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [walking, setWalking] = useState(false);
@@ -62,6 +77,7 @@ export default function RoomViewer3D({
   const [contextLost, setContextLost] = useState(false);
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>('translate');
   const [perf, setPerf] = useState<PerformanceSnapshot | null>(null);
+  const [orthographic, setOrthographic] = useState(false);
   const [osReducedMotion, setOsReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -74,6 +90,7 @@ export default function RoomViewer3D({
   const cleanupRef = useRef<(() => void) | null>(null);
   const enterOrExitWalkModeRef = useRef<{ enterWalkMode: () => void; exitWalkMode: () => void } | null>(null);
   const richModeUpdaterRef = useRef<((value: boolean) => void) | null>(null);
+  const toggleOrthographicRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -131,6 +148,47 @@ export default function RoomViewer3D({
       let cameraController = new BabylonCameraController(orbitCamera, canvas);
       let walkCamera: ReturnType<typeof createWalkCamera> | null = null;
       const richModeRef = { current: richMode };
+      const orthoRef = { current: false };
+
+      // Orthographic bounds recomputed from the current radius/canvas aspect each time
+      // it's needed (toggle-on, camera-snapshot restore, resize) — ArcRotateCamera has
+      // no built-in "ortho that tracks radius" mode, this is the standard manual recipe.
+      // const arrow fn, not `function` — TS loses narrowing on `canvas` inside hoisted
+      // function declarations (same rule the exiting canvasEl comment documents below).
+      const updateOrthoBounds = () => {
+        if (orbitCamera.mode !== Camera.ORTHOGRAPHIC_CAMERA) return;
+        const aspect = canvas.clientWidth / canvas.clientHeight || 1;
+        const halfHeight = orbitCamera.radius * 0.5;
+        const halfWidth = halfHeight * aspect;
+        orbitCamera.orthoLeft = -halfWidth;
+        orbitCamera.orthoRight = halfWidth;
+        orbitCamera.orthoTop = halfHeight;
+        orbitCamera.orthoBottom = -halfHeight;
+      };
+      const cameraApi = {
+        getSnapshot: () => ({
+          cameraAlpha: orbitCamera.alpha,
+          cameraBeta: orbitCamera.beta,
+          cameraRadius: orbitCamera.radius,
+          cameraTarget: { x: orbitCamera.target.x, y: orbitCamera.target.y, z: orbitCamera.target.z },
+        }),
+        applySnapshot: (s: { cameraAlpha: number; cameraBeta: number; cameraRadius: number; cameraTarget: { x: number; y: number; z: number } }) => {
+          orbitCamera.alpha = s.cameraAlpha;
+          orbitCamera.beta = s.cameraBeta;
+          orbitCamera.radius = s.cameraRadius;
+          orbitCamera.target = new Vector3(s.cameraTarget.x, s.cameraTarget.y, s.cameraTarget.z);
+          updateOrthoBounds();
+        },
+        toggleOrthographic: () => {
+          orthoRef.current = !orthoRef.current;
+          orbitCamera.mode = orthoRef.current ? Camera.ORTHOGRAPHIC_CAMERA : Camera.PERSPECTIVE_CAMERA;
+          updateOrthoBounds();
+          setOrthographic(orthoRef.current);
+        },
+        isOrthographic: () => orthoRef.current,
+      };
+      onCameraApiReady?.(cameraApi);
+      toggleOrthographicRef.current = cameraApi.toggleOrthographic;
 
       const isDraggingRef = { current: false };
       const transformBridge = new BabylonTransformBridge(
@@ -254,6 +312,10 @@ export default function RoomViewer3D({
         walkCamera = null;
         orbitCamera = createOrbitCamera(scene, canvasEl, centre, orbitRadius);
         cameraController = new BabylonCameraController(orbitCamera, canvasEl);
+        if (orthoRef.current) {
+          orbitCamera.mode = Camera.ORTHOGRAPHIC_CAMERA;
+          updateOrthoBounds();
+        }
       }
 
       function onPointerLockChange() {
@@ -262,7 +324,10 @@ export default function RoomViewer3D({
       document.addEventListener('pointerlockchange', onPointerLockChange);
 
       engine.runRenderLoop(() => scene.render());
-      const onResize = () => engine.resize();
+      const onResize = () => {
+        engine.resize();
+        updateOrthoBounds();
+      };
       window.addEventListener('resize', onResize);
 
       enterOrExitWalkModeRef.current = { enterWalkMode, exitWalkMode };
@@ -325,6 +390,18 @@ export default function RoomViewer3D({
                 </button>
               ))}
             </div>
+          )}
+          {!walking && (
+            <button
+              type="button"
+              onClick={() => toggleOrthographicRef.current?.()}
+              aria-pressed={orthographic}
+              className={`rounded-md px-3 py-2 text-sm font-medium shadow min-h-11 min-w-11 ${
+                orthographic ? 'bg-blue-50 text-blue-700' : 'bg-white/90 text-slate-700'
+              }`}
+            >
+              {orthographic ? 'Perspective view' : 'Orthographic view'}
+            </button>
           )}
           <button
             type="button"

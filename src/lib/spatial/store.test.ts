@@ -22,8 +22,12 @@ function reset() {
     selectedDimensionId: null,
     selectedLeaderId: null,
     multiSelectedObjectIds: [],
+    multiSelectedZoneIds: [],
+    multiSelectedWallIds: [],
+    multiSelectedDimensionIds: [],
     isolatedObjectIds: null,
     blocks: [],
+    viewStates: [],
     auditLog: [],
     clearanceViolations: new Set(),
     hasLoadedInitialData: false,
@@ -189,6 +193,68 @@ test('every mutate() call appends a persisted audit log entry, unaffected by und
   assert.equal(useRoomLayoutStore.getState().auditLog.length, 2);
 });
 
+test('zone/wall/dimension multi-select is mutually exclusive with each other and with single-selection (CAD Gap 5)', () => {
+  reset();
+  const { addZone, toggleZoneMultiSelect, toggleWallMultiSelect, selectObject } = useRoomLayoutStore.getState();
+  addZone({ id: 'z1', kind: 'focus', x: 0, y: 0, widthM: 1, lengthM: 1, rotationDeg: 0 });
+
+  toggleZoneMultiSelect('z1');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, ['z1']);
+
+  // Starting a wall multi-select clears the zone one — only one kind active at a time.
+  toggleWallMultiSelect('w1');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, []);
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedWallIds, ['w1']);
+
+  // A normal single-select clears whichever multi-select was active.
+  selectObject('o1');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedWallIds, []);
+});
+
+test('batchSetZoneLayer/batchRemoveZones apply to exactly the given ids and clear the selection (CAD Gap 5)', () => {
+  reset();
+  const { addZone, addLayer, toggleZoneMultiSelect, batchSetZoneLayer, batchRemoveZones } = useRoomLayoutStore.getState();
+  addZone({ id: 'z1', kind: 'focus', x: 0, y: 0, widthM: 1, lengthM: 1, rotationDeg: 0 });
+  addZone({ id: 'z2', kind: 'calm', x: 2, y: 0, widthM: 1, lengthM: 1, rotationDeg: 0 });
+  addLayer({ id: 'layer-arch', name: 'Architecture', visible: true, locked: false });
+  toggleZoneMultiSelect('z1');
+  toggleZoneMultiSelect('z2');
+
+  batchSetZoneLayer(['z1', 'z2'], 'layer-arch');
+  assert.ok(useRoomLayoutStore.getState().zones.every((z) => z.layerId === 'layer-arch'));
+
+  batchRemoveZones(['z1']);
+  assert.equal(useRoomLayoutStore.getState().zones.length, 1);
+  assert.equal(useRoomLayoutStore.getState().zones[0].id, 'z2');
+  assert.deepEqual(useRoomLayoutStore.getState().multiSelectedZoneIds, []);
+});
+
+test('batchRemoveWalls clears associated doors, same rule as the single removeWall (CAD Gap 5)', () => {
+  reset();
+  const { addWall, addDoor, batchRemoveWalls } = useRoomLayoutStore.getState();
+  addWall({ id: 'w1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thicknessM: 0.1 });
+  addDoor({ wallId: 'w1', offsetM: 1, widthM: 0.9 });
+
+  batchRemoveWalls(['w1']);
+  assert.equal(useRoomLayoutStore.getState().walls.length, 0);
+  assert.equal(useRoomLayoutStore.getState().doors.length, 0);
+});
+
+test('batchSetDimensionLayer/batchRemoveDimensions apply to exactly the given ids (CAD Gap 5)', () => {
+  reset();
+  const { addDimension, addLayer, batchSetDimensionLayer, batchRemoveDimensions } = useRoomLayoutStore.getState();
+  addDimension({ id: 'd1', start: { x: 0, y: 0 }, end: { x: 2, y: 0 }, offsetM: 0.3 });
+  addDimension({ id: 'd2', start: { x: 0, y: 1 }, end: { x: 2, y: 1 }, offsetM: 0.3 });
+  addLayer({ id: 'layer-dim', name: 'Dims', visible: true, locked: false });
+
+  batchSetDimensionLayer(['d1'], 'layer-dim');
+  assert.equal(useRoomLayoutStore.getState().dimensions.find((d) => d.id === 'd1')?.layerId, 'layer-dim');
+  assert.equal(useRoomLayoutStore.getState().dimensions.find((d) => d.id === 'd2')?.layerId, undefined);
+
+  batchRemoveDimensions(['d1', 'd2']);
+  assert.equal(useRoomLayoutStore.getState().dimensions.length, 0);
+});
+
 test('saveSelectionAsBlock captures items relative to the selection centroid (CAD Gap 3)', () => {
   reset();
   const { addObject, saveSelectionAsBlock } = useRoomLayoutStore.getState();
@@ -233,6 +299,55 @@ test('removeBlock deletes from the library without touching placed objects (CAD 
   removeBlock(blockId);
   assert.equal(useRoomLayoutStore.getState().blocks.length, 0);
   assert.equal(useRoomLayoutStore.getState().placedObjects.length, 1);
+});
+
+test('insertBlock tags new instances with blockId/blockItemIndex (CAD Gap 3, linked instances)', () => {
+  reset();
+  const { addObject, saveSelectionAsBlock, insertBlock } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  saveSelectionAsBlock('Solo', ['o1']);
+  const blockId = useRoomLayoutStore.getState().blocks[0].id;
+
+  insertBlock(blockId, 3, 3);
+  const inserted = useRoomLayoutStore.getState().placedObjects.find((o) => o.id !== 'o1')!;
+  assert.equal(inserted.blockId, blockId);
+  assert.equal(inserted.blockItemIndex, 0);
+});
+
+test('pushInstanceToBlock syncs shared fields (not position) to the block and every sibling instance (CAD Gap 3)', () => {
+  reset();
+  const { addObject, saveSelectionAsBlock, insertBlock, pushInstanceToBlock, undo } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  saveSelectionAsBlock('Solo', ['o1']);
+  const blockId = useRoomLayoutStore.getState().blocks[0].id;
+  insertBlock(blockId, 5, 5);
+  insertBlock(blockId, 9, 9);
+  const [a, b] = useRoomLayoutStore.getState().placedObjects.filter((o) => o.blockId === blockId);
+
+  useRoomLayoutStore.getState().updateObjectProps(a.id, { widthM: 2 });
+  useRoomLayoutStore.getState().rotateObject(a.id, 45);
+  pushInstanceToBlock(a.id);
+
+  const block = useRoomLayoutStore.getState().blocks.find((bl) => bl.id === blockId)!;
+  assert.equal(block.items[0].footprintM.w, 2);
+  assert.equal(block.items[0].rotationDeg, 45);
+
+  const bAfter = useRoomLayoutStore.getState().placedObjects.find((o) => o.id === b.id)!;
+  assert.equal(bAfter.footprintM.w, 2); // propagated to the sibling instance
+  assert.equal(bAfter.rotationDeg, 45);
+  assert.equal(bAfter.x, 9); // position untouched — each instance keeps its own placement
+
+  undo(); // the push itself is undoable (placedObjects side)
+  const bUndone = useRoomLayoutStore.getState().placedObjects.find((o) => o.id === b.id)!;
+  assert.equal(bUndone.footprintM.w, 1);
+});
+
+test('pushInstanceToBlock no-ops on a non-linked object', () => {
+  reset();
+  const { addObject, pushInstanceToBlock } = useRoomLayoutStore.getState();
+  addObject({ id: 'o1', productId: 'p1', x: 0, y: 0, rotationDeg: 0, footprintM: { w: 1, l: 1 }, customProperties: {} });
+  pushInstanceToBlock('o1'); // no blockId — must not throw
+  assert.equal(useRoomLayoutStore.getState().placedObjects[0].footprintM.w, 1);
 });
 
 test('selectZone is mutually exclusive with object/wall/dimension selection', () => {
@@ -481,4 +596,37 @@ test('addLayer/updateLayer/removeLayer manage real layer entities (Gap 4)', () =
   removeLayer('layer-arch');
   assert.equal(useRoomLayoutStore.getState().layers.length, 1);
   assert.equal(useRoomLayoutStore.getState().placedObjects[0].layerId, 'layer-default');
+});
+
+test('saveViewState/deleteViewState manage a real, persisted-shape entity (CAD Gap 4)', () => {
+  reset();
+  const { saveViewState, deleteViewState } = useRoomLayoutStore.getState();
+  const camera = { cameraAlpha: 1.1, cameraBeta: 0.9, cameraRadius: 5, cameraTarget: { x: 1, y: 0, z: 2 } };
+  const saved = saveViewState('Overview', camera);
+  assert.equal(useRoomLayoutStore.getState().viewStates.length, 1);
+  assert.equal(saved.name, 'Overview');
+  assert.deepEqual(saved.cameraTarget, camera.cameraTarget);
+  assert.deepEqual(saved.layerVisibility, { 'layer-default': true });
+
+  deleteViewState(saved.id);
+  assert.equal(useRoomLayoutStore.getState().viewStates.length, 0);
+});
+
+test('restoreViewState applies saved layer visibility and skips deleted layers, no-ops on unknown id', () => {
+  reset();
+  const { addLayer, updateLayer, saveViewState, restoreViewState, removeLayer } = useRoomLayoutStore.getState();
+  addLayer({ id: 'layer-arch', name: 'Architecture', visible: true, locked: false });
+  const camera = { cameraAlpha: 0, cameraBeta: 0, cameraRadius: 1, cameraTarget: { x: 0, y: 0, z: 0 } };
+  const saved = saveViewState('Both visible', camera);
+
+  updateLayer('layer-default', { visible: false });
+  updateLayer('layer-arch', { visible: false });
+  removeLayer('layer-arch'); // the saved state still references it — must not throw or resurrect it
+
+  const restored = restoreViewState(saved.id);
+  assert.equal(restored?.id, saved.id);
+  assert.equal(useRoomLayoutStore.getState().layers.find((l) => l.id === 'layer-default')?.visible, true);
+  assert.equal(useRoomLayoutStore.getState().layers.some((l) => l.id === 'layer-arch'), false);
+
+  assert.equal(restoreViewState('does-not-exist'), undefined);
 });

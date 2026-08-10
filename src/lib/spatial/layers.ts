@@ -28,6 +28,13 @@ export function layerFor(entity: LayeredEntity, layers: Layer[]): Layer | undefi
   return layers.find((l) => l.id === (entity.layerId ?? DEFAULT_LAYER_ID));
 }
 
+/** Sorts by `order` ascending (undefined sorts last, stable relative to input order
+ *  among ties/unset) — the one place "layer order" currently has a real, visible
+ *  effect (list order), see Layer.order's comment for why draw-order goes no further. */
+export function sortedByOrder(layers: Layer[]): Layer[] {
+  return [...layers].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
+}
+
 /** True if the entity should render/be pickable — false if either the entity itself
  *  is hidden, or its layer is (an unknown/deleted layerId is treated as visible,
  *  never silently hides an entity). */

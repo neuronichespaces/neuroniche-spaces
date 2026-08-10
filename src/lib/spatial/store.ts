@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
 import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment, ViewState } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -34,6 +34,11 @@ function generateCommandId(): string {
 }
 
 const LOCAL_STORAGE_KEY = 'noniche-spatial-room-default';
+// CAD-upgrade Gap 4: named view states (camera + layer visibility), separate key from
+// the layout autosave — same "not layout content" reasoning as blocks/comments, but
+// this one IS worth surviving reload (a saved view is a deliberate user artifact, not
+// session-transient like isolate/multi-select), so it gets its own persisted key.
+const VIEW_STATES_KEY = 'noniche-spatial-room-default-view-states';
 const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
 const MAX_HISTORY = 50;
 const AUTOSAVE_DEBOUNCE_MS = 500;
@@ -74,6 +79,27 @@ function writeAuditLogToLocalStorage(log: AuditLogEntry[]) {
   }
 }
 
+function readViewStatesFromLocalStorage(): ViewState[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(VIEW_STATES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as ViewState[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeViewStatesToLocalStorage(states: ViewState[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(VIEW_STATES_KEY, JSON.stringify(states));
+  } catch {
+    // ponytail: same best-effort as writeToLocalStorage — quota/private mode, no user-facing error surface yet.
+  }
+}
+
 type RoomLayoutState = RoomLayout & {
   selectedObjectId: string | null;
   selectedWallId: string | null;
@@ -84,6 +110,15 @@ type RoomLayoutState = RoomLayout & {
    *  OutlinerPanel.tsx's comment for why) — Shift-click in the outliner toggles
    *  membership. Transient, like the single-selection ids, not pushed to history. */
   multiSelectedObjectIds: string[];
+  /** CAD-upgrade Gap 5 (2026-08-10 extension): same shift-click-in-outliner pattern as
+   *  multiSelectedObjectIds, one array per kind rather than a mixed set — zones/walls/
+   *  dimensions have no own locked/hidden fields (unlike PlacedObject), so their batch
+   *  actions are narrower (layer + delete only, no batch lock/hide/isolate). Mutually
+   *  exclusive with every other kind's multi-select AND single-selection, same rule as
+   *  the rest of this store's selection actions. */
+  multiSelectedZoneIds: string[];
+  multiSelectedWallIds: string[];
+  multiSelectedDimensionIds: string[];
   /** CAD-upgrade Gap 5: isolate/unisolate — when non-null, only these object ids
    *  render/are pickable, on top of (not instead of) normal layer visibility. A
    *  separate transient concept from Layer.visible, not a second copy of it: isolation
@@ -136,6 +171,11 @@ type RoomLayoutState = RoomLayout & {
    *  there. IS undo-tracked: it adds real placed objects to the layout. */
   insertBlock: (blockId: string, x: number, y: number) => void;
   removeBlock: (blockId: string) => void;
+  /** CAD-upgrade Gap 3: syncs one linked instance's shared fields (rotation/footprint/
+   *  props/product, never position) back to its block definition and out to every
+   *  sibling instance. No-ops if the object isn't a linked instance or its block/item
+   *  no longer exists. */
+  pushInstanceToBlock: (objectId: string) => void;
 
   /** CAD-upgrade Gap 7: comment/markup CRUD. Not undo-tracked (see `comments`'s comment). */
   addComment: (x: number, y: number, text: string) => void;
@@ -162,6 +202,22 @@ type RoomLayoutState = RoomLayout & {
   isolateObjects: (ids: string[]) => void;
   unisolate: () => void;
 
+  /** CAD-upgrade Gap 5 extension (2026-08-10): zone/wall/dimension multi-select +
+   *  batch layer/delete — see multiSelectedZoneIds's comment for why the action set is
+   *  narrower than the object one. */
+  toggleZoneMultiSelect: (id: string) => void;
+  clearZoneMultiSelect: () => void;
+  batchSetZoneLayer: (ids: string[], layerId: string) => void;
+  batchRemoveZones: (ids: string[]) => void;
+  toggleWallMultiSelect: (id: string) => void;
+  clearWallMultiSelect: () => void;
+  batchSetWallLayer: (ids: string[], layerId: string) => void;
+  batchRemoveWalls: (ids: string[]) => void;
+  toggleDimensionMultiSelect: (id: string) => void;
+  clearDimensionMultiSelect: () => void;
+  batchSetDimensionLayer: (ids: string[], layerId: string) => void;
+  batchRemoveDimensions: (ids: string[]) => void;
+
   addDimension: (dimension: Dimension) => void;
   removeDimension: (id: string) => void;
   selectDimension: (id: string | null) => void;
@@ -181,6 +237,19 @@ type RoomLayoutState = RoomLayout & {
    *  never leaves an object pointing at a layerId that no longer exists. */
   removeLayer: (id: string) => void;
   setObjectLayer: (objId: string, layerId: string) => void;
+
+  /** CAD-upgrade Gap 4: named view states. Camera fields are supplied by the caller
+   *  (RoomViewer3D, via its onCameraApiReady prop — the store has no renderer access)
+   *  rather than read from a live camera here. Not undo-tracked, persisted to its own
+   *  localStorage key (see VIEW_STATES_KEY). */
+  viewStates: ViewState[];
+  saveViewState: (name: string, camera: Pick<ViewState, 'cameraAlpha' | 'cameraBeta' | 'cameraRadius' | 'cameraTarget'>) => ViewState;
+  deleteViewState: (id: string) => void;
+  /** Applies the saved layer-visibility half of a view state (skips any layerId that
+   *  no longer exists, via the normal updateLayer/mutate path) and returns the full
+   *  ViewState so the caller can apply the camera half itself — the store has no
+   *  renderer access, see RoomViewer3D's onCameraApiReady prop. */
+  restoreViewState: (id: string) => ViewState | undefined;
 
   loadLayout: (layout: RoomLayout) => void;
   /** Applies a layout without touching the undo/redo history — used for incoming
@@ -307,9 +376,14 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     selectedDimensionId: null,
     selectedLeaderId: null,
     multiSelectedObjectIds: [],
+    multiSelectedZoneIds: [],
+    multiSelectedWallIds: [],
+    multiSelectedDimensionIds: [],
     isolatedObjectIds: null,
     blocks: [],
     comments: [],
+    // Same SSR-safety rule as auditLog below — real data loaded in hydrateFromLocalStorage().
+    viewStates: [],
     // Not readAuditLogFromLocalStorage() here — this initial state feeds SSR too,
     // where window/localStorage don't exist, so reading real data here (vs. an
     // always-[] default) produces a client/server mismatch and a hydration failure
@@ -374,6 +448,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     insertBlock: (blockId, x, y) => {
       const block = get().blocks.find((b) => b.id === blockId);
       if (!block) return;
+      // blockId/blockItemIndex (CAD Gap 3): tags this instance as linked, so
+      // pushInstanceToBlock can find it and its siblings later. Every other field is a
+      // normal, independently-editable copy — only linked-ness is tracked, not a live binding.
       const newObjects: PlacedObject[] = block.items.map((item, i) => ({
         id: `obj-${Date.now()}-${i}-${Math.round(Math.random() * 1000)}`,
         productId: item.productId,
@@ -382,10 +459,36 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         rotationDeg: item.rotationDeg,
         footprintM: item.footprintM,
         customProperties: item.customProperties,
+        blockId: block.id,
+        blockItemIndex: i,
       }));
       mutate('Insert block', (s) => ({ placedObjects: [...s.placedObjects, ...newObjects] }));
     },
     removeBlock: (blockId) => set((s) => ({ blocks: s.blocks.filter((b) => b.id !== blockId) })),
+    // CAD-upgrade Gap 3: "edit propagates" — takes the given instance's current
+    // rotation/footprint/props/product (never its x/y, each instance keeps its own
+    // placement) and writes them into the block definition's item AND every other
+    // placed instance of that same item. The block library itself (`blocks`) isn't
+    // undo-tracked (same as saveSelectionAsBlock/removeBlock), but the placedObjects
+    // side of this IS, via mutate — that's the user-visible change that should undo.
+    pushInstanceToBlock: (objectId) => {
+      const source = get().placedObjects.find((o) => o.id === objectId);
+      if (!source || source.blockId === undefined || source.blockItemIndex === undefined) return;
+      const { blockId, blockItemIndex } = source;
+      const block = get().blocks.find((b) => b.id === blockId);
+      if (!block || !block.items[blockItemIndex]) return;
+      const shared = { productId: source.productId, rotationDeg: source.rotationDeg, footprintM: source.footprintM, customProperties: source.customProperties };
+      set((s) => ({
+        blocks: s.blocks.map((b) =>
+          b.id === blockId ? { ...b, items: b.items.map((item, i) => (i === blockItemIndex ? { ...item, ...shared } : item)) } : b,
+        ),
+      }));
+      mutate('Push instance changes to block', (s) => ({
+        placedObjects: s.placedObjects.map((o) =>
+          o.blockId === blockId && o.blockItemIndex === blockItemIndex ? { ...o, ...shared } : o,
+        ),
+      }));
+    },
 
     addComment: (x, y, text) =>
       set((s) => ({
@@ -435,18 +538,93 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedDimensionId: id ? null : get().selectedDimensionId,
         selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: [],
+        multiSelectedZoneIds: id ? [] : get().multiSelectedZoneIds,
+        multiSelectedWallIds: id ? [] : get().multiSelectedWallIds,
+        multiSelectedDimensionIds: id ? [] : get().multiSelectedDimensionIds,
       }),
     toggleObjectMultiSelect: (id) =>
       set((s) => ({
         multiSelectedObjectIds: s.multiSelectedObjectIds.includes(id)
           ? s.multiSelectedObjectIds.filter((i) => i !== id)
           : [...s.multiSelectedObjectIds, id],
+        multiSelectedZoneIds: [],
+        multiSelectedWallIds: [],
+        multiSelectedDimensionIds: [],
         selectedObjectId: null,
         selectedWallId: null,
         selectedZoneId: null,
         selectedDimensionId: null,
       })),
     clearObjectMultiSelect: () => set({ multiSelectedObjectIds: [] }),
+
+    toggleZoneMultiSelect: (id) =>
+      set((s) => ({
+        multiSelectedZoneIds: s.multiSelectedZoneIds.includes(id)
+          ? s.multiSelectedZoneIds.filter((i) => i !== id)
+          : [...s.multiSelectedZoneIds, id],
+        multiSelectedObjectIds: [],
+        multiSelectedWallIds: [],
+        multiSelectedDimensionIds: [],
+        selectedObjectId: null,
+        selectedWallId: null,
+        selectedZoneId: null,
+        selectedDimensionId: null,
+      })),
+    clearZoneMultiSelect: () => set({ multiSelectedZoneIds: [] }),
+    batchSetZoneLayer: (ids, layerId) =>
+      mutate('Batch: change zone layer', (s) => ({ zones: s.zones.map((z) => (ids.includes(z.id) ? { ...z, layerId } : z)) })),
+    batchRemoveZones: (ids) => {
+      mutate('Batch: delete zones', (s) => ({ zones: s.zones.filter((z) => !ids.includes(z.id)) }));
+      set({ multiSelectedZoneIds: [] });
+    },
+
+    toggleWallMultiSelect: (id) =>
+      set((s) => ({
+        multiSelectedWallIds: s.multiSelectedWallIds.includes(id)
+          ? s.multiSelectedWallIds.filter((i) => i !== id)
+          : [...s.multiSelectedWallIds, id],
+        multiSelectedObjectIds: [],
+        multiSelectedZoneIds: [],
+        multiSelectedDimensionIds: [],
+        selectedObjectId: null,
+        selectedWallId: null,
+        selectedZoneId: null,
+        selectedDimensionId: null,
+      })),
+    clearWallMultiSelect: () => set({ multiSelectedWallIds: [] }),
+    batchSetWallLayer: (ids, layerId) =>
+      mutate('Batch: change wall layer', (s) => ({ walls: s.walls.map((w) => (ids.includes(w.id) ? { ...w, layerId } : w)) })),
+    batchRemoveWalls: (ids) => {
+      // Same "never leave a door pointing at a deleted wall" rule as the single removeWall.
+      mutate('Batch: delete walls', (s) => ({
+        walls: s.walls.filter((w) => !ids.includes(w.id)),
+        doors: s.doors.filter((d) => !ids.includes(d.wallId)),
+      }));
+      set({ multiSelectedWallIds: [] });
+    },
+
+    toggleDimensionMultiSelect: (id) =>
+      set((s) => ({
+        multiSelectedDimensionIds: s.multiSelectedDimensionIds.includes(id)
+          ? s.multiSelectedDimensionIds.filter((i) => i !== id)
+          : [...s.multiSelectedDimensionIds, id],
+        multiSelectedObjectIds: [],
+        multiSelectedZoneIds: [],
+        multiSelectedWallIds: [],
+        selectedObjectId: null,
+        selectedWallId: null,
+        selectedZoneId: null,
+        selectedDimensionId: null,
+      })),
+    clearDimensionMultiSelect: () => set({ multiSelectedDimensionIds: [] }),
+    batchSetDimensionLayer: (ids, layerId) =>
+      mutate('Batch: change dimension layer', (s) => ({
+        dimensions: s.dimensions.map((d) => (ids.includes(d.id) ? { ...d, layerId } : d)),
+      })),
+    batchRemoveDimensions: (ids) => {
+      mutate('Batch: delete dimensions', (s) => ({ dimensions: s.dimensions.filter((d) => !ids.includes(d.id)) }));
+      set({ multiSelectedDimensionIds: [] });
+    },
     batchSetObjectLayer: (ids, layerId) =>
       mutate('Batch: change object layer', (s) => ({
         placedObjects: s.placedObjects.map((o) => (ids.includes(o.id) ? { ...o, layerId } : o)),
@@ -475,6 +653,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedDimensionId: id ? null : get().selectedDimensionId,
         selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
+        multiSelectedZoneIds: id ? [] : get().multiSelectedZoneIds,
+        multiSelectedWallIds: id ? [] : get().multiSelectedWallIds,
+        multiSelectedDimensionIds: id ? [] : get().multiSelectedDimensionIds,
       }),
     selectZone: (id) =>
       set({
@@ -484,6 +665,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedDimensionId: id ? null : get().selectedDimensionId,
         selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
+        multiSelectedZoneIds: id ? [] : get().multiSelectedZoneIds,
+        multiSelectedWallIds: id ? [] : get().multiSelectedWallIds,
+        multiSelectedDimensionIds: id ? [] : get().multiSelectedDimensionIds,
       }),
 
     addDimension: (dimension) => mutate('Add dimension', (s) => ({ dimensions: [...s.dimensions, dimension] })),
@@ -499,6 +683,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedZoneId: id ? null : get().selectedZoneId,
         selectedLeaderId: id ? null : get().selectedLeaderId,
         multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
+        multiSelectedZoneIds: id ? [] : get().multiSelectedZoneIds,
+        multiSelectedWallIds: id ? [] : get().multiSelectedWallIds,
+        multiSelectedDimensionIds: id ? [] : get().multiSelectedDimensionIds,
       }),
     updateDimension: (id, patch) =>
       mutate('Edit dimension', (s) => ({ dimensions: s.dimensions.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
@@ -516,6 +703,9 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
         selectedZoneId: id ? null : get().selectedZoneId,
         selectedDimensionId: id ? null : get().selectedDimensionId,
         multiSelectedObjectIds: id ? [] : get().multiSelectedObjectIds,
+        multiSelectedZoneIds: id ? [] : get().multiSelectedZoneIds,
+        multiSelectedWallIds: id ? [] : get().multiSelectedWallIds,
+        multiSelectedDimensionIds: id ? [] : get().multiSelectedDimensionIds,
       }),
     updateLeader: (id, patch) =>
       mutate('Edit leader', (s) => ({ leaders: s.leaders.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
@@ -533,6 +723,29 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       })),
     setObjectLayer: (objId, layerId) =>
       mutate('Change object layer', (s) => ({ placedObjects: s.placedObjects.map((o) => (o.id === objId ? { ...o, layerId } : o)) })),
+
+    saveViewState: (name, camera) => {
+      const layerVisibility: Record<string, boolean> = {};
+      for (const l of get().layers) layerVisibility[l.id] = l.visible;
+      const state: ViewState = { id: `view-${Date.now()}-${Math.round(Math.random() * 1000)}`, name, layerVisibility, ...camera };
+      const viewStates = [...get().viewStates, state];
+      set({ viewStates });
+      writeViewStatesToLocalStorage(viewStates);
+      return state;
+    },
+    deleteViewState: (id) => {
+      const viewStates = get().viewStates.filter((v) => v.id !== id);
+      set({ viewStates });
+      writeViewStatesToLocalStorage(viewStates);
+    },
+    restoreViewState: (id) => {
+      const state = get().viewStates.find((v) => v.id === id);
+      if (!state) return undefined;
+      for (const [layerId, visible] of Object.entries(state.layerVisibility)) {
+        if (get().layers.some((l) => l.id === layerId)) get().updateLayer(layerId, { visible });
+      }
+      return state;
+    },
 
     loadLayout: (layout) => {
       const valid = validateRoomLayout(layout);
@@ -615,7 +828,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
 
     hydrateFromLocalStorage: () => {
       if (typeof window === 'undefined') return;
-      set({ auditLog: readAuditLogFromLocalStorage() });
+      set({ auditLog: readAuditLogFromLocalStorage(), viewStates: readViewStatesFromLocalStorage() });
       try {
         const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
         if (!raw) return;
