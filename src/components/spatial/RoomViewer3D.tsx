@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Plane, Vector3 } from '@babylonjs/core';
+import { applyScenePreset, SCENE_PRESET_NAMES, type ScenePresetName } from '@/renderer/babylon/scenePresets.ts';
 import { useRoomLayoutStore } from '@/lib/spatial/store.ts';
 import type { ViewState } from '@/lib/spatial/types.ts';
 import { createBabylonEngine, type RendererBackend } from '@/renderer/babylon/BabylonEngineFactory.ts';
@@ -85,6 +86,10 @@ export default function RoomViewer3D({
   // for: a preview, not a full arbitrary-cut-plane editor).
   const [sectionEnabled, setSectionEnabled] = useState(false);
   const [sectionHeightM, setSectionHeightM] = useState(1.5);
+  // NeuroNiche enhancement (2026-08-10): scene lighting presets — null = whatever
+  // createLights() set by default (unchanged behaviour), not one of the 3 named presets.
+  const [scenePreset, setScenePreset] = useState<ScenePresetName | null>(null);
+  const applyScenePresetRef = useRef<((preset: ScenePresetName | null) => void) | null>(null);
   const [osReducedMotion, setOsReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -209,6 +214,9 @@ export default function RoomViewer3D({
       // scope here).
       applySectionClipRef.current = (enabled, heightM) => {
         scene.clipPlane = enabled ? Plane.FromPositionAndNormal(new Vector3(0, heightM, 0), new Vector3(0, -1, 0)) : null;
+      };
+      applyScenePresetRef.current = (preset) => {
+        if (preset) applyScenePreset(scene, preset);
       };
 
       // CAD-upgrade Gap 1 (frame-selection/reset-view): frame fits the camera target/
@@ -425,6 +433,10 @@ export default function RoomViewer3D({
     applySectionClipRef.current?.(sectionEnabled, sectionHeightM);
   }, [sectionEnabled, sectionHeightM]);
 
+  useEffect(() => {
+    applyScenePresetRef.current?.(scenePreset);
+  }, [scenePreset]);
+
   return (
     <div className="relative h-full w-full">
       {!hideControls && (
@@ -480,6 +492,21 @@ export default function RoomViewer3D({
                   aria-label="Section cut height, metres"
                 />
               )}
+            </div>
+          )}
+          {!walking && (
+            <div className="flex gap-1 rounded-md bg-white/90 p-1 shadow">
+              {SCENE_PRESET_NAMES.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setScenePreset((cur) => (cur === p ? null : p))}
+                  aria-pressed={scenePreset === p}
+                  className={`min-h-11 rounded px-2 text-sm capitalize ${scenePreset === p ? 'bg-blue-50 text-blue-700' : 'text-slate-700'}`}
+                >
+                  {p}
+                </button>
+              ))}
             </div>
           )}
           {!walking && (
