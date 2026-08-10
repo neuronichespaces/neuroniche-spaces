@@ -3,7 +3,7 @@
 import { Line, Text } from 'react-konva';
 import type { WallSegment, DoorPlacement, Layer as LayerEntity } from '@/lib/spatial/types.ts';
 import { wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
-import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
+import { isEffectivelyVisible, layerFor } from '@/lib/spatial/layers.ts';
 
 type Props = {
   walls: WallSegment[];
@@ -33,11 +33,12 @@ export default function WallLayer({ walls, doors, pxPerM, doorTool, onWallClick,
         const door = doors.find((d) => d.wallId === wall.id);
         const segments = wallSegmentsWithDoorGap(wall, door);
         const selected = wall.id === selectedWallId;
+        const layerColor = layers ? layerFor(wall, layers)?.color : undefined;
         return segments.map((seg, i) => (
           <Line
             key={`${wall.id}-${i}`}
             points={[seg.start.x * pxPerM, seg.start.y * pxPerM, seg.end.x * pxPerM, seg.end.y * pxPerM]}
-            stroke={selected ? '#2563eb' : '#334155'}
+            stroke={selected ? '#2563eb' : (layerColor ?? '#334155')}
             strokeWidth={Math.max(2, wall.thicknessM * pxPerM) + (selected ? 2 : 0)}
             lineCap="square"
             hitStrokeWidth={16}

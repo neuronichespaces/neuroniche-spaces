@@ -3,7 +3,8 @@
 // produces the actual PDF. Screen styling is minimal; @media print governs the real output.
 'use client';
 
-import type { WallSegment, FloorDims, DoorPlacement, PlacedObject } from '@/lib/spatial/types.ts';
+import type { WallSegment, FloorDims, DoorPlacement, PlacedObject, Layer } from '@/lib/spatial/types.ts';
+import { isEffectivelyVisible, isPrintable } from '@/lib/spatial/layers.ts';
 import type { BomLine } from '@/lib/spatial/bom.ts';
 import { wallSegmentsWithDoorGap, wallLengthM, DEFAULT_WALL_HEIGHT_M } from '@/lib/spatial/geometry.ts';
 
@@ -136,6 +137,7 @@ export function PrintableExport({
   placedObjects = [],
   bomLines,
   snapshotDataUrl,
+  layers,
 }: {
   roomName: string;
   floorDims: FloorDims;
@@ -145,7 +147,15 @@ export function PrintableExport({
   bomLines: BomLine[];
   /** Off-screen-captured 3D render (RoomViewer3D canvas.toDataURL) — omitted if capture failed. */
   snapshotDataUrl?: string | null;
+  /** CAD-upgrade Gap 4 polish: layer print/colour/lineweight fields. Optional so this
+   *  stays callable without layer data — omitting it prints everything, matching
+   *  behaviour before layers had a `printable` field. */
+  layers?: Layer[];
 }) {
+  const printableWalls = layers ? walls.filter((w) => isEffectivelyVisible(w, layers) && isPrintable(w, layers)) : walls;
+  const printableObjects = layers
+    ? placedObjects.filter((o) => isEffectivelyVisible(o, layers) && isPrintable(o, layers))
+    : placedObjects;
   const total = bomLines.reduce((s, l) => s + l.lineTotal, 0);
   const printedDate = new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -188,13 +198,13 @@ export function PrintableExport({
       )}
 
       <h2 className="mt-6 text-base font-semibold">Floor plan</h2>
-      <div className="mt-2">{wallsToSvg(walls, doors, placedObjects, floorDims)}</div>
+      <div className="mt-2">{wallsToSvg(printableWalls, doors, printableObjects, floorDims)}</div>
 
-      {walls.length > 0 && (
+      {printableWalls.length > 0 && (
         <>
           <h2 className="mt-6 text-base font-semibold">Wall elevations</h2>
           <div className="mt-2 flex flex-wrap gap-4">
-            {walls.map((wall, i) => wallElevationSvg(wall, doors.find((d) => d.wallId === wall.id), DEFAULT_WALL_HEIGHT_M, i))}
+            {printableWalls.map((wall, i) => wallElevationSvg(wall, doors.find((d) => d.wallId === wall.id), DEFAULT_WALL_HEIGHT_M, i))}
           </div>
         </>
       )}

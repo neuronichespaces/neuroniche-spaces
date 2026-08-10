@@ -9,6 +9,7 @@ import {
   Color3,
   CreateBox,
   CreateGround,
+  CreateLineSystem,
   CreatePlane,
   DynamicTexture,
   StandardMaterial,
@@ -16,9 +17,10 @@ import {
   Vector3,
   type Scene,
 } from '@babylonjs/core';
-import type { DoorPlacement, FloorDims, Layer, PlacedObject, WallSegment, Zone } from '@/lib/spatial/types.ts';
-import { wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
-import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
+import type { Dimension, DoorPlacement, FloorDims, Layer, PlacedObject, WallSegment, Zone } from '@/lib/spatial/types.ts';
+import { offsetLine, wallSegmentsWithDoorGap } from '@/lib/spatial/geometry.ts';
+import { isEffectivelyVisible, layerFor } from '@/lib/spatial/layers.ts';
+import { formatMetres } from '@/lib/spatial/units.ts';
 import { ZONE_KIND_COLOURS } from '@/lib/spatial/zoneKinds.ts';
 import { BabylonDisposalManager } from './BabylonDisposalManager.ts';
 import { BabylonEntityMapper } from './BabylonEntityMapper.ts';
@@ -31,6 +33,9 @@ const DEFAULT_OBJECT_HEIGHT_M = 0.5;
 const ROOM_GROUP_KEY = 'room-shell';
 const ZONE_GROUP_KEY = 'zones';
 const ZONE_PLANE_HEIGHT_M = 0.01; // just above the floor, avoids z-fighting
+const DIMENSION_GROUP_KEY = 'dimensions';
+const DIMENSION_HEIGHT_M = 0.02; // above zone planes, avoids z-fighting with both
+const DIMENSION_COLOR = new Color3(0.09, 0.09, 0.13); // matches DimensionLayer.tsx's '#0f172a'
 
 function colourFor(id: string): Color3 {
   // ponytail: deterministic hash-to-hue, same scheme as the old Three.js colourFor.
@@ -110,9 +115,27 @@ export class BabylonRendererAdapter {
     wallMat.roughness = highDetail ? 0.85 : 1;
     this.disposal.track(ROOM_GROUP_KEY, wallMat);
 
+    // Per-layer colour override (CAD Gap 4 polish): most walls share wallMat above;
+    // only walls whose layer sets `color` get their own material, cached per hex so
+    // walls on the same overridden layer still share one material instance.
+    const overrideMats = new Map<string, StandardMaterial>();
+    const materialFor = (hex: string | undefined): StandardMaterial => {
+      if (!hex) return wallMat;
+      let mat = overrideMats.get(hex);
+      if (!mat) {
+        mat = new StandardMaterial(`wallMat-${hex}`, this.scene);
+        mat.diffuseColor = Color3.FromHexString(hex);
+        mat.roughness = highDetail ? 0.85 : 1;
+        overrideMats.set(hex, mat);
+        this.disposal.track(ROOM_GROUP_KEY, mat);
+      }
+      return mat;
+    };
+
     let wallIndex = 0;
     for (const wall of walls) {
       if (layers && !isEffectivelyVisible(wall, layers)) continue;
+      const wallColor = layers ? layerFor(wall, layers)?.color : undefined;
       const door = doors.find((d) => d.wallId === wall.id);
       for (const seg of wallSegmentsWithDoorGap(wall, door)) {
         const length = Math.hypot(seg.end.x - seg.start.x, seg.end.y - seg.start.y);
@@ -123,7 +146,7 @@ export class BabylonRendererAdapter {
         const box = CreateBox(`wall-${wallIndex++}`, { width: length, height: wallHeightM, depth: wall.thicknessM }, this.scene);
         box.position = new Vector3(midX, wallHeightM / 2, midZ);
         box.rotation.y = -angle;
-        box.material = wallMat;
+        box.material = materialFor(wallColor);
         box.receiveShadows = highDetail;
         setRenderRole(box, 'ARCHITECTURE');
         this.disposal.track(ROOM_GROUP_KEY, box);
@@ -145,7 +168,8 @@ export class BabylonRendererAdapter {
       plane.position = new Vector3(zone.x, ZONE_PLANE_HEIGHT_M, zone.y);
       plane.rotation.y = -((zone.rotationDeg * Math.PI) / 180);
       const mat = new StandardMaterial(`zone-${zone.id}-mat`, this.scene);
-      mat.diffuseColor = Color3.FromHexString(ZONE_KIND_COLOURS[zone.kind]);
+      const zoneColor = layers ? layerFor(zone, layers)?.color : undefined;
+      mat.diffuseColor = Color3.FromHexString(zoneColor ?? ZONE_KIND_COLOURS[zone.kind]);
       mat.alpha = 0.5;
       mat.backFaceCulling = false;
       plane.material = mat;
@@ -153,6 +177,44 @@ export class BabylonRendererAdapter {
       setRenderRole(plane, 'ARCHITECTURE');
       this.disposal.track(ZONE_GROUP_KEY, plane);
       this.disposal.track(ZONE_GROUP_KEY, mat);
+    }
+  }
+
+  /** Dimensions weren't rendered in 3D at all before this (CAD Gap 6) — same
+   *  extension-line / dimension-line / label layout as DimensionLayer.tsx's 2D
+   *  render, just at metre scale with y-up instead of pxPerM-scaled Konva points.
+   *  Full rebuild each call, same reasoning as syncZones. Layer-filtered as a full
+   *  new capability, mirroring the zone pass this follows. */
+  syncDimensions(dimensions: Dimension[], layers: Layer[]): void {
+    this.disposal.disposeGroup(DIMENSION_GROUP_KEY);
+    for (const dim of dimensions) {
+      if (!isEffectivelyVisible(dim, layers)) continue;
+      const lengthM = Math.hypot(dim.end.x - dim.start.x, dim.end.y - dim.start.y);
+      const line = offsetLine(dim.start, dim.end, dim.offsetM);
+      const toVec = (p: { x: number; y: number }) => new Vector3(p.x, DIMENSION_HEIGHT_M, p.y);
+
+      const lines = CreateLineSystem(
+        `dimension-${dim.id}`,
+        {
+          lines: [
+            [toVec(dim.start), toVec(line.start)],
+            [toVec(dim.end), toVec(line.end)],
+            [toVec(line.start), toVec(line.end)],
+          ],
+        },
+        this.scene,
+      );
+      const dimColor = layerFor(dim, layers)?.color;
+      lines.color = dimColor ? Color3.FromHexString(dimColor) : DIMENSION_COLOR;
+      lines.isPickable = false;
+      setRenderRole(lines, 'ANNOTATION');
+      this.disposal.track(DIMENSION_GROUP_KEY, lines);
+
+      const midParent = new TransformNode(`dimension-${dim.id}-label-anchor`, this.scene);
+      midParent.position = new Vector3((line.start.x + line.end.x) / 2, DIMENSION_HEIGHT_M, (line.start.y + line.end.y) / 2);
+      setRenderRole(midParent, 'ANNOTATION');
+      this.disposal.track(DIMENSION_GROUP_KEY, midParent);
+      makeLabel(this.scene, dim.label ?? formatMetres(lengthM), midParent, 0);
     }
   }
 

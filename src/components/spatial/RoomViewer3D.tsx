@@ -170,6 +170,7 @@ export default function RoomViewer3D({
         const s = useRoomLayoutStore.getState();
         adapter.syncRoomShell(s.floorDims, s.walls, s.doors, richModeRef.current, undefined, s.layers);
         adapter.syncZones(s.zones, s.layers);
+        adapter.syncDimensions(s.dimensions, s.layers);
         adapter.syncObjects(s.placedObjects, s.clearanceViolations, s.selectedObjectId, richModeRef.current, s.layers);
         const selectedObj = s.placedObjects.find((o) => o.id === s.selectedObjectId);
         // Locked/hidden entities (own flag OR their layer's, CAD Gap 4) stay

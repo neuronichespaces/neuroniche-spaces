@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultLayers, isEffectivelyVisible, isEffectivelyLocked, DEFAULT_LAYER_ID } from './layers.ts';
+import { defaultLayers, isEffectivelyVisible, isEffectivelyLocked, isPrintable, DEFAULT_LAYER_ID } from './layers.ts';
 import type { PlacedObject, Zone, WallSegment, Dimension } from './types.ts';
 
 function obj(patch: Partial<PlacedObject> = {}): PlacedObject {
@@ -19,12 +19,21 @@ function dimension(patch: Partial<Dimension> = {}): Dimension {
   return { id: 'dim1', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, offsetM: 0.3, ...patch };
 }
 
-test('defaultLayers seeds one visible, unlocked layer', () => {
+test('defaultLayers seeds a starter set including the default layer, all visible and unlocked', () => {
   const layers = defaultLayers();
-  assert.equal(layers.length, 1);
-  assert.equal(layers[0].id, DEFAULT_LAYER_ID);
-  assert.equal(layers[0].visible, true);
-  assert.equal(layers[0].locked, false);
+  assert.ok(layers.length > 1);
+  const def = layers.find((l) => l.id === DEFAULT_LAYER_ID);
+  assert.ok(def);
+  assert.equal(def.visible, true);
+  assert.equal(def.locked, false);
+  assert.ok(layers.every((l) => l.visible && !l.locked));
+});
+
+test('isPrintable defaults to true when unset, and respects an explicit false', () => {
+  const layers = defaultLayers();
+  assert.equal(isPrintable(obj(), layers), true);
+  const noPrintLayers = [{ id: DEFAULT_LAYER_ID, name: 'Default', visible: true, locked: false, printable: false }];
+  assert.equal(isPrintable(obj(), noPrintLayers), false);
 });
 
 test('an object with no layerId is effectively on the default layer', () => {

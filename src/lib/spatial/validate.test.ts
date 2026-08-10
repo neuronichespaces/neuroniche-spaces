@@ -74,11 +74,10 @@ test('rejects malformed dimensions array', () => {
   assert.equal(validateRoomLayout(broken), null);
 });
 
-test('defaults missing layers to the seeded default layer (pre-layers payloads)', () => {
+test('defaults missing layers to the seeded default-layer preset set (pre-layers payloads)', () => {
   const { layers, ...withoutLayers } = validLayout;
   const result = validateRoomLayout(withoutLayers);
-  assert.equal(result?.layers.length, 1);
-  assert.equal(result?.layers[0].id, 'layer-default');
+  assert.ok(result?.layers.some((l) => l.id === 'layer-default'));
 });
 
 test('rejects malformed layers array', () => {

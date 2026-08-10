@@ -89,6 +89,16 @@ export type Layer = {
   name: string;
   visible: boolean;
   locked: boolean;
+  /** Overrides each member entity's default per-type/per-kind colour when set
+   *  (hex string, e.g. "#2563eb"). Absent = renderers keep using their existing
+   *  per-entity-type colour convention (unchanged behaviour). */
+  color?: string;
+  /** Stroke/line width in px (2D) — walls (solid 3D boxes) ignore this, only
+   *  dimension/annotation lines honour it in both 2D and 3D. Absent = renderer default. */
+  lineweightPx?: number;
+  /** Whether this layer's entities appear in the printed/PDF export. Absent = true
+   *  (matches existing PrintableExport behaviour, which ignores layers entirely). */
+  printable?: boolean;
 };
 
 export type FloorDims = { widthM: number; lengthM: number };

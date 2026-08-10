@@ -37,6 +37,7 @@ export function ExportPanel({ roomName, catalogue }: { roomName: string; catalog
   const doors = useRoomLayoutStore((s) => s.doors);
   const floorDims = useRoomLayoutStore((s) => s.floorDims);
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
+  const layers = useRoomLayoutStore((s) => s.layers);
 
   const lookup = (productId: string) => {
     const p = catalogue.find((c) => c.id === productId);
@@ -112,6 +113,7 @@ export function ExportPanel({ roomName, catalogue }: { roomName: string; catalog
               placedObjects={placedObjects}
               bomLines={bomLines}
               snapshotDataUrl={snapshotDataUrl}
+              layers={layers}
             />
           </div>
         </>

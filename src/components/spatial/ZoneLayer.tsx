@@ -6,7 +6,7 @@
 
 import { Group, Rect, Text } from 'react-konva';
 import type { Zone, Layer as LayerEntity } from '@/lib/spatial/types.ts';
-import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
+import { isEffectivelyVisible, layerFor } from '@/lib/spatial/layers.ts';
 import { ZONE_KIND_COLOURS, ZONE_KIND_LABELS } from '@/lib/spatial/zoneKinds.ts';
 
 export { ZONE_KIND_COLOURS, ZONE_KIND_LABELS };
@@ -32,6 +32,7 @@ export default function ZoneLayer({ zones, pxPerM, selectedZoneId, onZoneClick, 
         const wPx = zone.widthM * pxPerM;
         const lPx = zone.lengthM * pxPerM;
         const selected = selectedZoneId === zone.id;
+        const layerColor = layers ? layerFor(zone, layers)?.color : undefined;
         return (
           <Group
             key={zone.id}
@@ -46,7 +47,7 @@ export default function ZoneLayer({ zones, pxPerM, selectedZoneId, onZoneClick, 
               y={-lPx / 2}
               width={wPx}
               height={lPx}
-              fill={ZONE_KIND_COLOURS[zone.kind]}
+              fill={layerColor ?? ZONE_KIND_COLOURS[zone.kind]}
               stroke={selected ? '#2563eb' : '#94a3b8'}
               strokeWidth={selected ? 2 : 1}
               dash={[6, 4]}

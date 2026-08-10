@@ -51,6 +51,44 @@ export function LayersPanel() {
               className="min-h-11 flex-1 rounded border border-transparent px-1 hover:border-slate-300 focus:border-slate-300"
               aria-label={`Rename ${layer.name}`}
             />
+            <input
+              type="color"
+              value={layer.color ?? '#000000'}
+              onChange={(e) => updateLayer(layer.id, { color: e.target.value })}
+              className="h-6 w-6 rounded border border-slate-300 p-0"
+              title="Layer colour override (blank = entity default)"
+              aria-label={`${layer.name} colour`}
+            />
+            {layer.color && (
+              <button
+                type="button"
+                onClick={() => updateLayer(layer.id, { color: undefined })}
+                className="min-h-11 rounded px-1 text-xs text-slate-500 hover:bg-slate-50"
+                title="Clear colour override"
+              >
+                ✕
+              </button>
+            )}
+            <input
+              type="number"
+              min={0.5}
+              step={0.5}
+              value={layer.lineweightPx ?? ''}
+              onChange={(e) => updateLayer(layer.id, { lineweightPx: e.target.value ? Number(e.target.value) : undefined })}
+              placeholder="pt"
+              className="min-h-11 w-14 rounded border border-slate-300 px-1 text-xs"
+              title="Lineweight, px (dimensions/annotations only)"
+              aria-label={`${layer.name} lineweight`}
+            />
+            <label className="flex items-center gap-1 text-xs" title="Include in printed/PDF export">
+              <input
+                type="checkbox"
+                checked={layer.printable !== false}
+                onChange={(e) => updateLayer(layer.id, { printable: e.target.checked })}
+                aria-label={`${layer.name} printable`}
+              />
+              🖨
+            </label>
             {layer.id !== DEFAULT_LAYER_ID && (
               <button
                 type="button"

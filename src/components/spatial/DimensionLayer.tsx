@@ -10,7 +10,7 @@ import { Line, Text } from 'react-konva';
 import type { Dimension, Layer as LayerEntity } from '@/lib/spatial/types.ts';
 import { offsetLine } from '@/lib/spatial/geometry.ts';
 import { formatMetres } from '@/lib/spatial/units.ts';
-import { isEffectivelyVisible } from '@/lib/spatial/layers.ts';
+import { isEffectivelyVisible, layerFor } from '@/lib/spatial/layers.ts';
 
 type Props = {
   dimensions: Dimension[];
@@ -30,7 +30,9 @@ export default function DimensionLayer({ dimensions, pxPerM, selectedDimensionId
         const lengthM = Math.hypot(dim.end.x - dim.start.x, dim.end.y - dim.start.y);
         const line = offsetLine(dim.start, dim.end, dim.offsetM);
         const selected = dim.id === selectedDimensionId;
-        const stroke = selected ? '#2563eb' : '#0f172a';
+        const layer = layers ? layerFor(dim, layers) : undefined;
+        const stroke = selected ? '#2563eb' : (layer?.color ?? '#0f172a');
+        const lineweight = layer?.lineweightPx;
         const midX = ((line.start.x + line.end.x) / 2) * pxPerM;
         const midY = ((line.start.y + line.end.y) / 2) * pxPerM;
         return (
@@ -38,19 +40,19 @@ export default function DimensionLayer({ dimensions, pxPerM, selectedDimensionId
             <Line
               points={[dim.start.x * pxPerM, dim.start.y * pxPerM, line.start.x * pxPerM, line.start.y * pxPerM]}
               stroke={stroke}
-              strokeWidth={1}
+              strokeWidth={lineweight ?? 1}
               listening={false}
             />
             <Line
               points={[dim.end.x * pxPerM, dim.end.y * pxPerM, line.end.x * pxPerM, line.end.y * pxPerM]}
               stroke={stroke}
-              strokeWidth={1}
+              strokeWidth={lineweight ?? 1}
               listening={false}
             />
             <Line
               points={[line.start.x * pxPerM, line.start.y * pxPerM, line.end.x * pxPerM, line.end.y * pxPerM]}
               stroke={stroke}
-              strokeWidth={selected ? 2 : 1.5}
+              strokeWidth={lineweight ?? (selected ? 2 : 1.5)}
               hitStrokeWidth={12}
               onClick={() => onSelect?.(dim.id)}
               listening={!!onSelect}

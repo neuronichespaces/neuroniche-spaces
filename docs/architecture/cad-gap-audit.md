@@ -97,8 +97,9 @@ nesting, and click-to-place still missing.**
 ## Gap 4 — Layers, visibility, locking, and view states
 
 **Status: real layer entity covers all four canonical entity types (objects, zones,
-walls, dimensions) in 2D, and objects + walls in 3D (as of 2026-08-10). 3D zone/
-dimension filtering and view-state save/restore still missing.**
+walls, dimensions) in both 2D and 3D, plus per-layer colour/lineweight/printable fields
+and a default-layer preset set (as of 2026-08-10). Named view-state save/restore still
+missing.**
 
 - **Closed (objects, 2026-08-09)**: `Layer` (`types.ts`) — `{id, name, visible, locked}`
   — seeded with one "Default" layer (`layers.ts`'s `DEFAULT_LAYER_ID`), full CRUD
@@ -156,15 +157,40 @@ dimension filtering and view-state save/restore still missing.**
   extracted from `ZoneLayer.tsx` (a react-konva component) into a new pure
   `zoneKinds.ts` so the 3D-only bundle doesn't pull in Konva. Non-pickable — zones are
   a 3D visual planning aid, not yet a selectable 3D entity (that's separate, larger
-  scope). Switching to 3D with a zone present: zero console errors. **Not visually
-  confirmed** the overlay is distinctly visible at every camera angle/lighting — code
-  reviewed and follows the same `CreateGround`/`StandardMaterial` pattern the floor
-  itself already uses successfully, but this wasn't screenshot-confirmed showing the
-  actual coloured patch, stated honestly rather than assumed.
-- **Not done**: dimension rendering/layer filtering in 3D still doesn't exist. No
-  per-layer print/order/colour/lineweight fields. No named view-state save/restore. No
-  default-layer *set* (still just one seeded "Default", not
-  Architecture/Doors/Furniture/etc. presets).
+  scope). Switching to 3D with a zone present: zero console errors. **Visually
+  confirmed 2026-08-10**: orbited the live 3D view (angled and near-top-down) with
+  the "Quiet Zone" layer visible — the translucent green floor patch renders
+  distinctly against the room floor/walls and object boxes, correctly positioned
+  within the room shell. Screenshot-verified via Chrome DevTools MCP, not just
+  code-reviewed.
+- **Closed (dimensions rendered + layer-filtered in 3D)**: `BabylonRendererAdapter.syncDimensions()`
+  builds the extension-line/dimension-line/label layout in 3D (mirroring
+  `DimensionLayer.tsx`'s 2D render, y-up at metre scale) and is layer-filtered from day
+  one via `isEffectivelyVisible`. Wired into `RoomViewer3D.tsx` alongside `syncZones`/
+  `syncRoomShell`. This entry was previously (incorrectly) logged as "not done" in an
+  earlier revision of this doc — corrected 2026-08-10 after re-reading the code directly
+  rather than trusting the stale handoff note that repeated the error.
+- **Closed (per-layer colour/lineweight/printable fields, 2026-08-10)**: `Layer` gained
+  three optional fields — `color?` (hex override, consumed by wall/zone material and
+  dimension line colour in both `BabylonRendererAdapter.ts` and the 2D
+  `WallLayer`/`ZoneLayer`/`DimensionLayer` components, falling back to each entity's
+  existing per-type colour when unset), `lineweightPx?` (2D dimension/annotation stroke
+  width only — walls are solid 3D boxes so lineweight doesn't apply there), and
+  `printable?` (new `isPrintable()` helper in `layers.ts`, defaults to true; wired into
+  `PrintableExport.tsx`/`ExportPanel.tsx` so a non-printable layer's walls/objects are
+  now excluded from the PDF/print export, which previously ignored layers entirely).
+  `LayersPanel.tsx` exposes all three as UI controls. No "order" field — no renderer in
+  this codebase currently has a z-order/draw-order concept to hook it into; adding an
+  unused field would be speculative, so it's left for when print/plot ordering is
+  actually built.
+- **Closed (default-layer presets, 2026-08-10)**: `defaultLayers()` now seeds four
+  layers on a new project — Default, Walls, Zones, Dimensions — instead of just one
+  undifferentiated "Default". `DEFAULT_LAYER_ID`/its position are unchanged, so every
+  already-unassigned entity still resolves there; the new layers are an organisational
+  starting point, not an auto-assignment (existing entities aren't retroactively moved
+  onto the type-matched layer — that would require touching every entity-creation call
+  site across the store, out of scope for this pass).
+- **Not done**: named view-state save/restore. No z-order/print-order field (see above).
 
 ## Gap 5 — Advanced selection, filtering, outliner, batch editing
 
