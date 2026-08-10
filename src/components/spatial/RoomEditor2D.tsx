@@ -149,6 +149,16 @@ export default function RoomEditor2D({
   const [wallAngleDirty, setWallAngleDirty] = useState(false);
   const [wallLengthError, setWallLengthError] = useState('');
   const [wallAngleError, setWallAngleError] = useState('');
+  // CAD-upgrade Gap 2 (2026-08-10): same dynamic-overlay pattern as the wall length/
+  // angle fields above, for the zone tool — width/length rather than length/angle,
+  // since a zone is an axis-aligned rectangle (no angle to speak of), matching how
+  // finishZoneDraft already derives widthM/lengthM from the two corners.
+  const [zoneWidthDraft, setZoneWidthDraft] = useState('');
+  const [zoneLengthDraft, setZoneLengthDraft] = useState('');
+  const [zoneWidthDirty, setZoneWidthDirty] = useState(false);
+  const [zoneLengthDirty, setZoneLengthDirty] = useState(false);
+  const [zoneWidthError, setZoneWidthError] = useState('');
+  const [zoneLengthError, setZoneLengthError] = useState('');
   const [confirmingSave, setConfirmingSave] = useState(false);
   const [heatmapCategory, setHeatmapCategory] = useState<SensoryCategory | 'crowding' | 'none'>('none');
   const [personaId, setPersonaId] = useState<string>('none');
@@ -462,6 +472,40 @@ export default function RoomEditor2D({
       rotationDeg: 0,
     };
     addZone(zone);
+  }
+
+  // Same derived-not-synced pattern as liveWallDraftGeometry/displayedWallLength.
+  const displayedZoneWidth =
+    zoneWidthDirty || !draftZone ? zoneWidthDraft : formatMetres(Math.abs(draftZone.current.x - draftZone.start.x));
+  const displayedZoneLength =
+    zoneLengthDirty || !draftZone ? zoneLengthDraft : formatMetres(Math.abs(draftZone.current.y - draftZone.start.y));
+
+  function commitDynamicZoneInput() {
+    if (!draftZone) return;
+    const widthM = parseLengthToMetres(displayedZoneWidth);
+    const lengthM = parseLengthToMetres(displayedZoneLength);
+    if (widthM === null || widthM <= 0) {
+      setZoneWidthError('Enter a positive width, e.g. 2m.');
+      return;
+    }
+    if (lengthM === null || lengthM <= 0) {
+      setZoneLengthError('Enter a positive length, e.g. 2m.');
+      return;
+    }
+    setZoneWidthError('');
+    setZoneLengthError('');
+    // Always grows right/down from the anchored start corner — same "enter width/
+    // height from a fixed corner" convention as most CAD rectangle tools, rather than
+    // trying to infer a drag direction from typed values alone.
+    const current = clampPointToBounds(
+      { x: draftZone.start.x + widthM, y: draftZone.start.y + lengthM },
+      floorDims.widthM,
+      floorDims.lengthM,
+    );
+    setDraftZone(null);
+    setZoneWidthDirty(false);
+    setZoneLengthDirty(false);
+    finishZoneDraft(draftZone.start, current);
   }
 
   function handleZoneCoordCommit() {
@@ -814,6 +858,62 @@ export default function RoomEditor2D({
           {(wallLengthError || wallAngleError) && (
             <span role="alert" className="max-w-[10rem] self-center text-xs text-red-700">
               {wallLengthError || wallAngleError}
+            </span>
+          )}
+        </div>
+      )}
+      {tool === 'zone' && draftZone && (
+        <div
+          className="absolute z-10 flex gap-1 rounded border border-blue-400 bg-white p-1 shadow-lg"
+          style={{ left: draftZone.current.x * pxPerM + 12, top: draftZone.current.y * pxPerM + 12 }}
+        >
+          <label className="flex flex-col text-xs text-slate-700">
+            Width
+            <input
+              value={displayedZoneWidth}
+              onChange={(e) => {
+                setZoneWidthDraft(e.target.value);
+                setZoneWidthDirty(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitDynamicZoneInput();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setZoneWidthDirty(false);
+                }
+              }}
+              className={`min-h-11 w-20 rounded border px-1 ${zoneWidthError ? 'border-red-400' : 'border-gray-300'}`}
+              aria-label="Zone width (dynamic input)"
+              aria-invalid={!!zoneWidthError}
+            />
+          </label>
+          <label className="flex flex-col text-xs text-slate-700">
+            Length
+            <input
+              value={displayedZoneLength}
+              onChange={(e) => {
+                setZoneLengthDraft(e.target.value);
+                setZoneLengthDirty(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitDynamicZoneInput();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setZoneLengthDirty(false);
+                }
+              }}
+              className={`min-h-11 w-20 rounded border px-1 ${zoneLengthError ? 'border-red-400' : 'border-gray-300'}`}
+              aria-label="Zone length (dynamic input)"
+              aria-invalid={!!zoneLengthError}
+            />
+          </label>
+          {(zoneWidthError || zoneLengthError) && (
+            <span role="alert" className="max-w-[10rem] self-center text-xs text-red-700">
+              {zoneWidthError || zoneLengthError}
             </span>
           )}
         </div>

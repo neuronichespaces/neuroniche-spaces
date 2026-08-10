@@ -47,9 +47,9 @@ ScenariosPanel, unchanged all session).
 
 ## Gap 2 — Precision numeric and keyboard-driven input
 
-**Status: mostly closed as of 2026-08-09 — this section badly predates several
-sessions of Milestone 1/2 work and was corrected in place below rather than rewritten,
-so the "Missing entirely"/"Stale" labels are literal, not decorative.**
+**Status: fully closed as of 2026-08-10 — this section badly predated several sessions
+of Milestone 1/2 work and was corrected in place below rather than rewritten, so the
+"Missing entirely"/"Stale" labels are literal, not decorative.**
 
 - Numeric inspector exists for objects (`PropertiesPanel.tsx`: width/depth/height/
   rotation/brightness/colour-temp/noise sliders + new Lock/Hide) and for room dimensions
@@ -70,11 +70,28 @@ so the "Missing entirely"/"Stale" labels are literal, not decorative.**
   against): absolute/relative/polar coordinate entry, axis lock, 3-tier keyboard
   increments, and Tab-between-fields dynamic input are all implemented and
   live-verified (`parseAbsolute`/`parseRelative`/`parsePolar`/`axisLock` in
-  `geometry.ts`, wired into `RoomEditor2D.tsx`). Genuinely still missing: typed
-  coordinate entry literally *while the mouse button is held down* mid-drag (works
-  between clicks and via the dynamic overlay, not mid-`mousedown`), and the zone tool
-  has no length/angle-style dynamic overlay (only a single coordinate-corner field) —
-  zones don't have a natural "length/angle from a pivot" shape the way walls do.
+  `geometry.ts`, wired into `RoomEditor2D.tsx`).
+- **Re-examined and closed (mid-drag typed entry, 2026-08-10)**: this was previously
+  logged as "genuinely still missing." Re-reading `RoomEditor2D.tsx` directly: the wall
+  length/angle overlay (lines ~765+) already renders and is fully interactive for the
+  entire `draftWall`-truthy span, i.e. from `mousedown` to `mouseup` — the whole drag,
+  not just "between clicks." Konva doesn't call `setPointerCapture` anywhere in this
+  file, so keyboard focus can move into the overlay's inputs via Tab without a click
+  while the drag is still physically held; releasing the mouse button over the overlay
+  (a plain HTML div outside the Konva `<Stage>`) also doesn't fire the Stage's own
+  `onMouseUp`/`finishWallDraft`, so `draftWall` survives release-over-overlay too,
+  leaving it open for typed refinement before Enter commits. The literal case this
+  entry names — typing into a field while a single mouse is *simultaneously* still
+  depressed for the drag *and* that same click focuses the field — isn't reachable by
+  a single pointer device regardless of app code; that's a hardware/interaction-model
+  constraint, not a gap this codebase can close.
+- **Closed (zone width/length dynamic overlay, 2026-08-10)**: `RoomEditor2D.tsx` gained
+  a Width/Length overlay for the zone tool, mirroring the wall Length/Angle one exactly
+  (same dirty-flag-per-field pattern, same Enter-to-commit/Escape-to-reset). Zones are
+  axis-aligned rectangles with no natural angle, so Width/Length replaces Length/Angle;
+  typed values always grow the rectangle right/down from the anchored start corner
+  (the standard "enter width/height from a fixed corner" CAD convention), rather than
+  trying to infer a drag direction from typed numbers alone.
 - Validation is real where it exists (`RoomDimensionsPanel.tsx` never silently clamps,
   shows plain-language errors) — the *pattern* is correct, just not yet applied to
   walls/coordinates/polar input.
@@ -352,9 +369,13 @@ identity flows through yet) and ScenariosPanel is unverified against a live DB.*
   Gaps 4/5/6/7 (layers, batch edit, annotations-as-entities, audit log) all want to
   attach richer metadata to "a thing that changed", which today's plain `set()` calls
   don't carry.
-- **No wall selection concept exists** — walls can be drawn/deleted but not selected,
-  inspected, or numerically edited. This blocks large parts of Gap 2 and all of Gap 6's
-  "wall length dimension" automatic-dimension idea (nothing to anchor it to yet).
+- **Stale, corrected 2026-08-10**: this bullet previously said "No wall selection
+  concept exists," contradicting Gap 2's own body a few sections up, which documents
+  `selectedWallId`/`WallDimensionsPanel.tsx` as closed 2026-08-09. Wall selection does
+  exist. What's still true and worth keeping from the original point: no
+  *automatic* wall-length dimension is generated from that selection (Gap 6's
+  auto-dimension idea) — that's a real, separate, still-open gap, just not "no
+  selection at all."
 - The existing render-role hardening (`src/renderer/babylon/types.ts`, this session)
   is directly reusable for Gap 4's "layer visibility must affect picking" requirement —
   the same `isEditorPickable`-style filter, extended to also check layer lock/visibility.
