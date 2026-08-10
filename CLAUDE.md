@@ -47,6 +47,17 @@ Data flow in the UI: organisation form → `matchFunding()` → top match auto-f
 - Every funding amount shown must carry its `source_url` and a "not guaranteed" disclaimer.
 - Calm-UX: deadlines render as plain dates + days remaining, never countdown/urgency styling.
 
+## Agent screening rule (every prompt)
+
+This repo has 10 specialist subagents in `.claude/agents/` (5 build, 5 adversarial review — see `.claude/agents/README.md` for the roster and standard chains). **On every user prompt in this repo, screen the roster against what the prompt actually touches and use whichever agents are genuinely appropriate — do not skip this screening, and do not invoke agents that don't fit just to look thorough.** Concretely:
+
+1. Before acting, check the prompt against the "Standard chain, by change type" table in `.claude/agents/README.md` (UI/spatial, copy, funding data, template/design guidance).
+2. If it matches a chain, run the build agent(s) first, then the relevant review agent(s), in order — each as a separate `Agent` call so reviewers see finished work, not partial diffs.
+3. If nothing in the roster fits (e.g. a pure typo fix, a question, a non-NeuroNiche task), say so in one line and proceed without spawning agents — screening is a check, not a mandate to always delegate.
+4. Trivial changes (single-line fixes, doc typos) don't need the full chain even if they technically touch a matched area — use judgment on proportionality, same as the rest of this file's quality bar.
+
+## Handoff docs
+
 See `.planning/PHASES.md` for the full phase pipeline and `.planning/handoff-*.md` for the latest session's state and open questions.
 
 ### Market scope
