@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'REPO AGENT SCREEN (required every prompt): check the prompt against .claude/agents/README.md'\"'\"'s \"Standard chain, by change type\" table. This harness cannot dispatch .claude/agents/*.md via the Agent tool (project subagent_type calls hard-error here -- only ecc:/gsd:/built-in types resolve). Workaround: Read the matched agent .md file(s) and follow their instructions inline as that persona (build pass first, then adversarial review pass, as separate reasoning steps) before finishing. State which persona(s) you used, or say no agent fits.\\n'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
