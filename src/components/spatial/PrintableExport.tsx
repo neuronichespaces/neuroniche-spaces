@@ -3,10 +3,11 @@
 // produces the actual PDF. Screen styling is minimal; @media print governs the real output.
 'use client';
 
-import type { WallSegment, FloorDims, DoorPlacement, PlacedObject, Layer } from '@/lib/spatial/types.ts';
+import type { WallSegment, FloorDims, DoorPlacement, PlacedObject, Layer, Leader, RevisionCloud, SectionLine } from '@/lib/spatial/types.ts';
 import { isEffectivelyVisible, isPrintable } from '@/lib/spatial/layers.ts';
 import type { BomLine } from '@/lib/spatial/bom.ts';
 import { wallSegmentsWithDoorGap, wallLengthM, DEFAULT_WALL_HEIGHT_M } from '@/lib/spatial/geometry.ts';
+import { computeSectionProfile } from '@/lib/spatial/sectionGeometry.ts';
 
 const PADDING = 20;
 const SCALE = 40; // px per metre
@@ -49,6 +50,68 @@ function ScaleBar({ x, y }: { x: number; y: number }) {
   );
 }
 
+// CAD-upgrade Gap 6 (revision clouds, 2026-08-10): a real scalloped-arc outline (the
+// standard CAD revision-cloud look), not a plain rectangle — walks the bounding box's
+// perimeter in roughly bumpPx-sized steps, each connected by an outward-bulging SVG
+// arc. Sweep flag fixed to 1 for a clockwise perimeter walk (top-left→top-right→
+// bottom-right→bottom-left→close), which is what corners is built as below.
+function revisionCloudPath(px: number, py: number, wPx: number, hPx: number, bumpPx = 14): string {
+  const corners = [
+    { x: px, y: py },
+    { x: px + wPx, y: py },
+    { x: px + wPx, y: py + hPx },
+    { x: px, y: py + hPx },
+    { x: px, y: py },
+  ];
+  let d = `M ${corners[0].x} ${corners[0].y} `;
+  for (let i = 0; i < 4; i++) {
+    const a = corners[i];
+    const b = corners[i + 1];
+    const segLen = Math.hypot(b.x - a.x, b.y - a.y);
+    const bumps = Math.max(2, Math.round(segLen / bumpPx));
+    const stepX = (b.x - a.x) / bumps;
+    const stepY = (b.y - a.y) / bumps;
+    const r = Math.hypot(stepX, stepY) / 2;
+    for (let j = 1; j <= bumps; j++) {
+      d += `A ${r} ${r} 0 0 1 ${a.x + stepX * j} ${a.y + stepY * j} `;
+    }
+  }
+  return d;
+}
+
+// CAD-upgrade Gap 6 (generated section views, 2026-08-10): renders sectionGeometry.ts's
+// computeSectionProfile as a simple side-on SVG — a horizontal ground line at the
+// section line's length, with a rectangle per intersected wall/object at its
+// projected position and height. Distinct from wallElevationSvg above (a full wall
+// face) — this is an arbitrary cut through the room.
+function sectionViewSvg(line: SectionLine, walls: WallSegment[], placedObjects: PlacedObject[], index: number) {
+  const profile = computeSectionProfile(line, walls, placedObjects);
+  const lineLengthM = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
+  const maxHeightM = Math.max(DEFAULT_WALL_HEIGHT_M, ...profile.map((p) => p.heightM), 0.5);
+  const w = lineLengthM * SCALE + PADDING * 2;
+  const h = maxHeightM * SCALE + PADDING * 2;
+  return (
+    <svg key={line.id} width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={line.label || `Section ${index + 1}`}>
+      <line x1={PADDING} y1={h - PADDING} x2={w - PADDING} y2={h - PADDING} stroke="#111" strokeWidth={1.5} />
+      {profile.map((entry) => (
+        <rect
+          key={entry.id}
+          x={PADDING + entry.startM * SCALE}
+          y={h - PADDING - entry.heightM * SCALE}
+          width={Math.max(1, (entry.endM - entry.startM) * SCALE)}
+          height={entry.heightM * SCALE}
+          fill={entry.kind === 'wall' ? '#ddd' : '#cdd8f0'}
+          stroke="#334"
+          strokeWidth={1}
+        />
+      ))}
+      <text x={PADDING} y={h - 4} fontSize={9} fill="#111">
+        {line.label || `Section ${index + 1}`} — {lineLengthM.toFixed(2)}m
+      </text>
+    </svg>
+  );
+}
+
 // One elevation per wall — a side-on projection (length x height) rather than the
 // floor plan's top-down view, with the wall's door (if any) shown as a cutout. This
 // is a real second projection of the model (CAD Gap 6's "generated section/elevation
@@ -81,7 +144,14 @@ function wallElevationSvg(wall: WallSegment, door: DoorPlacement | undefined, wa
 
 // Reuses wallSegmentsWithDoorGap (same helper as the 2D editor and 3D geometry)
 // so exported walls show the same door cutouts, instead of a solid uncut line.
-function wallsToSvg(walls: WallSegment[], doors: DoorPlacement[], placedObjects: PlacedObject[], floorDims: FloorDims) {
+function wallsToSvg(
+  walls: WallSegment[],
+  doors: DoorPlacement[],
+  placedObjects: PlacedObject[],
+  floorDims: FloorDims,
+  leaders: Leader[],
+  revisionClouds: RevisionCloud[],
+) {
   const w = floorDims.widthM * SCALE + PADDING * 2;
   const h = floorDims.lengthM * SCALE + PADDING * 2;
   const px = (x: number) => PADDING + x * SCALE;
@@ -125,6 +195,36 @@ function wallsToSvg(walls: WallSegment[], doors: DoorPlacement[], placedObjects:
           </g>
         );
       })}
+      {/* CAD-upgrade Gap 6 (leaders drawn on export, 2026-08-10): previously omitted
+          entirely from the printed floor plan despite being a real model entity — same
+          anchor→labelPoint line + text as LeaderLayer.tsx's 2D render. */}
+      {leaders.map((leader) => (
+        <g key={leader.id}>
+          <line x1={px(leader.anchor.x)} y1={py(leader.anchor.y)} x2={px(leader.labelPoint.x)} y2={py(leader.labelPoint.y)} stroke="#111" strokeWidth={1} />
+          <circle cx={px(leader.anchor.x)} cy={py(leader.anchor.y)} r={2} fill="#111" />
+          <text x={px(leader.labelPoint.x) + 3} y={py(leader.labelPoint.y) - 3} fontSize={9} fill="#111">
+            {leader.text}
+          </text>
+        </g>
+      ))}
+      {/* CAD-upgrade Gap 6 (revision clouds, 2026-08-10): scalloped-arc outline over
+          each cloud's bounding box, per revisionCloudPath's comment. */}
+      {revisionClouds.map((cloud) => {
+        const wPx = cloud.widthM * SCALE;
+        const hPx = cloud.lengthM * SCALE;
+        const cx = px(cloud.x) - wPx / 2;
+        const cy = py(cloud.y) - hPx / 2;
+        return (
+          <g key={cloud.id}>
+            <path d={revisionCloudPath(cx, cy, wPx, hPx)} fill="none" stroke="#c2410c" strokeWidth={1.5} />
+            {cloud.note && (
+              <text x={cx} y={cy - 4} fontSize={9} fill="#c2410c">
+                {cloud.note}
+              </text>
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -138,6 +238,12 @@ export function PrintableExport({
   bomLines,
   snapshotDataUrl,
   layers,
+  leaders = [],
+  revisionClouds = [],
+  sectionLines = [],
+  drawnBy,
+  checkedBy,
+  revision,
 }: {
   roomName: string;
   floorDims: FloorDims;
@@ -151,11 +257,28 @@ export function PrintableExport({
    *  stays callable without layer data — omitting it prints everything, matching
    *  behaviour before layers had a `printable` field. */
   layers?: Layer[];
+  /** CAD-upgrade Gap 6 (2026-08-10): all default to [] — omitting them prints exactly
+   *  as before this pass, same optional-prop convention as `layers` above. */
+  leaders?: Leader[];
+  revisionClouds?: RevisionCloud[];
+  sectionLines?: SectionLine[];
+  /** CAD-upgrade Gap 6 (export metadata, 2026-08-10): drawing-register fields beyond
+   *  project/date — real technical-drawing metadata, not just a project name. */
+  drawnBy?: string;
+  checkedBy?: string;
+  revision?: string;
 }) {
   const printableWalls = layers ? walls.filter((w) => isEffectivelyVisible(w, layers) && isPrintable(w, layers)) : walls;
   const printableObjects = layers
     ? placedObjects.filter((o) => isEffectivelyVisible(o, layers) && isPrintable(o, layers))
     : placedObjects;
+  const printableLeaders = layers ? leaders.filter((l) => isEffectivelyVisible(l, layers) && isPrintable(l, layers)) : leaders;
+  const printableRevisionClouds = layers
+    ? revisionClouds.filter((c) => isEffectivelyVisible(c, layers) && isPrintable(c, layers))
+    : revisionClouds;
+  const printableSectionLines = layers
+    ? sectionLines.filter((l) => isEffectivelyVisible(l, layers) && isPrintable(l, layers))
+    : sectionLines;
   const total = bomLines.reduce((s, l) => s + l.lineTotal, 0);
   const printedDate = new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -186,6 +309,24 @@ export function PrintableExport({
                 itself is the reliable reference, this cell just points at it. */}
             <td className="border border-gray-400 px-2 py-1">See scale bar on floor plan (not a fixed ratio — depends on print/PDF output size)</td>
           </tr>
+          {drawnBy && (
+            <tr>
+              <td className="border border-gray-400 bg-gray-50 px-2 py-1 font-medium">Drawn by</td>
+              <td className="border border-gray-400 px-2 py-1">{drawnBy}</td>
+            </tr>
+          )}
+          {checkedBy && (
+            <tr>
+              <td className="border border-gray-400 bg-gray-50 px-2 py-1 font-medium">Checked by</td>
+              <td className="border border-gray-400 px-2 py-1">{checkedBy}</td>
+            </tr>
+          )}
+          {revision && (
+            <tr>
+              <td className="border border-gray-400 bg-gray-50 px-2 py-1 font-medium">Revision</td>
+              <td className="border border-gray-400 px-2 py-1">{revision}</td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -198,13 +339,24 @@ export function PrintableExport({
       )}
 
       <h2 className="mt-6 text-base font-semibold">Floor plan</h2>
-      <div className="mt-2">{wallsToSvg(printableWalls, doors, printableObjects, floorDims)}</div>
+      <div className="mt-2">
+        {wallsToSvg(printableWalls, doors, printableObjects, floorDims, printableLeaders, printableRevisionClouds)}
+      </div>
 
       {printableWalls.length > 0 && (
         <>
           <h2 className="mt-6 text-base font-semibold">Wall elevations</h2>
           <div className="mt-2 flex flex-wrap gap-4">
             {printableWalls.map((wall, i) => wallElevationSvg(wall, doors.find((d) => d.wallId === wall.id), DEFAULT_WALL_HEIGHT_M, i))}
+          </div>
+        </>
+      )}
+
+      {printableSectionLines.length > 0 && (
+        <>
+          <h2 className="mt-6 text-base font-semibold">Section views</h2>
+          <div className="mt-2 flex flex-wrap gap-4">
+            {printableSectionLines.map((line, i) => sectionViewSvg(line, printableWalls, printableObjects, i))}
           </div>
         </>
       )}

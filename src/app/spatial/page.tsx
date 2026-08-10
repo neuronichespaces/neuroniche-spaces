@@ -25,6 +25,8 @@ import { ViewStatesPanel } from '@/components/spatial/ViewStatesPanel.tsx';
 import type { CameraApi } from '@/components/spatial/RoomViewer3D.tsx';
 import { OutlinerPanel } from '@/components/spatial/OutlinerPanel.tsx';
 import { BlocksPanel } from '@/components/spatial/BlocksPanel.tsx';
+import { RevisionCloudsPanel } from '@/components/spatial/RevisionCloudsPanel.tsx';
+import { SectionLinesPanel } from '@/components/spatial/SectionLinesPanel.tsx';
 import { AuditLogPanel } from '@/components/spatial/AuditLogPanel.tsx';
 import { CommentsPanel } from '@/components/spatial/CommentsPanel.tsx';
 import { ScenariosPanel } from '@/components/spatial/ScenariosPanel.tsx';
@@ -180,6 +182,8 @@ function SpatialDesignEngineInner() {
           {view === '3d' && <ViewStatesPanel cameraApi={cameraApi} />}
           <OutlinerPanel />
           <BlocksPanel />
+          <RevisionCloudsPanel />
+          <SectionLinesPanel />
           <CommentsPanel />
           <AuditLogPanel />
           {roomId && <ScenariosPanel roomId={roomId} />}

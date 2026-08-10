@@ -31,7 +31,7 @@ export function BlocksPanel() {
       <h2 className="text-xs font-medium text-slate-500">Blocks</h2>
       {pendingBlock && (
         <div className="flex items-center justify-between rounded bg-blue-50 p-2 text-xs text-blue-700">
-          <span>Click the 2D plan to place "{pendingBlock.name}"</span>
+          <span>Click the 2D plan to place &quot;{pendingBlock.name}&quot;</span>
           <button type="button" onClick={cancelBlockPlacement} className="min-h-11 rounded px-2 hover:bg-blue-100">
             Cancel
           </button>

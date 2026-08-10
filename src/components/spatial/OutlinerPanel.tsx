@@ -330,7 +330,7 @@ export function OutlinerPanel() {
         </div>
       )}
 
-      {filter.trim() && filteredRows.length === 0 && <p className="text-sm text-slate-400">No rows match "{filter}".</p>}
+      {filter.trim() && filteredRows.length === 0 && <p className="text-sm text-slate-400">No rows match &quot;{filter}&quot;.</p>}
 
       <ul className="flex flex-col gap-2">
         {layers.map((layer) => {

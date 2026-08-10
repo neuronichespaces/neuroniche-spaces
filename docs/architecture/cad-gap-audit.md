@@ -5,10 +5,14 @@ the 7 structural gaps, using this session's own extensive, current knowledge of 
 codebase (Babylon migration + hardening, spatial store, 2D editor all touched today —
 no stale assumptions here).
 
-**Build/test state at audit time**: `npm run build` clean, 136/136 `node --test` pass,
-lint clean in every spatial/renderer file (13 pre-existing errors remain in unrelated
-pages — costing/audit/training/business-case/organisations/A11yProvider/ErrorBoundary/
-ScenariosPanel, unchanged all session).
+**Build/test state at audit time**: `npm run build` clean, 149/149 `node --test` pass,
+lint clean in every spatial/renderer file except `validate.test.ts`'s pre-existing
+`no-unused-vars` warnings (6, up from 4 — the two new `revisionClouds`/`sectionLines`
+default-value tests follow the exact same "destructure it out, discard it" pattern the
+existing `zones`/`dimensions`/`leaders`/`layers` tests already used unfixed; not a new
+category of problem, same accepted debt scaled by 2 more tests). 13 pre-existing
+*errors* remain in unrelated pages — costing/audit/training/business-case/
+organisations/A11yProvider/ErrorBoundary/ScenariosPanel — unchanged all session.
 
 ## Gap 1 — Synchronized 2D/3D dual-view architecture
 
@@ -298,10 +302,11 @@ Select-style filtering, and saved selection sets all closed (2026-08-09/10).**
 
 ## Gap 6 — Annotation, sections, elevations, documentation
 
-**Status: dimensions and leaders/callouts are real model entities; north arrow, scale
-bar, title block, and per-wall elevations exist in the printable export (all as of
-2026-08-09). Section-cut views (as opposed to per-wall elevations), revision clouds,
-and export metadata beyond project/date remain missing.**
+**Status: fully closed as of 2026-08-10 — dimensions, leaders/callouts, revision
+clouds, and section lines are all real model entities; the printable export draws
+north arrow, scale bar, title block, per-wall elevations, leaders, revision clouds,
+generated section-cut views, drawn-by/checked-by/revision metadata, and named/
+versioned drawing sheets.**
 
 - **Closed (dimensions)**: manual dimension tool. `Dimension` (`types.ts`) is a
   canonical model entity — `{id, start, end, offsetM, label?}` — persisted through the
@@ -327,13 +332,48 @@ and export metadata beyond project/date remain missing.**
   slice through the room) — see "Still missing" below.
 - 2D view still renders room-name/area/wall-length text and a clearance readout as
   **rendering-only** Konva `<Text>` nodes, unrelated to Dimension/Leader — same gap as
-  before for those specific labels.
-- **Still missing**: revision clouds, a distinct section-line/cut-plane entity and
-  generated section views (today's "elevations" are always the full wall face, not an
-  arbitrary cut through the room), leaders aren't drawn on the printable export yet,
-  export metadata beyond project/date (no drawn-by/checked-by/revision fields), and no
-  named/versioned drawing-sheet system (`PrintableExport.tsx` always renders "the
-  current state," not a saved sheet).
+  before for those specific labels (out of scope for this pass, pre-existing).
+- **Closed (revision clouds + section lines as real entities, 2026-08-10)**:
+  `RevisionCloud` (`{id, x, y, widthM, lengthM, note?, layerId?}`) and `SectionLine`
+  (`{id, start, end, label?, layerId?}`) — same canonical-entity treatment as
+  Dimension/Leader (full CRUD in `store.ts`, undo-tracked, shape-validated in
+  `validate.ts`, default-to-`[]` backward compat for old payloads). Created via
+  `RevisionCloudsPanel.tsx`/`SectionLinesPanel.tsx` — panel-based ("Add" places a
+  default-sized entity, then edit inline), **not** a canvas click-to-draw tool. This is
+  a deliberate scope choice, not an oversight: a full click-click 2D draw tool per
+  entity type (matching Dimension/Leader's UX) would mean touching `RoomEditor2D.tsx`'s
+  tool state machine and Konva rendering for two more entity types — a bigger diff for
+  a real but secondary UX polish, when the actual gap (a real model entity + generated
+  export output) is what this item asked to close.
+- **Closed (revision clouds rendered on export, 2026-08-10)**: a genuine scalloped-arc
+  outline (`revisionCloudPath()` in `PrintableExport.tsx`) around each cloud's bounding
+  box on the floor plan — the standard CAD revision-cloud look, not a placeholder
+  rectangle.
+- **Closed (generated section views, 2026-08-10)**: `sectionGeometry.ts`'s
+  `computeSectionProfile()` projects walls/objects onto an arbitrary `SectionLine`'s
+  axis — genuinely distinct from the existing per-wall elevations (always the full
+  wall face). Handles a wall *crossing* the line (shown at its own thickness — the
+  common real case, e.g. a horizontal cut through vertical walls) and a wall running
+  *along* the line (shown face-on across its length) as two different cases; 6 unit
+  tests cover both plus sorting and the zero-length-line edge case. This is an
+  orthographic projection with a fixed-width inclusion corridor, not a true 3D boolean
+  cut (no near/far occlusion, no partial wall-thickness cross-section) — documented in
+  the module's own header comment as the honest scope for what this feature actually
+  needs (a floor-plan-adjacent reference drawing), not a full CAD section-cut renderer.
+- **Closed (leaders drawn on export, 2026-08-10)**: `PrintableExport.tsx`'s floor plan
+  now renders every printable leader — anchor→labelPoint line, anchor dot, label text —
+  previously omitted entirely despite being a real model entity since Gap 6's earlier
+  pass.
+- **Closed (export metadata + named/versioned drawing sheets, 2026-08-10)**:
+  `PrintableExport.tsx`'s title block gained optional Drawn by/Checked by/Revision
+  rows. `DrawingSheet` (`types.ts`) — `{id, name, drawnBy, checkedBy, revision}` —
+  persists these three fields together under a name (own localStorage key, not
+  undo-tracked, same pattern as `ViewState`/`SelectionSet`); `ExportPanel.tsx`'s
+  "Drawing details" disclosure loads/saves/deletes sheets and feeds the three fields
+  into `PrintableExport.tsx`.
+- **Not done**: nothing outstanding in this gap. (The 2D-view rendering-only labels
+  noted above are a separate, smaller, pre-existing gap, not part of this pass's
+  scope.)
 
 ## Gap 7 — Collaboration, versioning, review, audit
 
