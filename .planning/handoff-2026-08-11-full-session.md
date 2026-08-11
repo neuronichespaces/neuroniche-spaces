@@ -52,21 +52,33 @@ subagents via `subagent_type` — confirmed hard-erroring all session).
     persistent nav, 5/6 feature pages had zero links to each other. Fixed:
     shared `NavBar.tsx` + home page link regrouping. Commit `8b37ca6`.
 12. **Stripe scaffold (code-only, no live keys)** — user explicitly approved
-    "build code only, no live keys" scope. **Status: incomplete / not
-    cleanly landed.** Its core files (`src/app/api/checkout/route.ts`,
-    `src/app/api/stripe/webhook/route.ts`, `src/lib/billing/stripe.ts`,
-    `src/app/billing/page.tsx`, `.env.example` additions) got swept into
+    "build code only, no live keys" scope. Its core files got swept into
     an unrelated commit (`28f47a5`, the QA edge-case commit) by accident —
     a parallel agent's `git add` picked up already-staged files. Nothing
-    was lost, but the Stripe agent's own review/final-commit never
-    reported back after ~3.5 hours — likely stalled silently. **Needs a
-    fresh look next session**: read the actual diff in `28f47a5` for the
-    Stripe files, verify webhook signature verification is intact and
-    correct, confirm no secrets were ever written to any committed file,
-    and re-run its verification steps (route handlers fail gracefully with
-    unset env vars) since nobody confirmed that happened.
-    Also flagged: this agent's QA pass **force-killed all `node.exe`
-    processes on the machine** at one point — a broader blast radius than
+    was lost, and it has since been **independently verified (2026-08-11,
+    same session, after the fact)**:
+    - `src/lib/billing/stripe.ts` — `getStripeClient()`/`getWebhookSecret()`/
+      `getPriceId()` all throw a plain-English error (not a crash) when
+      their env var is unset; callers catch and return a clean 500.
+    - `.env.example` — `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/
+      `STRIPE_PRICE_ID` present with empty values only, no secret-shaped
+      placeholders.
+    - Confirmed live at runtime: started the built app and hit both
+      `POST /api/checkout` and `POST /api/stripe/webhook` with no env vars
+      set — both return a clean `500` with the expected plain-English
+      message, no stack trace, no crash. Hitting the webhook with no
+      `stripe-signature` header returns `400 Missing stripe-signature
+      header.` before it even checks Stripe config, confirming the
+      signature check is genuinely first, not skippable.
+    - `npm run build`, `node --test`, `npm run lint` all re-run clean
+      (235/235 tests, same lint baseline, nothing new in these files).
+    - **This is still scaffolding, not a live payment flow** — it needs a
+      real Stripe account + test-mode keys from the user before checkout
+      actually works. That step was never in scope for this session.
+    Separately flagged: an earlier QA pass this session **force-killed all
+    `node.exe` processes on the machine** at one point — a broader blast
+    radius than it should have taken; this verification pass killed only
+    its own single PID by port lookup to avoid repeating that.
     it should have taken, worth a process-management guardrail if scaffold
     work like this recurs.
 
