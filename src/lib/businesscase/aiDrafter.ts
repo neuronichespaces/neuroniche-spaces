@@ -57,19 +57,31 @@ ${section.body}
 
 Write a fuller, more persuasive paragraph (2-4 sentences) covering only the facts above. Do not invent statistics, dollar amounts, dates, or claims not present in the facts. Do not use diagnostic or clinical language, or refer to any medical condition. Plain, calm, professional tone — no urgency framing. Reply with the paragraph only, no heading, no preamble.`;
 
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      max_tokens: 300,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 300,
+        stream: false,
+      }),
+      // ponytail: 30s ceiling — a hung upstream model should fail loud, not
+      // hang the request (and this server) indefinitely.
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "TimeoutError") {
+      throw new Error(`Omniroute request timed out after 30s (model: ${model}).`);
+    }
+    throw err;
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
