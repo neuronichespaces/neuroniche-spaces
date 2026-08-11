@@ -50,6 +50,7 @@ export function PropertiesPanel() {
   const placedObjects = useRoomLayoutStore((s) => s.placedObjects);
   const walls = useRoomLayoutStore((s) => s.walls);
   const updateObjectProps = useRoomLayoutStore((s) => s.updateObjectProps);
+  const moveObject = useRoomLayoutStore((s) => s.moveObject);
   const rotateObject = useRoomLayoutStore((s) => s.rotateObject);
   const toggleObjectLocked = useRoomLayoutStore((s) => s.toggleObjectLocked);
   const toggleObjectHidden = useRoomLayoutStore((s) => s.toggleObjectHidden);
@@ -135,6 +136,40 @@ export function PropertiesPanel() {
           Clearance to nearest wall: <span className="font-medium text-gray-900">{clearance.clearanceM.toFixed(2)}m</span>
         </p>
       )}
+
+      {/* Spec §11.5: numeric position inputs — the keyboard/screen-reader alternative to
+          dragging on canvas. Arrow-key nudging (RoomEditor2D) requires canvas focus; these
+          fields let position be set without ever touching the canvas. */}
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-sm text-gray-700">
+          X position
+          <input
+            type="number"
+            step={0.05}
+            value={Number(obj.x.toFixed(2))}
+            onChange={(e) => {
+              const x = Number(e.target.value);
+              if (Number.isFinite(x)) moveObject(obj.id, x, obj.y);
+            }}
+            className="mt-1 min-h-11 w-full rounded border border-gray-300 px-2"
+            aria-label="X position in metres"
+          />
+        </label>
+        <label className="block text-sm text-gray-700">
+          Y position
+          <input
+            type="number"
+            step={0.05}
+            value={Number(obj.y.toFixed(2))}
+            onChange={(e) => {
+              const y = Number(e.target.value);
+              if (Number.isFinite(y)) moveObject(obj.id, obj.x, y);
+            }}
+            className="mt-1 min-h-11 w-full rounded border border-gray-300 px-2"
+            aria-label="Y position in metres"
+          />
+        </label>
+      </div>
 
       <Slider
         label="Width"
