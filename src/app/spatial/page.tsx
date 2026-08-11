@@ -20,6 +20,7 @@ import { ZonePropertiesPanel } from '@/components/spatial/ZonePropertiesPanel.ts
 import { DimensionPropertiesPanel } from '@/components/spatial/DimensionPropertiesPanel.tsx';
 import { LeaderPropertiesPanel } from '@/components/spatial/LeaderPropertiesPanel.tsx';
 import { CommandHistoryPanel } from '@/components/spatial/CommandHistoryPanel.tsx';
+import { CheckpointsPanel } from '@/components/spatial/CheckpointsPanel.tsx';
 import { LayersPanel } from '@/components/spatial/LayersPanel.tsx';
 import { ViewStatesPanel } from '@/components/spatial/ViewStatesPanel.tsx';
 import type { CameraApi } from '@/components/spatial/RoomViewer3D.tsx';
@@ -93,6 +94,15 @@ function SpatialDesignEngineInner() {
   // Only live while RoomViewer3D is mounted (view === '3d') — ViewStatesPanel disables
   // its save/restore controls when this is null.
   const [cameraApi, setCameraApi] = useState<CameraApi | null>(null);
+  // ND enhancement: camera-pose preservation across 2D↔3D toggle. RoomViewer3D fully
+  // unmounts on 2D↔3D toggle (engine/scene are disposed), so this must live in the
+  // parent, not the viewer — captured just before switching away from 3D, re-applied
+  // by RoomViewer3D on its next mount via initialCameraSnapshot.
+  const [savedCameraSnapshot, setSavedCameraSnapshot] = useState<ReturnType<CameraApi['getSnapshot']> | null>(null);
+  function switchView(next: '2d' | '3d') {
+    if (view === '3d' && next === '2d' && cameraApi) setSavedCameraSnapshot(cameraApi.getSnapshot());
+    setView(next);
+  }
 
   // With a ?room= id: load that room's real Supabase-saved layout (falls through to the
   // template picker if it has none saved yet — a brand-new room). Without one: unchanged
@@ -178,6 +188,7 @@ function SpatialDesignEngineInner() {
             Redo
           </button>
           <CommandHistoryPanel />
+          <CheckpointsPanel />
           <LayersPanel />
           {view === '3d' && <ViewStatesPanel cameraApi={cameraApi} />}
           <OutlinerPanel />
@@ -221,7 +232,7 @@ function SpatialDesignEngineInner() {
             <button
               key={v}
               type="button"
-              onClick={() => setView(v)}
+              onClick={() => switchView(v)}
               className={`min-h-11 rounded border px-3 py-2 text-sm uppercase ${
                 view === v ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 text-slate-700'
               }`}
@@ -260,7 +271,12 @@ function SpatialDesignEngineInner() {
               <RoomEditor2D onSave={handleSave} />
             ) : (
               <div className="h-[500px] w-full overflow-hidden rounded border border-slate-300">
-                <RoomViewer3D highDetail={presentationView} reducedMotion={reduceMotion} onCameraApiReady={setCameraApi} />
+                <RoomViewer3D
+                  highDetail={presentationView}
+                  reducedMotion={reduceMotion}
+                  onCameraApiReady={setCameraApi}
+                  initialCameraSnapshot={savedCameraSnapshot}
+                />
               </div>
             )}
           </div>

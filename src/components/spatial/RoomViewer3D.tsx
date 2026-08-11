@@ -55,6 +55,7 @@ export default function RoomViewer3D({
   reducedMotion,
   onCanvasReady,
   onCameraApiReady,
+  initialCameraSnapshot,
 }: {
   /** Opt-in richer render mode (shadows + tuned materials) for presentation view / PDF
    *  snapshot. Silently no-ops to standard mode if WebGPU wasn't detected — that IS the
@@ -70,6 +71,10 @@ export default function RoomViewer3D({
   /** Fires once with an imperative camera bridge — lets sibling panels (view-state
    *  save/restore UI) read/apply camera state without this component owning that UI. */
   onCameraApiReady?: (api: CameraApi) => void;
+  /** Applied to the orbit camera right after creation — lets the caller restore a
+   *  pose captured before this component last unmounted (2D↔3D toggle preservation).
+   *  Read once on mount, not reactively (camera lifecycle is imperative, see below). */
+  initialCameraSnapshot?: Pick<ViewState, 'cameraAlpha' | 'cameraBeta' | 'cameraRadius' | 'cameraTarget'> | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [walking, setWalking] = useState(false);
@@ -205,6 +210,11 @@ export default function RoomViewer3D({
         },
         isOrthographic: () => orthoRef.current,
       };
+      // ND enhancement (camera-pose preservation across 2D↔3D toggle): apply a snapshot
+      // captured before this component's last unmount, if the caller has one. Applied
+      // once here rather than reactively — same imperative-lifecycle reasoning as the
+      // rest of this effect (the camera isn't React state).
+      if (initialCameraSnapshot) cameraApi.applySnapshot(initialCameraSnapshot);
       onCameraApiReady?.(cameraApi);
       toggleOrthographicRef.current = cameraApi.toggleOrthographic;
 

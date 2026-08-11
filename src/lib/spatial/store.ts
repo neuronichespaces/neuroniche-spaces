@@ -31,6 +31,11 @@ type RoomLayout = {
 // alone isn't a stable identity since two commands can share the same description text.
 type HistoryEntry = { id: string; layout: RoomLayout; lastCommandDescription: string };
 
+// ND enhancement: a named checkpoint is just a full RoomLayout snapshot plus a name
+// and timestamp — restoring one goes through loadLayout (undo-tracked, so restoring
+// is itself undoable), unlike the automatic history above which is ephemeral.
+export type Checkpoint = { id: string; name: string; timestamp: number; layout: RoomLayout };
+
 function generateCommandId(): string {
   return `cmd-${Date.now()}-${Math.round(Math.random() * 1000)}`;
 }
@@ -42,6 +47,11 @@ const LOCAL_STORAGE_KEY = 'noniche-spatial-room-default';
 // session-transient like isolate/multi-select), so it gets its own persisted key.
 const VIEW_STATES_KEY = 'noniche-spatial-room-default-view-states';
 const SELECTION_SETS_KEY = 'noniche-spatial-room-default-selection-sets';
+// ND enhancement (2026-08-11): named, browsable checkpoints of the full layout — a
+// deliberate "save point" distinct from the automatic, unnamed undo/redo history in
+// `past`/`future` (which is in-memory only and capped at MAX_HISTORY). Same
+// "worth surviving reload" reasoning as VIEW_STATES_KEY/SELECTION_SETS_KEY.
+const CHECKPOINTS_KEY = 'noniche-spatial-room-default-checkpoints';
 const DRAWING_SHEETS_KEY = 'noniche-spatial-room-default-drawing-sheets';
 const BROADCAST_CHANNEL_NAME = 'noniche-spatial-room';
 const MAX_HISTORY = 50;
@@ -99,6 +109,27 @@ function writeViewStatesToLocalStorage(states: ViewState[]) {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(VIEW_STATES_KEY, JSON.stringify(states));
+  } catch {
+    // ponytail: same best-effort as writeToLocalStorage — quota/private mode, no user-facing error surface yet.
+  }
+}
+
+function readCheckpointsFromLocalStorage(): Checkpoint[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(CHECKPOINTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Checkpoint[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCheckpointsToLocalStorage(checkpoints: Checkpoint[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CHECKPOINTS_KEY, JSON.stringify(checkpoints));
   } catch {
     // ponytail: same best-effort as writeToLocalStorage — quota/private mode, no user-facing error surface yet.
   }
@@ -346,6 +377,14 @@ type RoomLayoutState = RoomLayout & {
   restoreSelectionSet: (id: string) => void;
   deleteSelectionSet: (id: string) => void;
 
+  /** ND enhancement: named, browsable checkpoints of the full layout — persisted to
+   *  their own localStorage key, separate from the ephemeral undo/redo `past`/`future`.
+   *  restoreCheckpoint goes through loadLayout, so it's itself undoable. */
+  checkpoints: Checkpoint[];
+  saveCheckpoint: (name: string) => Checkpoint;
+  restoreCheckpoint: (id: string) => void;
+  deleteCheckpoint: (id: string) => void;
+
   loadLayout: (layout: RoomLayout) => void;
   /** Applies a layout without touching the undo/redo history — used for incoming
    *  cross-tab BroadcastChannel updates, which shouldn't spam a local user's undo stack. */
@@ -489,6 +528,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     pendingBlockPlacement: null,
     comments: [],
     // Same SSR-safety rule as auditLog below — real data loaded in hydrateFromLocalStorage().
+    checkpoints: [],
     viewStates: [],
     selectionSets: [],
     drawingSheets: [],
@@ -981,6 +1021,37 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       writeSelectionSetsToLocalStorage(selectionSets);
     },
 
+    saveCheckpoint: (name) => {
+      const s = get();
+      const layout: RoomLayout = {
+        walls: s.walls,
+        doors: s.doors,
+        floorDims: s.floorDims,
+        placedObjects: s.placedObjects,
+        zones: s.zones,
+        dimensions: s.dimensions,
+        layers: s.layers,
+        leaders: s.leaders,
+        revisionClouds: s.revisionClouds,
+        sectionLines: s.sectionLines,
+      };
+      const checkpoint: Checkpoint = { id: `checkpoint-${Date.now()}-${Math.round(Math.random() * 1000)}`, name, timestamp: Date.now(), layout };
+      const checkpoints = [...s.checkpoints, checkpoint];
+      set({ checkpoints });
+      writeCheckpointsToLocalStorage(checkpoints);
+      return checkpoint;
+    },
+    restoreCheckpoint: (id) => {
+      const checkpoint = get().checkpoints.find((c) => c.id === id);
+      if (!checkpoint) return;
+      get().loadLayout(checkpoint.layout);
+    },
+    deleteCheckpoint: (id) => {
+      const checkpoints = get().checkpoints.filter((c) => c.id !== id);
+      set({ checkpoints });
+      writeCheckpointsToLocalStorage(checkpoints);
+    },
+
     loadLayout: (layout) => {
       const valid = validateRoomLayout(layout);
       if (!valid) return; // ponytail: silent reject, add a user-facing import error surface if this becomes a real import feature
@@ -1064,6 +1135,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       if (typeof window === 'undefined') return;
       set({
         auditLog: readAuditLogFromLocalStorage(),
+        checkpoints: readCheckpointsFromLocalStorage(),
         viewStates: readViewStatesFromLocalStorage(),
         selectionSets: readSelectionSetsFromLocalStorage(),
         drawingSheets: readDrawingSheetsFromLocalStorage(),
