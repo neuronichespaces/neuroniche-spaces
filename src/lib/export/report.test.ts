@@ -10,6 +10,8 @@ const DRAFT: BusinessCase = {
   ],
   status: "draft_pending_review",
   aiGenerated: false,
+  reviewedBy: null,
+  reviewedAt: null,
 };
 
 test("CSV has a header row plus one row per section", () => {
@@ -26,6 +28,8 @@ test("fields containing commas, quotes or newlines are escaped per RFC 4180", ()
     sections: [{ heading: "Cost, budget", body: 'Contains "quotes" and\nnewline', citedIds: [] }],
     status: "draft_pending_review",
     aiGenerated: false,
+    reviewedBy: null,
+    reviewedAt: null,
   };
   const csv = businessCaseToCsv(withSpecialChars);
   assert.ok(csv.includes('"Cost, budget"'));
@@ -62,6 +66,8 @@ test("cell values starting with =, +, -, or @ are neutralized against CSV formul
     ],
     status: "draft_pending_review",
     aiGenerated: false,
+    reviewedBy: null,
+    reviewedAt: null,
   };
   const csv = businessCaseToCsv(malicious);
   assert.ok(!/,=HYPERLINK/.test(csv), "leading = must be neutralized");
@@ -70,7 +76,7 @@ test("cell values starting with =, +, -, or @ are neutralized against CSV formul
 });
 
 test("empty sections list produces just the header and status rows, no crash", () => {
-  const empty: BusinessCase = { sections: [], status: "draft_pending_review", aiGenerated: false };
+  const empty: BusinessCase = { sections: [], status: "draft_pending_review", aiGenerated: false, reviewedBy: null, reviewedAt: null };
   const csv = businessCaseToCsv(empty);
   assert.equal(csv.split("\r\n")[0], "Section,Content,Cited sources");
 });
