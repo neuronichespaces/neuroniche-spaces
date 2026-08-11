@@ -32,6 +32,7 @@ import { AuditLogPanel } from '@/components/spatial/AuditLogPanel.tsx';
 import { CommentsPanel } from '@/components/spatial/CommentsPanel.tsx';
 import { ScenariosPanel } from '@/components/spatial/ScenariosPanel.tsx';
 import { ExportPanel } from '@/components/spatial/ExportPanel.tsx';
+import { LiveRegionAnnouncer } from '@/components/spatial/LiveRegionAnnouncer.tsx';
 import { CATALOGUE } from '@/lib/demoData.ts';
 import { loadRoomFromSupabase, saveRoomToSupabase } from '@/lib/spatial/persistence.ts';
 import { defaultLayers } from '@/lib/spatial/layers.ts';
@@ -160,6 +161,7 @@ function SpatialDesignEngineInner() {
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+      <LiveRegionAnnouncer />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Spatial Design Engine</h1>
