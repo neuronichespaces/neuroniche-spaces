@@ -53,6 +53,7 @@ export default function BillingPage() {
           type="button"
           onClick={onSubscribe}
           disabled={status === "loading"}
+          aria-busy={status === "loading"}
           className="a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] disabled:opacity-60"
         >
           {status === "loading" ? "Starting checkout…" : "Subscribe"}
