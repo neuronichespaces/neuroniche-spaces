@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import A11yProvider from "@/components/A11yProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import NavBar from "@/components/NavBar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ErrorBoundary>
         <A11yProvider>
+          <NavBar />
           <div className="flex-1">{children}</div>
           <footer className="no-print border-t border-[var(--a11y-border)] p-4 text-sm flex flex-wrap gap-x-4 gap-y-2 justify-center">
             <a className="underline" href="/privacy">Privacy</a>

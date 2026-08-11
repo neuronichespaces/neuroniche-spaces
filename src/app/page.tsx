@@ -63,67 +63,58 @@ export default function Home() {
           <h1 className="text-2xl font-semibold">NeuroNiche Spaces</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">Plan a sensory space for your organisation. Sensory preferences are general planning categories, not assessments.</p>
         </div>
-        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-          <Link
-            href="/login"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Sign in →
-          </Link>
-          <Link
-            href="/organisations"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Your organisations →
-          </Link>
-          <Link
-            href="/spatial"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Open room designer (2D/3D) →
-          </Link>
-          <Link
-            href="/audit"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Start a sensory space audit →
-          </Link>
-          <Link
-            href="/costing"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Costing and compliance →
-          </Link>
-          <Link
-            href="/grants"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Find grants →
-          </Link>
-          <Link
-            href="/resources"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Templates and evidence →
-          </Link>
-          <Link
-            href="/business-case"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Business case and co-design →
-          </Link>
-          <Link
-            href="/catalogue"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Equipment catalogue →
-          </Link>
-          <Link
-            href="/training"
-            className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Workplace inclusion training →
-          </Link>
+        <div className="flex shrink-0 flex-col gap-3 sm:items-end">
+          <div className="flex flex-col gap-2 sm:items-end">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">Start here</span>
+            <Link
+              href="/audit"
+              className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            >
+              Start a sensory space audit →
+            </Link>
+            <Link
+              href="/spatial"
+              className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            >
+              Open room designer (2D/3D) →
+            </Link>
+            <Link
+              href="/costing"
+              className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            >
+              Costing and compliance →
+            </Link>
+            <Link
+              href="/grants"
+              className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            >
+              Find grants →
+            </Link>
+            <Link
+              href="/business-case"
+              className="min-h-11 rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            >
+              Business case and co-design →
+            </Link>
+          </div>
+          <div className="flex flex-col gap-1 sm:items-end">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">Also available</span>
+            <Link href="/organisations" className="min-h-11 flex items-center px-3 text-sm text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400">
+              Your organisations →
+            </Link>
+            <Link href="/resources" className="min-h-11 flex items-center px-3 text-sm text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400">
+              Templates and evidence →
+            </Link>
+            <Link href="/catalogue" className="min-h-11 flex items-center px-3 text-sm text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400">
+              Equipment catalogue →
+            </Link>
+            <Link href="/training" className="min-h-11 flex items-center px-3 text-sm text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400">
+              Workplace inclusion training →
+            </Link>
+            <Link href="/login" className="min-h-11 flex items-center px-3 text-sm text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400">
+              Sign in →
+            </Link>
+          </div>
         </div>
       </header>
 
