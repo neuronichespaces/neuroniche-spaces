@@ -16,7 +16,9 @@ import {
 } from "@/lib/funding/match";
 
 const STATES: Organisation["state_or_province"][] = ["WA", "VIC", "NSW", "QLD", "SA", "TAS", "ACT", "NT"];
-const SECTORS = ["government", "catholic", "independent"];
+// Broadened per docs/MARKET-SCOPE.md (adopted 2026-08-08) — the matcher targets any
+// AU organisation, not just schools; kept in sync with the sector <select> in page.tsx.
+const SECTORS = ["government", "catholic", "independent", "university", "airport", "council", "nfp"];
 
 function GrantCard({ m }: { m: FundingMatch }) {
   const days = daysUntilDeadline(m.deadline);

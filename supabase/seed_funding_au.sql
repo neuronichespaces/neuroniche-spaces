@@ -47,4 +47,32 @@ values
 ('BHP Western Australia Community Grants', 'corporate',
  'Australia', 'WA', null, null,
  '{"notes": "Grassroots community grants in BHP WA operating regions (e.g. Pilbara). Amounts vary per project; 70+ grants delivered. Check current program guidelines for eligible localities and application windows."}',
- null, 'https://www.bhp.com/about/our-businesses/western-australia-community-grants');
+ null, 'https://www.bhp.com/about/our-businesses/western-australia-community-grants'),
+
+-- Rows 6-8 added per docs/MARKET-SCOPE.md (adopted 2026-08-08): competitive one-off/
+-- recurring grants outside schools, verified against official sources 2026-08-11.
+
+-- 6. Regional Airports Program Round 5 (federal, one-off) — airports/aerodromes.
+('Regional Airports Program (Round 5)', 'one_off',
+ 'Australia', null, 20000, 5000000,
+ '{"sectors": ["airport"],
+   "notes": "Owners/operators of regional airports or aerodromes; covers safety and accessibility upgrades up to 50% of project cost. REVIEW: Round 5 is closed as of this write (2026-08-11) — check business.gov.au for the next round before quoting to a user."}',
+ null, 'https://business.gov.au/grants-and-programs/regional-airports-program-round-5'),
+
+-- 7. Accessible Australia Tranche 2 (NSW, one-off) — councils/gov/NFP public-space facilities.
+--    CAVEAT: NSW-specific and gov/NFP-only, correcting the "no restriction on who can
+--    apply" claim in docs/MARKET-SCOPE.md's evidence list. Flagged for review.
+('Accessible Australia (NSW, Tranche 2)', 'one_off',
+ 'Australia', 'NSW', 20000, 300000,
+ '{"sectors": ["council", "government", "nfp"],
+   "notes": "Government-owned and not-for-profit organisations only (commercial ineligible); facility must be in a public space. Funds Changing Places toilets, inclusive play spaces, and accessible beach/park equipment; caps vary by category ($20k-$300k). REVIEW: Tranche 2 closed 4 March 2026 — check nsw.gov.au for the next tranche and confirm current eligibility."}',
+ '2026-03-04', 'https://www.nsw.gov.au/grants-and-funding/accessible-australia-tranche-2'),
+
+-- 8. Higher Education Disability Support Program (federal, recurring) — universities.
+--    NOTE: like NCCD (row 1), this is a formula-based recurring payment to the
+--    institution, not a per-project competitive grant — no fixed amount.
+('Higher Education Disability Support Program (Australian Government)', 'recurring',
+ 'Australia', null, null, null,
+ '{"sectors": ["university"],
+   "notes": "Ongoing Commonwealth funding to Table A public universities: 55% enrolment-based, 45% reimbursement of individual student disability-support/equipment costs above $5,000/year. No fixed per-institution amount. REVIEW: confirm a given university passes this through to sensory-space equipment purchases before quoting an amount."}',
+ null, 'https://www.education.gov.au/higher-education-disability-support-program');

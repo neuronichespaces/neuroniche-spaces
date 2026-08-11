@@ -17,7 +17,7 @@ Real, currently-active AU grant programs already fund sensory spaces outside sch
 - **Universities** — Higher Education Disability Support Program (Commonwealth, ongoing) funds disability access/participation support.
 - **Airports** — Regional Airports Program funds accessibility upgrades, $20k–$5M, up to 50% of project cost.
 - **Broad "everyday places"** — the federal ILC Program funded "schools, hospitals, and workplaces" accessibility as one of four core streams.
-- **Accessible Australia** ($17.1M federal initiative) — explicitly "no restriction on who can build or purchase": state/territory govt, local councils, community orgs, private enterprise all eligible.
+- **Accessible Australia** ($17.1M federal initiative) — "no restriction on who can build or purchase" describes the *public spaces* the program targets, not the applicant pool. Verified 2026-08-11 against the NSW Tranche 2 delivery (`docs/BUILD-SPEC-v1.md` §4.2 F2 research pass, seeded in `supabase/seed_funding_au.sql` row 7): applicants must be government-owned or not-for-profit — commercial enterprises are ineligible.
 - **NDIS individual funding** — covers sensory/assistive tech for hospitals, aged care, individuals when linked to functional goals.
 
 (Sources: as researched and cited by the user 2026-08-08; not independently re-verified against source_url by this session — treat like other `REVIEW:`-flagged rows in `supabase/seed_funding_au.sql` until confirmed.)

@@ -154,9 +154,13 @@ export default function Home() {
             <>
               <label className={labelCls}>Sector
                 <select className={inputCls} value={org.sector ?? ''} onChange={(e) => setOrg({ ...org, sector: e.target.value })}>
-                  <option value="government">Government</option>
-                  <option value="catholic">Catholic</option>
-                  <option value="independent">Independent</option>
+                  <option value="government">Government (school)</option>
+                  <option value="catholic">Catholic (school)</option>
+                  <option value="independent">Independent (school)</option>
+                  <option value="university">University</option>
+                  <option value="airport">Airport</option>
+                  <option value="council">Council / local government</option>
+                  <option value="nfp">Not-for-profit / community org</option>
                 </select>
               </label>
               <label className={labelCls}>NCCD adjustment level in use (optional)

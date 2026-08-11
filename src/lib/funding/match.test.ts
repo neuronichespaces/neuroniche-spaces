@@ -97,3 +97,19 @@ test('matches carry last_verified_at through to the display shape', () => {
   const result = matchFunding(auOrg, [withDate]);
   assert.equal(result.recurring[0].last_verified_at, '2026-07-25');
 });
+
+// Non-education sectors added per docs/MARKET-SCOPE.md — same eligibility_rules_json
+// shape as the school rows, just a different `sectors` value. No code change needed.
+test('non-education sector (airport) matches on sectors rule same as school sectors', () => {
+  const airportSource: FundingSource = {
+    id: 'airport-1', name: 'Test Regional Airport Grant', type: 'one_off',
+    country: 'Australia', state_or_province: null,
+    amount_range_min: 20000, amount_range_max: 5000000,
+    eligibility_rules_json: { sectors: ['airport'] },
+    deadline_date: null, source_url: 'https://example.gov.au/airport',
+  };
+  const airportOrg: Organisation = { ...auOrg, sector: 'airport' };
+  assert.deepEqual(matchFunding(airportOrg, [airportSource]).one_off.map((m) => m.funding_source_id), ['airport-1']);
+  // A school-sector org doesn't match an airport-only grant.
+  assert.deepEqual(matchFunding(auOrg, [airportSource]).one_off, []);
+});
