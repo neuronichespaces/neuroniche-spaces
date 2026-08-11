@@ -245,7 +245,7 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
   {
     id: 'hospital-waiting-room',
     name: 'Hospital Waiting Room',
-    description: 'A section of a clinical waiting area that supports patients and families who find busy, bright waiting rooms overwhelming.',
+    description: 'A section of a hospital waiting area designed for visitors who find busy, bright waiting rooms overwhelming.',
     targetWidthM: { min: 3, max: 5 },
     targetLengthM: { min: 3, max: 5 },
     budgetRangeAud: { min: 1500, max: 3500 },
