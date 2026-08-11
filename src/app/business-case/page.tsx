@@ -158,9 +158,20 @@ function BusinessCasePageInner() {
     setAiError("");
     setAiDrafting(true);
     try {
+      // The route verifies this token server-side — AI drafting is sign-in only,
+      // since each call costs real money (audit 2026-08-12, Critical).
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setAiError("Please sign in to use AI drafting.");
+        return;
+      }
       const res = await fetch("/api/business-case/draft", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ organisationName: orgName, audit, costing: null, grants: [] }),
       });
       const data = await res.json();
