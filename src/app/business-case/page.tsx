@@ -247,9 +247,10 @@ function BusinessCasePageInner() {
         </div>
         {aiConfigured && (
           <p className="no-print text-sm text-[var(--a11y-fg)] opacity-80">
-            The AI option rewrites the same facts as fuller prose using your local Omniroute
-            gateway — it cannot add numbers or claims the standard draft doesn&apos;t already have.
-            Still needs your review either way.
+            The AI option sends this organisation&apos;s summary data (name, audit score, cost
+            total, matched grant names — no student or individual data) to a third-party AI
+            provider to rewrite as fuller prose. It cannot add numbers or claims the standard
+            draft doesn&apos;t already have. Still needs your review either way.
           </p>
         )}
         {aiError && (

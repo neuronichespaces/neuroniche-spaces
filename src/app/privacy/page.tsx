@@ -74,7 +74,7 @@ export default function PrivacyPage() {
       <ul className="list-disc pl-6 flex flex-col gap-1">
         <li>Supabase (database and authentication) — data region to be pinned to Sydney, Australia.</li>
         <li>Vercel (hosting) — USA-based infrastructure provider.</li>
-        <li>Anthropic (AI features, once enabled) — processes offshore; sensitive/child data will be redacted before any AI call.</li>
+        <li>AI drafting provider, via Omniroute (optional, opt-in &quot;AI, beta&quot; business-case drafting) — routed through a self-hosted gateway to a third-party model provider (e.g. NVIDIA, OpenAI, Google, Cerebras, or OpenRouter, configurable) that processes data offshore. Only organisation-level data (org name, audit scores, cost totals, grant names) is sent — never individual/student-identifiable data.</li>
         <li>Stripe (billing, once enabled) — USA-based payment processor.</li>
         <li>Resend (transactional email, once enabled).</li>
       </ul>
