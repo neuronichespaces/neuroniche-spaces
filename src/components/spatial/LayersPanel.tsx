@@ -28,7 +28,7 @@ export function LayersPanel() {
       <ul className="flex flex-col gap-1">
         {layers.map((layer) => (
           <li key={layer.id} className="flex items-center gap-2 text-sm text-slate-700">
-            <label className="flex items-center gap-1">
+            <label className="a11y-target flex items-center justify-center gap-1">
               <input
                 type="checkbox"
                 checked={layer.visible}
@@ -36,7 +36,7 @@ export function LayersPanel() {
                 aria-label={`${layer.name} visible`}
               />
             </label>
-            <label className="flex items-center gap-1">
+            <label className="a11y-target flex items-center justify-center gap-1">
               <input
                 type="checkbox"
                 checked={layer.locked}
@@ -80,7 +80,7 @@ export function LayersPanel() {
               title="Lineweight, px (dimensions/annotations only)"
               aria-label={`${layer.name} lineweight`}
             />
-            <label className="flex items-center gap-1 text-xs" title="Include in printed/PDF export">
+            <label className="a11y-target flex items-center justify-center gap-1 text-xs" title="Include in printed/PDF export">
               <input
                 type="checkbox"
                 checked={layer.printable !== false}

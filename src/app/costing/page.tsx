@@ -381,7 +381,6 @@ function CostingPageInner() {
           {report.checks.map((c) => (
             <li
               key={c.id}
-              role={c.result === "fail" ? "alert" : undefined}
               className={`rounded border p-3 text-sm ${
                 c.result === "fail"
                   ? "border-[#8a4a4a]"
@@ -390,10 +389,12 @@ function CostingPageInner() {
                     : "border-[var(--a11y-border)]"
               }`}
             >
-              <strong>
-                {c.label}: {c.result === "pass" ? "Pass" : c.result === "warning" ? "Check this" : "Fail"}
-              </strong>
-              <p>{c.detail}</p>
+              <div role={c.result === "fail" ? "alert" : undefined}>
+                <strong>
+                  {c.label}: {c.result === "pass" ? "Pass" : c.result === "warning" ? "Check this" : "Fail"}
+                </strong>
+                <p>{c.detail}</p>
+              </div>
             </li>
           ))}
         </ul>
