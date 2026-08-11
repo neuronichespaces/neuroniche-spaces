@@ -49,7 +49,7 @@ export function CheckpointsPanel() {
             </button>
           </li>
         ))}
-        {checkpoints.length === 0 && <li className="text-xs text-slate-400">No checkpoints saved yet.</li>}
+        {checkpoints.length === 0 && <li className="text-xs text-zinc-600">No checkpoints saved yet.</li>}
       </ul>
       <div className="flex items-center gap-1">
         <input
