@@ -72,7 +72,8 @@ Write a fuller, more persuasive paragraph (2-4 sentences) covering only the fact
   });
 
   if (!res.ok) {
-    throw new Error(`Omniroute request failed: ${res.status} ${res.statusText}`);
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Omniroute request failed: ${res.status} ${res.statusText} — ${detail}`);
   }
 
   const data: unknown = await res.json();
