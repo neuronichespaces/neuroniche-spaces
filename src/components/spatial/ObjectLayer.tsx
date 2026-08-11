@@ -78,17 +78,6 @@ export default function ObjectLayer({
         const lPx = obj.footprintM.l * pxPerM;
         return (
           <Group key={obj.id}>
-            {obj.clearanceRadiusM != null && (
-              <Circle
-                x={obj.x * pxPerM}
-                y={obj.y * pxPerM}
-                radius={obj.clearanceRadiusM * pxPerM}
-                fill={violated ? 'rgba(220,38,38,0.15)' : 'rgba(59,130,246,0.12)'}
-                stroke={violated ? '#dc2626' : '#3b82f6'}
-                strokeWidth={1}
-                listening={false}
-              />
-            )}
             <Group
               ref={(node) => {
                 if (node) groupRefs.current[obj.id] = node;
@@ -123,6 +112,24 @@ export default function ObjectLayer({
                 onResize(obj.id, newWidthM, newDepthM);
               }}
             >
+              {obj.clearanceRadiusM != null && (
+                // ND enhancement: live clearance ring — a child of the draggable group
+                // (not a sibling positioned from store x/y like before) so Konva moves it
+                // with the object on every drag frame, not just after onDragEnd commits
+                // the new position to the store. Counter-rotated so the ring — which is
+                // radially symmetric anyway — stays visually centred regardless of the
+                // object's own rotation; harmless either way, kept for clarity.
+                <Circle
+                  x={0}
+                  y={0}
+                  rotation={-obj.rotationDeg}
+                  radius={obj.clearanceRadiusM * pxPerM}
+                  fill={violated ? 'rgba(220,38,38,0.15)' : 'rgba(59,130,246,0.12)'}
+                  stroke={violated ? '#dc2626' : '#3b82f6'}
+                  strokeWidth={1}
+                  listening={false}
+                />
+              )}
               <Rect
                 x={-wPx / 2}
                 y={-lPx / 2}
