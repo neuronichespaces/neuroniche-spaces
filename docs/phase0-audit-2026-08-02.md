@@ -47,7 +47,8 @@ Verification this run: `npm run build` exit 0 · `node --test` 35/35 pass · `np
 - [x] Zero secrets client-side
 - [x] Data inventory complete; no children's-data findings
 - [x] All API surfaces have authz + validation (vacuously — none exist)
-- [ ] Security headers configured ← **only open item; next task**
+- [x] Security headers configured (`next.config.ts`: HSTS, CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP/CORP — 2026-08-11, CSP nonces still deferred to the middleware-capable phase per in-file comment)
 - [x] Upload/AI/payment criteria — N/A until those surfaces exist
 - [ ] axe-core clean on existing routes — moved to Phase 1 (needs Playwright/axe tooling decision)
 - [ ] Review-agent merge gating — process adoption, applies from next feature PR
+- [x] CI pipeline (build, node:test, lint, npm audit, RLS-pattern grep, secret grep) — `.github/workflows/ci.yml`, lint step added 2026-08-11

@@ -41,7 +41,13 @@ jobs:
       - name: Unit tests
         run: node --test "src/lib/**/*.test.ts"
 
-      - name: Build (typecheck + lint)
+      # ponytail: `npm run lint` currently fails on pre-existing, unrelated findings
+      # (react-hooks/set-state-in-effect etc. in in-flight spatial/costing/audit
+      # pages) — not this task's scope to fix, and gating CI on it now would block
+      # every PR including in-progress work. `npm run build` (Turbopack) does not
+      # run ESLint itself — it's a typecheck-only gate here. Add a real `npm run
+      # lint` CI step once the existing findings are cleared.
+      - name: Build (typecheck)
         run: npm run build
 
       - name: Dependency audit
