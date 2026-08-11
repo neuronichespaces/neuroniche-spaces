@@ -21,7 +21,8 @@ export interface BusinessCaseSection {
 export interface BusinessCase {
   sections: BusinessCaseSection[];
   status: BusinessCaseStatus;
-  aiGenerated: false; // flips to true only when an AI drafter is wired in
+  /** true only when produced by aiDrafter.ts — the human review gate below applies either way. */
+  aiGenerated: boolean;
   reviewedBy: string | null;
   reviewedAt: string | null;
 }

@@ -55,6 +55,9 @@ function BusinessCasePageInner() {
   const [businessCaseRowId, setBusinessCaseRowId] = useState<string | null>(null);
   const [reviewerName, setReviewerName] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const [survey, setSurvey] = useState<Survey>({
     id: "s1",
@@ -115,6 +118,14 @@ function BusinessCasePageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per org
   }, [usingRealOrg, orgId]);
 
+  // Feature-detect the optional AI drafter once — hidden entirely when unconfigured.
+  useEffect(() => {
+    fetch("/api/business-case/draft")
+      .then((r) => r.json())
+      .then((d: { configured?: boolean }) => setAiConfigured(Boolean(d.configured)))
+      .catch(() => setAiConfigured(false));
+  }, []);
+
   const saveBusinessCase = useCallback(
     async (bc: BusinessCase) => {
       if (!usingRealOrg || !orgId) return;
@@ -137,9 +148,33 @@ function BusinessCasePageInner() {
   );
 
   const onGenerate = () => {
+    setAiError("");
     const bc = buildBusinessCase({ organisationName: orgName, audit, costing: null, grants: [] });
     setBusinessCase(bc);
     saveBusinessCase(bc);
+  };
+
+  const onGenerateWithAi = async () => {
+    setAiError("");
+    setAiDrafting(true);
+    try {
+      const res = await fetch("/api/business-case/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organisationName: orgName, audit, costing: null, grants: [] }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAiError(data.error || "Could not generate an AI draft.");
+        return;
+      }
+      setBusinessCase(data as BusinessCase);
+      saveBusinessCase(data as BusinessCase);
+    } catch {
+      setAiError("Could not reach the AI drafter. Check that Omniroute is running.");
+    } finally {
+      setAiDrafting(false);
+    }
   };
 
   const onApprove = () => {
@@ -191,13 +226,37 @@ function BusinessCasePageInner() {
             onChange={(e) => setOrgName(e.target.value)}
           />
         </label>
-        <button
-          type="button"
-          onClick={onGenerate}
-          className="no-print a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)]"
-        >
-          Generate draft
-        </button>
+        <div className="no-print flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onGenerate}
+            className="a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)]"
+          >
+            Generate draft
+          </button>
+          {aiConfigured && (
+            <button
+              type="button"
+              onClick={onGenerateWithAi}
+              disabled={aiDrafting}
+              className="a11y-target self-start rounded border border-[var(--a11y-border)] px-4 bg-[var(--a11y-surface)] disabled:opacity-40"
+            >
+              {aiDrafting ? "Drafting with AI…" : "Generate draft (AI, beta)"}
+            </button>
+          )}
+        </div>
+        {aiConfigured && (
+          <p className="no-print text-sm text-[var(--a11y-fg)] opacity-80">
+            The AI option rewrites the same facts as fuller prose using your local Omniroute
+            gateway — it cannot add numbers or claims the standard draft doesn&apos;t already have.
+            Still needs your review either way.
+          </p>
+        )}
+        {aiError && (
+          <p role="alert" className="no-print rounded border border-[#8a4a4a] p-3 text-sm">
+            {aiError}
+          </p>
+        )}
 
         {businessCase && (
           <div className="flex flex-col gap-3 rounded border border-[var(--a11y-border)] p-4 print:border-0 print:p-0">
@@ -208,7 +267,7 @@ function BusinessCasePageInner() {
             </div>
 
             <p className="no-print text-sm border-b border-[var(--a11y-border)] pb-2">
-              Drafted from your own data — review before use. Status:{" "}
+              Drafted from your own data{businessCase.aiGenerated ? " with AI assistance" : ""} — review before use. Status:{" "}
               <strong>
                 {businessCase.status === "draft_pending_review" ? "Draft, needs review" : "Approved"}
               </strong>
