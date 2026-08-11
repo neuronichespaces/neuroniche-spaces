@@ -85,6 +85,7 @@ function SpatialDesignEngineInner() {
   const selectedDimensionId = useRoomLayoutStore((s) => s.selectedDimensionId);
   const selectedLeaderId = useRoomLayoutStore((s) => s.selectedLeaderId);
   const loadLayout = useRoomLayoutStore((s) => s.loadLayout);
+  const setScenarioCircuit = useRoomLayoutStore((s) => s.setScenarioCircuit);
   const hydrateFromLocalStorage = useRoomLayoutStore((s) => s.hydrateFromLocalStorage);
   const saveToLocalStorage = useRoomLayoutStore((s) => s.saveToLocalStorage);
   const undo = useRoomLayoutStore((s) => s.undo);
@@ -154,6 +155,7 @@ function SpatialDesignEngineInner() {
       sectionLines: hasLoadedInitialData ? sectionLines : [],
       layers: hasLoadedInitialData ? layers : defaultLayers(),
     });
+    setScenarioCircuit(template.scenarioCircuit ?? null);
   }
 
   return (

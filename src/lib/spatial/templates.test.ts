@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SCENARIO_TEMPLATES } from './templates.ts';
 
-test('all 5 templates exist with unique ids', () => {
-  assert.equal(SCENARIO_TEMPLATES.length, 5);
+test('all 8 templates exist with unique ids', () => {
+  assert.equal(SCENARIO_TEMPLATES.length, 8);
   const ids = SCENARIO_TEMPLATES.map((t) => t.id);
   assert.equal(new Set(ids).size, ids.length);
 });
@@ -24,6 +24,17 @@ test('movement-oriented templates carry clearanceRadiusM on movement objects', (
       t.defaultObjects.some((o) => typeof o.clearanceRadiusM === 'number' && o.clearanceRadiusM > 0),
       `${id} has at least one object with clearanceRadiusM`,
     );
+  }
+});
+
+test('scenario circuits, where present, stay within target dimensions', () => {
+  for (const t of SCENARIO_TEMPLATES) {
+    if (!t.scenarioCircuit) continue;
+    assert.ok(t.scenarioCircuit.length > 0, `${t.id} circuit is non-empty if present`);
+    for (const stop of t.scenarioCircuit) {
+      assert.ok(stop.x >= 0 && stop.x <= t.targetWidthM.max, `${t.id} circuit stop x within target width`);
+      assert.ok(stop.y >= 0 && stop.y <= t.targetLengthM.max, `${t.id} circuit stop y within target length`);
+    }
   }
 });
 

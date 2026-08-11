@@ -6,7 +6,7 @@
 // Language is deliberately non-diagnostic (product constraint): describes what
 // a room supports, never what it "treats".
 
-import type { WallSegment, DoorPlacement, PlacedObject } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, ScenarioCircuitStop } from './types.ts';
 import { sensoryProfileFor } from './sensoryLibrary.ts';
 
 export type ScenarioTemplate = {
@@ -19,6 +19,10 @@ export type ScenarioTemplate = {
   defaultWalls: WallSegment[];
   defaultDoors: DoorPlacement[];
   defaultObjects: PlacedObject[];
+  /** ND enhancement: optional ordered arousal-flow path through the room (see
+   *  ScenarioCircuitStop's comment in types.ts) — an opt-in overlay, not every
+   *  template needs one. Undefined = no circuit overlay available for this template. */
+  scenarioCircuit?: ScenarioCircuitStop[];
 };
 
 // Simple rectangular room, walls id-prefixed so each template's ids stay
@@ -235,6 +239,174 @@ export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
         footprintM: { w: 0.1, l: 1.5 },
         customProperties: {},
         sensoryProfile: sensoryProfileFor('tactile-wall-panel-set'),
+      },
+    ],
+  },
+  {
+    id: 'hospital-waiting-room',
+    name: 'Hospital Waiting Room',
+    description: 'A section of a clinical waiting area that supports patients and families who find busy, bright waiting rooms overwhelming.',
+    targetWidthM: { min: 3, max: 5 },
+    targetLengthM: { min: 3, max: 5 },
+    budgetRangeAud: { min: 1500, max: 3500 },
+    defaultWalls: rectWalls('hosp', 4, 4),
+    defaultDoors: [{ wallId: 'hosp-w', offsetM: 0.2, widthM: 0.9 }],
+    defaultObjects: [
+      {
+        id: 'hosp-obj-1',
+        productId: 'dimmable-floor-lamp',
+        x: 0.5,
+        y: 0.5,
+        rotationDeg: 0,
+        footprintM: { w: 0.3, l: 0.3 },
+        customProperties: { brightness: 25, colourTempK: 2700 },
+        sensoryProfile: sensoryProfileFor('dimmable-floor-lamp'),
+      },
+      {
+        id: 'hosp-obj-2',
+        productId: 'noise-reducing-panel',
+        x: 3.5,
+        y: 1,
+        rotationDeg: 0,
+        footprintM: { w: 0.1, l: 1.2 },
+        customProperties: { noiseLevelDb: 0 },
+        sensoryProfile: sensoryProfileFor('noise-reducing-panel'),
+      },
+      {
+        id: 'hosp-obj-3',
+        productId: 'weighted-lap-pad',
+        x: 2,
+        y: 2,
+        rotationDeg: 0,
+        clearanceRadiusM: 0.5,
+        footprintM: { w: 0.4, l: 0.4 },
+        customProperties: {},
+        sensoryProfile: sensoryProfileFor('weighted-lap-pad'),
+      },
+      {
+        id: 'hosp-obj-4',
+        productId: 'fidget-tool-bin',
+        x: 1,
+        y: 3.2,
+        rotationDeg: 0,
+        footprintM: { w: 0.3, l: 0.3 },
+        customProperties: {},
+        sensoryProfile: sensoryProfileFor('fidget-tool-bin'),
+      },
+    ],
+  },
+  {
+    id: 'airport-sensory-room',
+    name: 'Airport Sensory Room',
+    description: 'A dedicated room for travellers to regulate before or after a flight, supporting both movement and calming needs in one space.',
+    targetWidthM: { min: 5, max: 8 },
+    targetLengthM: { min: 5, max: 8 },
+    budgetRangeAud: { min: 4000, max: 10000 },
+    defaultWalls: rectWalls('air', 6, 6),
+    defaultDoors: [{ wallId: 'air-w', offsetM: 0.3, widthM: 1.0 }],
+    defaultObjects: [
+      {
+        id: 'air-obj-1',
+        productId: 'indoor-swing-frame',
+        x: 1.5,
+        y: 1.5,
+        rotationDeg: 0,
+        clearanceRadiusM: 1,
+        footprintM: { w: 1.2, l: 1.2 },
+        customProperties: {},
+        sensoryProfile: sensoryProfileFor('indoor-swing-frame'),
+      },
+      {
+        id: 'air-obj-2',
+        productId: 'crash-mat',
+        x: 3.5,
+        y: 1.2,
+        rotationDeg: 0,
+        clearanceRadiusM: 0.7,
+        footprintM: { w: 1.5, l: 1 },
+        customProperties: {},
+        sensoryProfile: sensoryProfileFor('crash-mat'),
+      },
+      {
+        id: 'air-obj-3',
+        productId: 'bubble-tube-column',
+        x: 5,
+        y: 4.5,
+        rotationDeg: 0,
+        footprintM: { w: 0.5, l: 0.5 },
+        customProperties: { brightness: 50 },
+        sensoryProfile: sensoryProfileFor('bubble-tube-column'),
+      },
+      {
+        id: 'air-obj-4',
+        productId: 'projector-calm-scenes',
+        x: 1,
+        y: 5,
+        rotationDeg: 0,
+        footprintM: { w: 0.3, l: 0.3 },
+        customProperties: { brightness: 35 },
+        sensoryProfile: sensoryProfileFor('projector-calm-scenes'),
+      },
+      {
+        id: 'air-obj-5',
+        productId: 'noise-reducing-panel',
+        x: 0.2,
+        y: 3,
+        rotationDeg: 90,
+        footprintM: { w: 1.2, l: 0.1 },
+        customProperties: { noiseLevelDb: 0 },
+        sensoryProfile: sensoryProfileFor('noise-reducing-panel'),
+      },
+    ],
+    // Movement/regulation area first, settling toward the calmer corner — see
+    // ScenarioCircuitStop's comment in types.ts for why this uses plain arousal-level
+    // language rather than naming any particular clinical framework.
+    scenarioCircuit: [
+      { phase: 'alerting', label: 'Swing + crash mat', x: 2.2, y: 1.3 },
+      { phase: 'organising', label: 'Open floor transition', x: 3.5, y: 3 },
+      { phase: 'calming', label: 'Bubble tube + projector corner', x: 4.5, y: 4.8 },
+    ],
+  },
+  {
+    id: 'workplace-quiet-pod',
+    name: 'Workplace Quiet Pod',
+    description: 'A single-person space for a short regulation break away from an open-plan office.',
+    targetWidthM: { min: 1.5, max: 2.5 },
+    targetLengthM: { min: 1.5, max: 2.5 },
+    budgetRangeAud: { min: 800, max: 2000 },
+    defaultWalls: rectWalls('pod', 2, 2),
+    defaultDoors: [{ wallId: 'pod-w', offsetM: 0.15, widthM: 0.7 }],
+    defaultObjects: [
+      {
+        id: 'pod-obj-1',
+        productId: 'flexible-seating-cube',
+        x: 1,
+        y: 1,
+        rotationDeg: 0,
+        clearanceRadiusM: 0.4,
+        footprintM: { w: 0.4, l: 0.4 },
+        customProperties: {},
+        sensoryProfile: sensoryProfileFor('flexible-seating-cube'),
+      },
+      {
+        id: 'pod-obj-2',
+        productId: 'dimmable-floor-lamp',
+        x: 0.3,
+        y: 0.3,
+        rotationDeg: 0,
+        footprintM: { w: 0.3, l: 0.3 },
+        customProperties: { brightness: 20, colourTempK: 2700 },
+        sensoryProfile: sensoryProfileFor('dimmable-floor-lamp'),
+      },
+      {
+        id: 'pod-obj-3',
+        productId: 'weighted-lap-pad',
+        x: 1.6,
+        y: 0.4,
+        rotationDeg: 0,
+        footprintM: { w: 0.3, l: 0.3 },
+        customProperties: {},
+        sensoryProfile: sensoryProfileFor('weighted-lap-pad'),
       },
     ],
   },

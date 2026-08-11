@@ -283,6 +283,21 @@ export type DrawingSheet = {
   revision: string;
 };
 
+// ND enhancement (2026-08-11): a scenario-circuit overlay — an ordered path through a
+// room describing an arousal-level flow (higher-energy areas first, settling toward
+// calm), plain-language and non-diagnostic (product constraint, CLAUDE.md): describes
+// what a sequence of areas supports, never a therapy protocol or named clinical
+// framework. Template-authored data only (see templates.ts), rendered as a read-only
+// overlay — not a new canonical entity type, not undo-tracked, not persisted.
+export type ScenarioCircuitPhase = 'alerting' | 'organising' | 'calming';
+
+export type ScenarioCircuitStop = {
+  phase: ScenarioCircuitPhase;
+  label: string;
+  x: number; // metres
+  y: number;
+};
+
 // CAD-upgrade Gap 7 (Collaboration, versioning, review, audit): a review comment/
 // markup pinned to a point on the plan — distinct from Leader (a permanent drawing
 // annotation meant to stay on the plan, e.g. "mount switch here") in that a Comment

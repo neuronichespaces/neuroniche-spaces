@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { computeClearanceViolations } from './clearance.ts';
 import { validateRoomLayout } from './validate.ts';
 import { defaultLayers, DEFAULT_LAYER_ID } from './layers.ts';
-import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment, ViewState, SelectionSet, RevisionCloud, SectionLine, DrawingSheet } from './types.ts';
+import type { WallSegment, DoorPlacement, PlacedObject, FloorDims, PlacedObjectProps, Zone, Dimension, Layer, BlockDefinition, Leader, Comment, ViewState, SelectionSet, RevisionCloud, SectionLine, DrawingSheet, ScenarioCircuitStop } from './types.ts';
 
 type RoomLayout = {
   walls: WallSegment[];
@@ -385,6 +385,14 @@ type RoomLayoutState = RoomLayout & {
   restoreCheckpoint: (id: string) => void;
   deleteCheckpoint: (id: string) => void;
 
+  /** ND enhancement: the currently-loaded template's optional scenario-circuit overlay
+   *  (see ScenarioCircuitStop's comment in types.ts) — set by applyTemplate alongside
+   *  loadLayout, cleared to null otherwise. Session-only, not undo-tracked or
+   *  persisted: it's read-only reference data for the currently loaded template, not
+   *  layout content the user edits. */
+  scenarioCircuit: ScenarioCircuitStop[] | null;
+  setScenarioCircuit: (circuit: ScenarioCircuitStop[] | null) => void;
+
   loadLayout: (layout: RoomLayout) => void;
   /** Applies a layout without touching the undo/redo history — used for incoming
    *  cross-tab BroadcastChannel updates, which shouldn't spam a local user's undo stack. */
@@ -529,6 +537,7 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
     comments: [],
     // Same SSR-safety rule as auditLog below — real data loaded in hydrateFromLocalStorage().
     checkpoints: [],
+    scenarioCircuit: null,
     viewStates: [],
     selectionSets: [],
     drawingSheets: [],
@@ -1051,6 +1060,8 @@ export const useRoomLayoutStore = create<RoomLayoutState>((set, get) => {
       set({ checkpoints });
       writeCheckpointsToLocalStorage(checkpoints);
     },
+
+    setScenarioCircuit: (circuit) => set({ scenarioCircuit: circuit }),
 
     loadLayout: (layout) => {
       const valid = validateRoomLayout(layout);

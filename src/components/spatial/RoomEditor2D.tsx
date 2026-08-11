@@ -33,6 +33,7 @@ import DimensionLayer from './DimensionLayer.tsx';
 import LeaderLayer from './LeaderLayer.tsx';
 import CommentLayer from './CommentLayer.tsx';
 import HeatmapOverlay from './HeatmapOverlay.tsx';
+import ScenarioCircuitOverlay from './ScenarioCircuitOverlay.tsx';
 import ViolationsList from './ViolationsList.tsx';
 
 const DEFAULT_GRID_SNAP_M = 0.1;
@@ -161,6 +162,8 @@ export default function RoomEditor2D({
   const [zoneLengthError, setZoneLengthError] = useState('');
   const [confirmingSave, setConfirmingSave] = useState(false);
   const [heatmapCategory, setHeatmapCategory] = useState<SensoryCategory | 'crowding' | 'none'>('none');
+  const [showScenarioCircuit, setShowScenarioCircuit] = useState(true);
+  const scenarioCircuit = useRoomLayoutStore((s) => s.scenarioCircuit);
   const [personaId, setPersonaId] = useState<string>('none');
 
   // Engine layer (Phases 1/3/4): recomputed on every render from current store state —
@@ -694,6 +697,17 @@ export default function RoomEditor2D({
             ))}
           </select>
         </label>
+        {scenarioCircuit && (
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={showScenarioCircuit}
+              onChange={(e) => setShowScenarioCircuit(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Scenario circuit
+          </label>
+        )}
       </div>
 
       <div className="relative inline-block">
@@ -722,6 +736,11 @@ export default function RoomEditor2D({
         {heatmapGrid && (
           <Layer>
             <HeatmapOverlay grid={heatmapGrid} category={heatmapCategory as SensoryCategory | 'crowding'} pxPerM={pxPerM} />
+          </Layer>
+        )}
+        {scenarioCircuit && showScenarioCircuit && (
+          <Layer>
+            <ScenarioCircuitOverlay circuit={scenarioCircuit} pxPerM={pxPerM} />
           </Layer>
         )}
         <Layer>
