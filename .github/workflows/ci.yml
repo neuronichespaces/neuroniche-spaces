@@ -52,3 +52,51 @@ jobs:
 
       - name: Dependency audit
         run: npm audit --audit-level=high
+
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browser binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ steps.playwright-version.outputs.version }}-${{ runner.os }}
+
+      - name: Install Playwright chromium (with OS deps)
+        run: npx playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      # actions/cache skips OS-level shared libs (only ~/.cache/ms-playwright is cached),
+      # so a cache hit still needs `--with-deps` re-run for the system packages, just not
+      # the ~300MB browser download itself.
+      - name: Install Playwright OS dependencies (cache hit)
+        run: npx playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      # ponytail: informational-only for now, not a hard gate — 2 real pre-existing
+      # a11y violations exist (RoomEditor2D.tsx layer-checkbox touch targets,
+      # costing/page.tsx <ul><li role="alert"> structure; see
+      # .planning/handoff-2026-08-11-phase1-a11y-tooling-close.md). Same pattern as
+      # the lint step above: land the tooling now, flip to a hard gate once those
+      # 2 violations are fixed (next session per that handoff's "Next session should").
+      # playwright.config.ts's webServer already runs `npm run build && npm run start`
+      # itself (CI env var set by GitHub Actions disables reuseExistingServer), so no
+      # separate build/start step here — that would build twice.
+      - name: Accessibility audit (axe-core via Playwright) — non-blocking
+        run: npm run test:a11y
+        continue-on-error: true
+        env:
+          CI: true
