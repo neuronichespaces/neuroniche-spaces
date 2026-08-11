@@ -98,6 +98,24 @@ test('matches carry last_verified_at through to the display shape', () => {
   assert.equal(result.recurring[0].last_verified_at, '2026-07-25');
 });
 
+test('empty funding sources list is a no-op, not a crash', () => {
+  assert.deepEqual(matchFunding(auOrg, []), { recurring: [], one_off: [], corporate: [] });
+});
+
+test('org with null sector/nccd_tier/postcode only matches rules with no restriction on that field', () => {
+  const bareOrg: Organisation = { country: 'Australia', state_or_province: null, sector: null, nccd_tier: null, postcode: null };
+  const result = matchFunding(bareOrg, sources);
+  // grant-vic has no eligibility restrictions and no state (nationwide would be null; it's VIC-locked so still excluded by state)
+  assert.deepEqual(result.recurring, []); // rec-1 requires nccd_tiers
+  assert.deepEqual(result.one_off, []); // grant-1 requires sector; grant-vic requires VIC state
+  assert.deepEqual(result.corporate, []); // csr-1 requires postcode
+});
+
+test('country match is case-sensitive exact string, not fuzzy (hard product requirement stays literal)', () => {
+  const result = matchFunding({ ...auOrg, country: 'australia' }, sources);
+  assert.deepEqual(result, { recurring: [], one_off: [], corporate: [] });
+});
+
 // Non-education sectors added per docs/MARKET-SCOPE.md — same eligibility_rules_json
 // shape as the school rows, just a different `sectors` value. No code change needed.
 test('non-education sector (airport) matches on sectors rule same as school sectors', () => {

@@ -70,6 +70,10 @@ export function layoutRoom(room: RoomDims, items: ShoppingItem[]): Placement[] {
   const margin = 0.5;
   const maxX = room.width_m - margin;
   const maxY = room.length_m - margin;
+  // Root-cause guard: an invalid/too-small room (zero, negative, or under
+  // one margin square) has no usable floor space — bail before the loop
+  // instead of letting a wrapped row's y-check pass while x is nonsensical.
+  if (maxX < margin || maxY < margin) return [];
   const placements: Placement[] = [];
   let x = margin;
   let y = margin;

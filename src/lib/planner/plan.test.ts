@@ -54,3 +54,49 @@ test('tiny room places nothing oversized', () => {
   ]);
   assert.equal(placements.length, 0);
 });
+
+test('zero/negative room dimensions place nothing and never crash', () => {
+  const items = [{ product: catalogue[1], matchScore: 4 }]; // panel, no footprint override (0.5x0.5)
+  assert.deepEqual(layoutRoom({ width_m: 0, length_m: 0 }, items), []);
+  assert.deepEqual(layoutRoom({ width_m: -3, length_m: 5 }, items), []);
+  assert.deepEqual(layoutRoom({ width_m: 5, length_m: -3 }, items), []);
+});
+
+test('extremely large room still packs items without error', () => {
+  const items = [{ product: catalogue[0], matchScore: 5 }, { product: catalogue[1], matchScore: 4 }];
+  const placements = layoutRoom({ width_m: 10000, length_m: 10000 }, items);
+  assert.equal(placements.length, 2);
+});
+
+test('empty catalogue yields no suggestions, not a crash', () => {
+  assert.deepEqual(suggestProducts(needs, 1000, [], { country: 'Australia' }), []);
+});
+
+test('budget of zero, or smaller than the cheapest matching item, buys nothing', () => {
+  assert.deepEqual(suggestProducts(needs, 0, catalogue, { country: 'Australia' }), []);
+  // cheapest matching item across the whole AU-available catalogue is au-only at 200
+  assert.deepEqual(suggestProducts(needs, 199, catalogue, { country: 'Australia' }), []);
+});
+
+test('sensory profile with every category present at once scores across all of them', () => {
+  const allCategoryNeeds: SensoryNeed[] = [
+    { category: 'movement', preference: 'seeks', intensity: 2 },
+    { category: 'noise', preference: 'avoids', intensity: 2 },
+    { category: 'light', preference: 'seeks', intensity: 2 },
+    { category: 'touch', preference: 'seeks', intensity: 2 },
+    { category: 'pressure', preference: 'seeks', intensity: 2 },
+  ];
+  const list = suggestProducts(allCategoryNeeds, 1000, catalogue, { country: 'Australia' });
+  assert.ok(list.length > 0);
+});
+
+test('duplicate/conflicting needs for the same category both contribute to the score (documented additive behaviour)', () => {
+  const conflicting: SensoryNeed[] = [
+    { category: 'movement', preference: 'seeks', intensity: 3 },
+    { category: 'movement', preference: 'avoids', intensity: 3 },
+  ];
+  // swing only tags movement:seeks, so only the 'seeks' need contributes
+  const score = suggestProducts(conflicting, 1000, catalogue, { country: 'Australia' })
+    .find((i) => i.product.id === 'swing');
+  assert.equal(score?.matchScore, 3);
+});
